@@ -1,0 +1,22 @@
+---
+title: First-Time Setup
+---
+
+
+Run `tota` for the first time. The onboarding wizard asks for:
+
+- **Your name** — used by the agent to address you
+- **Agent name** — defaults to "tota", customize it
+- **LLM providers** — choose one or more: DeepSeek, OpenAI, Anthropic, Grok, Ollama Cloud, Ollama Local, or OpenAI Compatible
+- **Model selection** — after each valid key, tota fetches recommended chat models and lets you choose a default
+- **Telegram bot token** — optional, for remote access in private 1:1 chats
+
+Provider keys are validated by format and then by fetching available models. If model discovery fails, tota asks you to re-enter the key instead of accepting random text.
+
+If you enable Telegram during first-time setup, tota starts a temporary pairing flow: send `/start` to your bot in Telegram, copy the pairing code you receive there, then paste that code into the CLI to finish setup.
+
+All config is stored in `~/.tota/` — nothing in your project directory.
+
+<Callout type="info">
+  **Masked keys** — When reconfiguring with `tota doctor`, existing API keys are shown masked like `sk-x••••4f2a`. Press Enter to keep the current value, or paste a new key to replace it.
+</Callout>

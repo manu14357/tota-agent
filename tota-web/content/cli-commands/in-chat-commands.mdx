@@ -1,0 +1,37 @@
+---
+title: In-Chat Commands
+---
+
+
+Type these during a conversation with tota. Most work in both CLI and Telegram unless marked otherwise. They **do not consume API tokens**.
+
+| Command | Description |
+|---------|-------------|
+| `/help` | Show the full manual |
+| `/status` | Show agent name, provider, budget, and channels |
+| `/` or `/menu` | CLI only: open the arrow-key command picker with Back and Exit options |
+| `/telegram` | CLI only: open Telegram management with pending requests, approvals, roles, and reset actions |
+| `/telegram pending` | CLI only: list pending Telegram access requests |
+| `/telegram users` | CLI only: list approved Telegram admins and members |
+| `/telegram approve <code\|id>` | CLI only: approve the first pairing code or a later Telegram access request |
+| `/telegram reject <id>` | CLI only: reject a pending Telegram access request |
+| `/telegram remove <id>` | CLI only: revoke an approved Telegram user |
+| `/telegram promote <id>` | CLI only: promote a Telegram member to admin |
+| `/telegram demote <id>` | CLI only: demote a Telegram admin to member |
+| `/telegram reset` | CLI only: clear all Telegram access and restart pairing from scratch |
+| `/tools` | List all currently loaded tools |
+| `/skills` | List installed skills |
+| `/stream` | Toggle Telegram text streaming (on/off) |
+| `/stream off` | Disable streaming — responses arrive as single message |
+| `/budget` | Show token budget status |
+| `/budget override` | Override budget for one request |
+| `/budget reset` | Reset usage to zero |
+| `/budget set <n>` | Change daily token budget |
+| `/permissions` | Change permission mode (Ask Me / Allow All) — Telegram only |
+| `/tasks` | List scheduled tasks |
+| `/memory` | View and manage second brain memory |
+| `/unpair` | Telegram only: reset all access, new users can /start again |
+
+<Callout type="info">
+  **Telegram pairing and access** — Telegram stays private 1:1 only. The first user sends `/start`, receives a pairing code in Telegram, and you approve that code from the CLI during setup. Later Telegram users also send `/start`, appear as pending requests, and can then be approved or rejected from the CLI `/telegram` menu.
+</Callout>

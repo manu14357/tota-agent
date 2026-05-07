@@ -1,0 +1,58 @@
+---
+title: Platform-Specific Guide
+---
+
+## macOS
+
+`tota service install` creates a LaunchAgent at `~/Library/LaunchAgents/com.tota.agent.plist`.
+
+- **Auto-start**: Loads on login via `launchctl load`
+- **Crash recovery**: `KeepAlive SuccessfulExit = false` restarts on crash
+- **No sudo needed**: User-level LaunchAgent, not system daemon
+- **Logs**: `~/.tota/daemon.log` and `~/.tota/daemon-error.log`
+
+### Manual management
+
+```bash
+launchctl load ~/Library/LaunchAgents/com.tota.agent.plist
+launchctl unload ~/Library/LaunchAgents/com.tota.agent.plist
+```
+
+---
+
+## Linux
+
+`tota service install` creates a systemd user unit at `~/.config/systemd/user/tota-agent.service`.
+
+- **Auto-start**: Enabled via `systemctl --user enable tota-agent.service`
+- **Crash recovery**: `Restart=on-failure` with 5s delay
+- **No sudo needed**: User-level service
+- **Boot without login**: Run `sudo loginctl enable-linger $USER` once
+- **Logs**: `~/.tota/daemon.log` or `journalctl --user -u tota`
+
+### Manual management
+
+```bash
+systemctl --user start tota
+systemctl --user status tota
+systemctl --user stop tota
+```
+
+---
+
+## Windows
+
+`tota service install` creates a Windows Task Scheduler task named `TotaAgent`.
+
+- **Auto-start**: Triggers on user logon via `schtasks`
+- **Crash recovery**: Built-in watchdog with exponential backoff
+- **No admin needed**: Runs with limited privileges (`/rl limited`)
+- **Logs**: `%USERPROFILE%\.tota\daemon.log`
+
+### Manual management
+
+```bash
+schtasks /query /tn "TotaAgent" /fo list
+schtasks /run /tn "TotaAgent"
+schtasks /delete /tn "TotaAgent" /f
+```

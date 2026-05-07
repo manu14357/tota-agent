@@ -1,0 +1,17 @@
+---
+title: Configuration
+---
+
+All configuration and data is stored in `~/.tota/`.
+
+| File / Directory | Description |
+|-----------------|-------------|
+| `~/.tota/config.json` | Main config: agent name, user name, providers, models, Telegram token |
+| `~/.tota/memory/` | SQLite Second Brain database and FTS index |
+| `~/.tota/daemon.pid` | PID of the running background daemon |
+| `~/.tota/daemon.log` | Background mode logs (last 1000 lines kept, then rotated) |
+| `~/.tota/daemon-error.log` | Error log for the daemon process (macOS LaunchAgent only) |
+| `~/.tota/skills/` | Installed custom skill directories |
+| `~/.tota/tasks.json` | Persisted scheduled tasks |
+
+Nothing is stored in your project directory. You can delete `~/.tota/` to start completely fresh.

@@ -1,0 +1,66 @@
+---
+title: Daemon Mode
+---
+
+
+tota runs as a background daemon by default. Telegram and scheduled tasks keep working after you close the terminal.
+
+## Start
+
+```bash
+tota start
+```
+
+Starts tota as a background daemon. Spawns a detached child process, writes a PID file to `~/.tota/daemon.pid`, and redirects output to `~/.tota/daemon.log`. Stale PID files are automatically cleaned up.
+
+## Start in foreground
+
+```bash
+tota start --foreground
+```
+
+Runs tota attached to your terminal. Useful for debugging or when you want to see output directly. Shorthand: `tota start -f`.
+
+## The easy way: tota up
+
+```bash
+tota up
+```
+
+This one command does everything: installs the system service if needed, starts the background daemon, and confirms tota is running. If it's already running, it just shows you the PID.
+
+## Stop
+
+```bash
+tota stop
+```
+
+Sends `SIGTERM` (`process.kill` on Windows) to the background process and removes the PID file.
+
+## Restart
+
+```bash
+tota restart
+```
+
+Stops the running daemon (if any) and starts a fresh one. Useful when something isn't working right and you need a clean restart.
+
+## View logs
+
+```bash
+tota logs
+```
+
+Shows the last 100 lines of `~/.tota/daemon.log`.
+
+## Check status
+
+```bash
+tota status
+```
+
+Shows whether the daemon is running, its PID, and the log file path.
+
+<Callout type="info">
+  **Crash recovery** — Background mode includes a watchdog. If tota crashes, it restarts automatically with exponential backoff (1s, 1.25s, 1.56s...). After 10 crashes within 60 seconds, it exits to prevent crash loops. Stale PID files are auto-cleaned on startup to prevent "already running" false positives.
+</Callout>

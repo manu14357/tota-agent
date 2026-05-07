@@ -1,0 +1,81 @@
+---
+title: Built-in Tools
+---
+
+tota ships with 31 built-in tools, grouped into 9 capability areas.
+
+## Filesystem
+
+| Tool | Description |
+|------|-------------|
+| `read_file` | Read file contents with optional line range |
+| `write_file` | Write or overwrite a file |
+| `append_file` | Append content to an existing file |
+| `delete_file` | Delete a file |
+| `copy_file` | Copy a file from source to destination |
+| `move_file` | Move or rename a file |
+| `list_directory` | List directory contents |
+| `create_directory` | Create a directory (recursive) |
+| `search_files` | Search for files by name or glob pattern |
+| `search_in_files` | Search for text within files (grep-like) |
+
+## Shell
+
+| Tool | Description |
+|------|-------------|
+| `execute_command` | Run a shell command with timeout and output capture |
+
+## Git
+
+| Tool | Description |
+|------|-------------|
+| `git_status` | Show working tree status |
+| `git_diff` | Show diffs (staged, unstaged, or between refs) |
+| `git_log` | Show commit history |
+| `git_commit` | Stage and commit changes with a message |
+
+## GitHub
+
+| Tool | Description |
+|------|-------------|
+| `create_pr` | Create a pull request |
+| `review_pr` | Read PR diff and post a review |
+| `list_issues` | List open issues with filters |
+| `create_issue` | Open a new issue |
+| `github_api` | Raw call to any GitHub REST endpoint |
+
+## Web
+
+| Tool | Description |
+|------|-------------|
+| `web_search` | Search the web (Brave Search) |
+| `read_url` | Fetch and extract main content from a URL |
+
+## Memory
+
+| Tool | Description |
+|------|-------------|
+| `remember` | Store a memory with type and optional scope |
+| `search_memory` | Full-text search across all memories |
+| `delete_memory` | Delete a specific memory by ID |
+
+## Messaging
+
+| Tool | Description |
+|------|-------------|
+| `send_telegram_message` | Send a message to a Telegram user by ID |
+
+## Scheduler
+
+| Tool | Description |
+|------|-------------|
+| `schedule_task` | Schedule a one-shot or recurring cron task |
+| `list_tasks` | List all scheduled tasks |
+| `cancel_task` | Cancel a scheduled task by ID |
+
+## System
+
+| Tool | Description |
+|------|-------------|
+| `get_current_time` | Return current datetime and timezone |
+| `sleep` | Wait for N seconds (use sparingly) |

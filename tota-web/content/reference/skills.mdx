@@ -1,0 +1,66 @@
+---
+title: Skills
+---
+
+
+Skills are structured prompt files that extend what tota can do. Each skill is a directory containing a `SKILL.md` file in a simple format.
+
+## SKILL.md format
+
+```markdown
+---
+name: my-skill
+description: One-line description of what this skill does
+triggers:
+  - keyword that invokes the skill
+  - another trigger phrase
+---
+
+# My Skill
+
+The body of the skill — instructions, context, prompts, or templates.
+Include anything you want the agent to follow when this skill is active.
+```
+
+## Install a skill
+
+Place the skill directory in `~/.tota/skills/`:
+
+```bash
+mkdir -p ~/.tota/skills/my-skill
+nano ~/.tota/skills/my-skill/SKILL.md
+```
+
+Or ask tota to create it:
+
+```
+Create a skill that always uses conventional commit format
+```
+
+## View installed skills
+
+```
+/skills
+```
+
+Lists all skills with their name, trigger phrases, and status.
+
+## Invoke a skill
+
+Skills are invoked automatically when your message matches a trigger phrase. You can also invoke them explicitly:
+
+```
+Use the code-review skill to check this file
+```
+
+## Schedule with a skill
+
+Skills can be scheduled as recurring tasks:
+
+```
+Every morning at 9am, use the daily-brief skill to summarize my GitHub issues
+```
+
+<Callout type="info">
+  Skills are loaded fresh from disk on each daemon start. Restart the daemon after editing a skill file.
+</Callout>

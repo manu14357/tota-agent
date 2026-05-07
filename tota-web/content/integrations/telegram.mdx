@@ -1,0 +1,48 @@
+---
+title: Telegram
+---
+
+
+Use tota from anywhere via a private Telegram bot. All messages stay 1:1 — tota never joins groups.
+
+## Setup
+
+1. Open [@BotFather](https://t.me/BotFather) in Telegram → `/newbot` → copy the token
+2. Paste the token during `tota` setup or via `tota doctor`
+3. Send `/start` to your bot in Telegram — you'll receive a pairing code
+4. The CLI shows a prompt — paste the code to complete pairing
+
+## Access model
+
+tota uses a role-based access model for Telegram. The first user to pair becomes an **Admin**.
+
+| Role | Capabilities |
+|------|-------------|
+| **Admin** | Full access — all tools, approve/reject other users, change roles |
+| **Member** | Chat and use tools, subject to permission prompts |
+| **Pending** | Sent `/start` but not yet approved. Sees a "waiting for approval" message |
+
+Manage users from the CLI:
+
+```bash
+/telegram               # open Telegram management menu
+/telegram pending       # list pending access requests
+/telegram approve <id>  # approve a pending user
+/telegram reject <id>   # reject a pending user
+/telegram remove <id>   # revoke an approved user
+/telegram promote <id>  # promote member → admin
+/telegram demote <id>   # demote admin → member
+/telegram reset         # clear all access, start fresh
+```
+
+<Callout type="warning">
+  `/telegram reset` clears all access. All users — including admins — must send `/start` and re-pair. Use it only if you want to start from scratch.
+</Callout>
+
+## Features
+
+- **Streaming** — Responses stream in real time (toggle with `/stream`)
+- **Markdown rendering** — Code blocks, bold, and lists render natively in Telegram
+- **Image support** — Send a photo and tota describes it (if your provider supports vision)
+- **Full in-chat commands** — All `/commands` work in Telegram just like the CLI
+- **Persistent daemon** — tota stays connected even after closing your terminal

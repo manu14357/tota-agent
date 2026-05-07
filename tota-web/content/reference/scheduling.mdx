@@ -1,0 +1,47 @@
+---
+title: Scheduling
+---
+
+tota can schedule tasks to run at specific times or on a recurring cron schedule. Tasks run in the background and survive daemon restarts.
+
+## Create a task
+
+Ask tota naturally:
+
+```
+Remind me every morning at 9am to check GitHub issues
+```
+
+```
+Run a web search for AI news every day at 8am and send the summary to my Telegram
+```
+
+Or use the `schedule_task` tool directly:
+
+```
+schedule_task: { "name": "daily-news", "cron": "0 8 * * *", "prompt": "Search for top AI news today and send me a summary" }
+```
+
+For a one-shot task:
+
+```
+schedule_task: { "name": "remind-me", "runAt": "2025-01-20T09:00:00Z", "prompt": "Tell me to submit the report" }
+```
+
+## Manage tasks
+
+```
+/tasks              # list all scheduled tasks
+cancel_task: <id>   # cancel by ID
+```
+
+## Cron examples
+
+| Schedule | Cron expression |
+|----------|----------------|
+| Every day at 9am | `0 9 * * *` |
+| Every Monday at 8am | `0 8 * * 1` |
+| Every hour | `0 * * * *` |
+| Every 30 minutes | `*/30 * * * *` |
+
+Tasks are persisted in `~/.tota/tasks.json` and reloaded when the daemon restarts.

@@ -1,0 +1,53 @@
+---
+title: Second Brain
+---
+
+
+tota automatically extracts memories from your conversations and stores them in a local SQLite database with full-text search. Every session builds on what it learned before.
+
+## Memory types
+
+| Type | Description | Persistence |
+|------|-------------|-------------|
+| `fact` | A concrete piece of information about you or your context | Durable |
+| `preference` | How you like things done | Durable |
+| `project` | A project goal, structure, or constraint | Durable |
+| `code` | A code pattern, snippet, or convention | Durable |
+| `workflow` | A repeatable process or sequence of steps | Durable |
+| `contact` | A person, role, or team relationship | Durable |
+| `event` | A past event, decision, or notable moment | Durable |
+| `goal` | Something you're working toward | Durable |
+| `context` | Session context — current task, working directory | Active (short-lived) |
+| `reminder` | A time-based prompt to revisit something | Active |
+
+## How it works
+
+1. **Extract** — After each response, tota scans the conversation for notable information
+2. **Score** — Assigns relevance and novelty scores to candidate memories
+3. **Recall** — Before responding, retrieves the top 5 most relevant memories via FTS5
+4. **Consolidate** — Merges near-duplicates and updates stale facts
+
+All data is local: `~/.tota/memory/`. Nothing is sent to the cloud.
+
+## Manage memories
+
+```
+/memory             # browse and manage memories
+/memory list        # list recent memories
+/memory search <q>  # full-text search
+/memory delete <id> # delete a specific memory
+/memory clear       # clear all memories (destructive!)
+```
+
+<Callout type="warning">
+  `/memory clear` is irreversible. All extracted memories will be deleted permanently.
+</Callout>
+
+## Conflict resolution
+
+When tota encounters a new fact that contradicts a stored memory, it:
+1. Updates the stored memory with the new value
+2. Keeps a note of the old value as context
+3. Logs the conflict for transparency
+
+Evidence kinds tracked: `conversation`, `explicit`, `inferred`, `confirmed`.

@@ -1,0 +1,28 @@
+# tota
+
+> Soul-driven AI agent with permission-hardened tools, token budgets, and multi-channel access. Remembers what matters. Asks before it acts. Runs 24/7 from CLI or Telegram.
+
+tota is an open-source CLI agent built on Node.js 20+. It ships with 31 built-in tools across filesystem, shell, git, GitHub, web, memory, messaging, and scheduling. It supports 9 AI providers (DeepSeek, OpenAI, Anthropic, Grok, Mimo, Ollama, OpenAI-compatible) with automatic provider fallback. Memory is stored locally in a SQLite Second Brain with full-text search. The agent runs as a background daemon with system service support (macOS LaunchAgent, Linux systemd, Windows Task Scheduler). Permissions are 3-tier: read-only tools run silently, write tools prompt in "Ask Me" mode, dangerous tools always prompt. Skills extend the agent via SKILL.md files. Remote access is via a private Telegram bot.
+
+Install: `npm i -g @manu14357/tota-agent` · GitHub: https://github.com/manu14357/tota-agent · npm: https://www.npmjs.com/package/@manu14357/tota-agent
+
+## Docs
+
+- [Installation](https://tota-agent.dev/docs/getting-started/installation)
+- [First-Time Setup](https://tota-agent.dev/docs/getting-started/setup)
+- [Starting tota](https://tota-agent.dev/docs/getting-started/starting)
+- [Full Command Reference](https://tota-agent.dev/docs/cli-commands/commands)
+- [Doctor (Reconfigure)](https://tota-agent.dev/docs/cli-commands/doctor)
+- [In-Chat Commands](https://tota-agent.dev/docs/cli-commands/in-chat-commands)
+- [Daemon Mode](https://tota-agent.dev/docs/daemon-mode/background-mode)
+- [Platform Guide](https://tota-agent.dev/docs/daemon-mode/platform-guide)
+- [System Service](https://tota-agent.dev/docs/daemon-mode/system-service)
+- [GitHub Companion](https://tota-agent.dev/docs/integrations/github-companion)
+- [Telegram](https://tota-agent.dev/docs/integrations/telegram)
+- [Built-in Tools](https://tota-agent.dev/docs/reference/built-in-tools)
+- [Configuration](https://tota-agent.dev/docs/reference/configuration)
+- [Permissions](https://tota-agent.dev/docs/reference/permissions)
+- [Provider Fallback](https://tota-agent.dev/docs/reference/provider-fallback)
+- [Scheduling](https://tota-agent.dev/docs/reference/scheduling)
+- [Second Brain](https://tota-agent.dev/docs/reference/second-brain)
+- [Skills](https://tota-agent.dev/docs/reference/skills)

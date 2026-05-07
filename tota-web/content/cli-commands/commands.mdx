@@ -1,0 +1,21 @@
+---
+title: Full Command Reference
+---
+
+| Command | Description |
+|---------|-------------|
+| `tota up` | **Recommended.** Install service + start daemon + ensure running |
+| `tota` | Start the agent (same as `tota start`) |
+| `tota start` | Start as background daemon (default) |
+| `tota start --foreground` | Start in foreground (interactive) mode. Shorthand: `-f` |
+| `tota restart` | Restart a background tota process |
+| `tota stop` | Stop a background tota process |
+| `tota logs` | Show last 100 lines of daemon logs |
+| `tota status` | Show config, providers, daemon PID, and budget |
+| `tota doctor` | Reconfigure settings — press Enter to keep current values |
+| `tota setup` | Re-run the setup wizard (same as doctor) |
+| `tota help` | Show the full manual (tools, commands, config paths) |
+| `tota service install` | Install as system service (auto-start on boot) |
+| `tota service uninstall` | Uninstall the system service |
+| `tota service status` | Show system service status |
+| `tota --verbose` | Start with debug logging on stderr |

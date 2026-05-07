@@ -1,0 +1,36 @@
+---
+title: Installation
+---
+
+
+tota requires **Node.js 20+**. Install with npm:
+
+```bash
+npm i -g @manu14357/tota-agent
+```
+
+Or run without installing:
+
+```bash
+npx @manu14357/tota-agent
+```
+
+## Upgrade
+
+tota includes a built-in upgrade command that handles the full update cycle:
+
+```bash
+tota upgrade
+```
+
+This command:
+
+- **Checks npm** for the latest published version
+- **Stops the daemon** if running, to avoid conflicts
+- **Removes the old package** first to prevent `ENOTEMPTY` errors
+- **Installs** the latest version globally
+- **Shows** the before/after version comparison
+
+<Callout type="info">
+  **ENOTEMPTY fix** — If you see `ENOTEMPTY: directory not empty, rename` when running `npm i -g` manually, use `tota upgrade` instead — it removes the old package directory before installing the new one.
+</Callout>

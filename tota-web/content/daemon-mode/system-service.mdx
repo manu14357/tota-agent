@@ -1,0 +1,42 @@
+---
+title: System Service
+---
+
+
+tota includes a cross-platform service manager. Run once to make the agent start automatically when you log in — no manual `tota start` needed.
+
+## Install
+
+```bash
+tota service install
+```
+
+Creates a platform-appropriate service unit and enables it:
+
+| Platform | Service type | Location |
+|----------|-------------|----------|
+| macOS | LaunchAgent | `~/Library/LaunchAgents/com.tota.agent.plist` |
+| Linux | systemd user | `~/.config/systemd/user/tota-agent.service` |
+| Windows | Task Scheduler | Task named `TotaAgent` |
+
+After installing, tota starts automatically on login. The service auto-restarts on crash.
+
+## Uninstall
+
+```bash
+tota service uninstall
+```
+
+Stops and removes the service unit. Does not delete config or memory.
+
+## Status
+
+```bash
+tota service status
+```
+
+Shows whether the service is enabled and running.
+
+<Callout type="default">
+  **`tota up` does this for you** — If you just want things to work, run `tota up`. It installs the service (if needed) and starts the daemon in a single command.
+</Callout>

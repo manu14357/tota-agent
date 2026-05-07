@@ -1,0 +1,44 @@
+---
+title: Starting tota
+---
+
+
+<Callout type="default">
+  **Recommended: `tota up`** — The easiest way to run tota persistently. Installs the system service if needed, starts the daemon, and ensures it's running.
+</Callout>
+
+```bash
+tota up
+```
+
+If tota is already running, `tota up` just confirms it and shows the PID. If the service isn't installed yet, it installs it first, then starts the daemon.
+
+## Start (background daemon)
+
+```bash
+tota start
+```
+
+Starts tota as a background daemon by default. Telegram becomes your primary interface. Logs go to `~/.tota/daemon.log`. Stale PID files are auto-cleaned. Includes crash recovery with exponential backoff.
+
+## Foreground (interactive)
+
+```bash
+tota start --foreground
+```
+
+Runs tota attached to your terminal with a readline prompt. Press `Ctrl+C` to exit. All conversation happens in your terminal with real-time text streaming and markdown rendering. Shorthand: `tota start -f`.
+
+When running in background mode, you can stop it with:
+
+```bash
+tota stop
+```
+
+## Verbose logging
+
+Add `--verbose` to any start command to see debug logs on stderr:
+
+```bash
+tota start --verbose
+```

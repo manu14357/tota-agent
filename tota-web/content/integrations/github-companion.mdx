@@ -1,0 +1,40 @@
+---
+title: GitHub Companion
+---
+
+
+tota has 5 built-in GitHub tools that work out of the box once you provide a Personal Access Token.
+
+## Setup
+
+1. Go to **GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic)**
+2. Create a token with scopes: `repo`, `read:user`
+3. Paste it during `tota` setup or via `tota doctor`
+
+## Tools
+
+| Tool | What it does |
+|------|-------------|
+| `create_pr` | Create a pull request from the current or specified branch |
+| `review_pr` | Read PR diff and post an inline or summary review |
+| `list_issues` | List open issues with label and milestone filters |
+| `create_issue` | Open a new GitHub issue with title, body, and labels |
+| `github_api` | Raw escape hatch — call any GitHub REST API endpoint |
+
+<Callout type="info">
+  **Co-author commits** — When tota writes code and you commit it, it appends a `Co-authored-by: tota <tota@ai>` trailer to the commit message. This keeps attribution honest without being intrusive.
+</Callout>
+
+## Example prompts
+
+```
+Create a PR to main with title "feat: add dark mode"
+```
+
+```
+List open issues with label "bug" in manu14357/tota-agent
+```
+
+```
+Review PR #42 and leave a summary review
+```

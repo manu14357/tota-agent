@@ -1,0 +1,41 @@
+---
+title: Permissions
+---
+
+
+tota uses a **3-tier permission system** that gives you fine-grained control over what the agent can do without asking.
+
+## Permission modes
+
+### Ask Me (default)
+
+tota asks for confirmation before any tool that writes, executes, or has side effects. Read-only tools (read files, search, git status, etc.) run silently.
+
+### Allow All
+
+All tools run without confirmation. Use this when you trust the agent fully in a given session (e.g., for automated pipelines or when you're actively watching).
+
+Toggle the mode in-chat:
+
+```
+/permissions
+```
+
+Or in Telegram only:
+
+```
+/permissions allow-all
+/permissions ask-me
+```
+
+## Tool tiers
+
+| Tier | Tools | Default behavior |
+|------|-------|-----------------|
+| **Read-only** | `read_file`, `list_directory`, `git_status`, `git_log`, `git_diff`, `search_files`, `search_in_files`, `web_search`, `read_url`, `search_memory`, `get_current_time`, `list_tasks` | Silent — never asks |
+| **Write / side-effect** | `write_file`, `append_file`, `delete_file`, `copy_file`, `move_file`, `create_directory`, `execute_command`, `git_commit`, `create_pr`, `review_pr`, `create_issue`, `github_api`, `remember`, `delete_memory`, `send_telegram_message`, `schedule_task`, `cancel_task` | Asks in **Ask Me** mode |
+| **Dangerous** | `execute_command` with system-modifying flags | Always asks, shown with warning |
+
+<Callout type="warning">
+  **`execute_command` is the most powerful tool.** It can run any shell command. In **Ask Me** mode, tota always shows you the exact command and waits for approval. In **Allow All** mode, commands run immediately — only use this if you're confident in what you're asking for.
+</Callout>

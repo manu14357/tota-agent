@@ -1,0 +1,95 @@
+@import "tailwindcss";
+
+/* class-based dark mode — next-themes adds/removes .dark on <html> */
+@variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-brand-300: #A0E9FF;
+  --color-brand-400: #89CFF3;
+  --color-brand-500: #00A9FF;
+  --color-brand-600: #0090d9;
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+/* ─── Light theme (default) ─── */
+:root {
+  --bg: #f4f8fd;
+  --bg-subtle: #e8f3fb;
+  --surface: #ffffff;
+  --surface-raised: #f0f7ff;
+  --border: #c8dff0;
+  --border-hover: rgba(0, 169, 255, 0.4);
+  --fg: #0d1b2a;
+  --fg-muted: #3d5a73;
+  --fg-subtle: #8aafc7;
+  --accent: #00A9FF;
+  --accent-hover: #0090d9;
+  --accent-light: #0090d9;
+  --accent-dim: rgba(0, 169, 255, 0.08);
+  --code-bg: #eaf5ff;
+  --code-border: #b8dbf5;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.07), 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.10);
+  /* legacy */
+  --page-bg: #f4f8fd;
+}
+
+/* ─── Dark theme ─── */
+.dark {
+  --bg: #030c14;
+  --bg-subtle: #06111c;
+  --surface: #091523;
+  --surface-raised: #0e1f30;
+  --border: #122233;
+  --border-hover: rgba(0, 169, 255, 0.4);
+  --fg: #e8f4fd;
+  --fg-muted: #89b8d4;
+  --fg-subtle: #3d6070;
+  --accent: #00A9FF;
+  --accent-hover: #89CFF3;
+  --accent-light: #89CFF3;
+  --accent-dim: rgba(0, 169, 255, 0.12);
+  --code-bg: #020b14;
+  --code-border: rgba(0, 169, 255, 0.18);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.6);
+  --page-bg: #030c14;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--fg);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+pre {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+::selection {
+  background-color: rgba(0, 169, 255, 0.2);
+}
+
+/* Smooth anchor scroll offset for sticky header */
+[id] {
+  scroll-margin-top: 5rem;
+}
+
+/* MDX table row hover — avoids needing 'use client' on MDX components */
+.mdx-tr:hover {
+  background: var(--surface);
+}
+
+/* MDX card hover */
+.mdx-card:hover {
+  border-color: var(--border-hover) !important;
+  background: var(--surface-raised) !important;
+}

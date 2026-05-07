@@ -1,0 +1,33 @@
+---
+title: Provider Fallback
+---
+
+
+tota supports 9 AI providers and tries them in order when the primary fails — rate limits, network errors, API outages. You configure providers once during setup; the fallback chain is automatic.
+
+## Supported providers
+
+| Provider | Default model | Key env var |
+|----------|--------------|-------------|
+| DeepSeek | `deepseek-chat` | `DEEPSEEK_API_KEY` |
+| OpenAI | `gpt-4o-mini` | `OPENAI_API_KEY` |
+| Anthropic | `claude-3-5-haiku-20241022` | `ANTHROPIC_API_KEY` |
+| Grok (xAI) | `grok-3-mini-fast-beta` | `XAI_API_KEY` |
+| Mimo | `mimo-vl-7b-rl` | `MIMO_API_KEY` |
+| Ollama (local) | `llama3.2:latest` | *(none)* |
+| Ollama (cloud) | `llama3.2:latest` | `OLLAMA_API_KEY` |
+| OpenAI-compatible | your chosen model | `OPENAI_COMPAT_API_KEY` |
+
+<Callout type="info">
+  **Env vars are optional** — tota stores keys in `~/.tota/config.json`. The env vars are only for CI/CD environments or if you prefer not to use the config file.
+</Callout>
+
+## How fallback works
+
+tota tries the primary provider first. On failure (rate limit, timeout, API error), it retries once, then falls through to the next configured provider. If all fail, it surfaces a clear error message.
+
+The fallback order follows your provider setup order. To see your current chain:
+
+```bash
+tota status
+```
