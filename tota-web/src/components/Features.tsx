@@ -92,11 +92,11 @@ export default function Features() {
         </div>
 
         {/* Feature grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
           {features.slice(0, 6).map((feat) => (
             <FeatureCard key={feat.title} {...feat} />
           ))}
-          <div className="sm:col-span-2 lg:col-span-1">
+          <div className="sm:col-span-2 lg:col-span-1 lg:col-start-2">
             <FeatureCard {...features[6]} />
           </div>
         </div>

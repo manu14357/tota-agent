@@ -84,7 +84,7 @@ export default function Memory() {
             </div>
 
             {/* Stats */}
-            <div className="mt-5 pt-5 grid grid-cols-3 gap-3" style={{ borderTop: '1px solid var(--border)' }}>
+            <div className="mt-5 pt-5 grid grid-cols-3 gap-1 sm:gap-3" style={{ borderTop: '1px solid var(--border)' }}>
               {[
                 { label: 'Storage', value: 'SQLite + FTS5' },
                 { label: 'Location', value: '~/.tota/memory/' },
@@ -121,7 +121,7 @@ export default function Memory() {
             </div>
 
             {/* Conflict + privacy */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div className="rounded-xl p-4" style={{ border: '1px solid var(--border)', background: 'var(--surface)' }}>
                 <div className="font-medium text-sm mb-1" style={{ color: 'var(--fg)' }}>Conflict resolution</div>
                 <p className="text-xs leading-relaxed" style={{ color: 'var(--fg-muted)' }}>

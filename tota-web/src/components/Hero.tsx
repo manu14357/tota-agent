@@ -48,7 +48,7 @@ const terminalLines = [
 
 export default function Hero() {
   return (
-    <section className="relative pt-32 pb-20 sm:pt-40 sm:pb-28 overflow-hidden">
+    <section className="relative pt-24 pb-16 sm:pt-36 sm:pb-24 lg:pt-40 lg:pb-28 overflow-hidden">
       {/* Gradient glow */}
       <div
         aria-hidden
@@ -73,7 +73,7 @@ export default function Hero() {
         </div>
 
         {/* Headline */}
-        <h1 className="text-center text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.08] mb-6">
+        <h1 className="text-center text-[2.5rem] sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.08] mb-5 sm:mb-6 px-2">
           <span className="hero-gradient-text">
             Soul-driven
           </span>
@@ -83,7 +83,7 @@ export default function Hero() {
 
         {/* Subheadline */}
         <p
-          className="text-center text-lg sm:text-xl max-w-2xl mx-auto mb-10 leading-relaxed font-medium"
+          className="text-center text-base sm:text-lg max-w-2xl mx-auto mb-8 sm:mb-10 leading-relaxed font-medium px-4"
           style={{ color: 'var(--fg)' }}
         >
           Permission-hardened tools, token budgets, and multi-channel access.
@@ -92,9 +92,9 @@ export default function Hero() {
         </p>
 
         {/* Install snippet */}
-        <div className="flex justify-center mb-3">
+        <div className="flex justify-center mb-3 w-full px-4">
           <div
-            className="flex items-center gap-3 rounded-xl px-5 py-3 font-mono text-sm transition-all"
+            className="flex items-center gap-3 rounded-xl px-4 py-3 font-mono text-xs sm:text-sm transition-all w-full max-w-sm sm:w-auto"
             style={{
               background: 'var(--surface)',
               border: '1px solid var(--border)',
@@ -114,10 +114,10 @@ export default function Hero() {
         </p>
 
         {/* CTAs */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-20">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 mb-16 sm:mb-20 w-full px-4">
           <Link
             href="/docs/getting-started/installation"
-            className="flex items-center gap-2 px-6 py-3 rounded-xl text-white font-semibold transition-all hover:scale-[1.02] hover:opacity-90"
+            className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3 rounded-xl text-white font-semibold transition-all hover:scale-[1.02] hover:opacity-90"
             style={{ background: 'var(--accent)', boxShadow: '0 4px 20px rgba(0,169,255,0.35)' }}
           >
             Get Started
@@ -127,7 +127,7 @@ export default function Hero() {
             href="https://github.com/manu14357/tota-agent"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all"
+            className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3 rounded-xl font-semibold transition-all"
             style={{
               color: 'var(--fg-muted)',
               border: '1px solid var(--border)',
@@ -139,7 +139,7 @@ export default function Hero() {
         </div>
 
         {/* Terminal mockup — always dark (it's a terminal!) */}
-        <div className="max-w-2xl mx-auto">
+        <div className="w-full max-w-2xl mx-auto px-4 sm:px-0">
           <div className="rounded-2xl overflow-hidden shadow-2xl" style={{ border: '1px solid #0a1e2e', background: '#020c16' }}>
             {/* Chrome */}
             <div className="flex items-center gap-2 px-4 py-3 border-b" style={{ borderColor: '#0a1e2e', background: '#051525' }}>
@@ -149,7 +149,7 @@ export default function Hero() {
               <span className="ml-2 text-xs font-mono" style={{ color: '#3d6070' }}>tota — zsh</span>
             </div>
             {/* Content */}
-            <div className="p-5 font-mono text-sm leading-7 space-y-0.5">
+            <div className="p-3 sm:p-5 font-mono text-xs sm:text-sm leading-6 sm:leading-7 space-y-0.5 overflow-x-auto">
               {terminalLines.map((line, i) => (
                 <div
                   key={i}

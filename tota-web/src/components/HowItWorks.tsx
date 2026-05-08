@@ -77,7 +77,7 @@ export default function HowItWorks() {
 
               {/* Code block — always dark */}
               <div
-                className="rounded-xl px-4 py-3 font-mono text-sm overflow-x-auto"
+                className="rounded-xl px-3 sm:px-4 py-3 font-mono text-xs sm:text-sm overflow-x-auto whitespace-nowrap"
                 style={{ background: 'var(--code-bg)', border: '1px solid var(--code-border)', color: 'var(--fg-muted)' }}
               >
                 <span style={{ color: 'var(--accent)', marginRight: '8px', userSelect: 'none' }}>$</span>

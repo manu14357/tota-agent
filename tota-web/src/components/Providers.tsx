@@ -90,12 +90,12 @@ export default function Providers() {
         </div>
 
         {/* Provider grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-12">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 mb-8 sm:mb-12">
           {providers.slice(0, 5).map((p) => (
             <ProviderCard key={p.name} {...p} />
           ))}
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 max-w-4xl mx-auto">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 max-w-4xl mx-auto">
           {providers.slice(5).map((p) => (
             <ProviderCard key={p.name} {...p} />
           ))}
@@ -143,16 +143,16 @@ function ProviderCard({
 }: (typeof providers)[0]) {
   return (
     <div
-      className="rounded-xl p-4 flex flex-col gap-2 hover:scale-[1.02] transition-all duration-200"
+      className="rounded-xl p-3 sm:p-4 flex flex-col gap-1.5 sm:gap-2 hover:scale-[1.02] transition-all duration-200 min-w-0"
       style={{ background: bg, border: `1px solid ${border}` }}
     >
       <div
-        className="text-sm font-semibold"
+        className="text-xs sm:text-sm font-semibold truncate"
         style={{ color }}
       >
         {name}
       </div>
-      <code className="text-xs font-mono" style={{ color: 'var(--fg-subtle)' }}>{model}</code>
+      <code className="text-xs font-mono truncate" style={{ color: 'var(--fg-subtle)' }}>{model}</code>
       <p className="text-xs leading-snug" style={{ color: 'var(--fg-muted)' }}>{description}</p>
     </div>
   )

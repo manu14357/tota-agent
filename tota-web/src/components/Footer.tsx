@@ -58,7 +58,7 @@ export default function Footer() {
   return (
     <footer style={{ borderTop: '1px solid var(--border)', background: 'var(--surface)' }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-8 mb-10 sm:mb-12">
           {links.map((group) => (
             <div key={group.heading}>
               <h4
@@ -107,9 +107,9 @@ export default function Footer() {
         >
           {/* Logo */}
           <div className="flex items-center gap-2.5">
-            <Image src="/tota-agent.png" alt="tota" width={74} height={74} className="rounded-md" />
+            <Image src="/tota-agent.png" alt="tota" width={36} height={36} className="rounded-md" />
             <span
-              className="font-bold text-lg tracking-tight"
+              className="font-bold text-base sm:text-lg tracking-tight"
               style={{
                 background: 'linear-gradient(135deg, #89CFF3 0%, #00A9FF 100%)',
                 WebkitBackgroundClip: 'text',
@@ -118,7 +118,7 @@ export default function Footer() {
             >
               tota
             </span>
-            <span className="text-sm" style={{ color: 'var(--fg-subtle)' }}>
+            <span className="hidden sm:inline text-sm" style={{ color: 'var(--fg-subtle)' }}>
               · Soul-driven AI agent
             </span>
           </div>

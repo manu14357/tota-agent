@@ -19,19 +19,19 @@ export default function Navbar() {
         WebkitBackdropFilter: 'blur(12px)',
       }}
     >
-      <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2.5 select-none">
+        <Link href="/" className="flex items-center gap-2 sm:gap-2.5 select-none min-w-0">
           <Image
             src="/tota-agent.png"
             alt="tota logo"
-            width={62}
-            height={62}
-            className="rounded-xl drop-shadow-sm"
+            width={66}
+            height={66}
+            className="rounded-xl drop-shadow-sm shrink-0"
             priority
           />
           <span
-            className="font-bold text-xl tracking-tight"
+            className="font-bold text-lg sm:text-xl tracking-tight"
             style={{
               background: 'linear-gradient(135deg, var(--accent-light) 0%, var(--accent) 100%)',
               WebkitBackgroundClip: 'text',

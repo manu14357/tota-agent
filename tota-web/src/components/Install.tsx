@@ -78,7 +78,7 @@ export default function Install() {
           </div>
 
           {/* Code content */}
-          <pre className="p-6 font-mono text-sm leading-7 overflow-x-auto">
+          <pre className="p-4 sm:p-6 font-mono text-xs sm:text-sm leading-6 sm:leading-7 overflow-x-auto">
             {installSteps.map((step, i) =>
               step.cmd === '' && step.comment === '' ? (
                 <span key={i} className="block h-2" />
@@ -101,10 +101,10 @@ export default function Install() {
         </div>
 
         {/* CTAs */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-8">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 mt-8 w-full">
           <Link
             href="/docs/getting-started/installation"
-            className="flex items-center gap-2 px-6 py-3 rounded-xl text-white font-semibold transition-all hover:scale-[1.02]"
+            className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3 rounded-xl text-white font-semibold transition-all hover:scale-[1.02]"
             style={{ background: 'var(--accent)', boxShadow: '0 4px 16px rgba(0,169,255,0.35)' }}
           >
             Full setup guide
@@ -112,7 +112,7 @@ export default function Install() {
           </Link>
           <Link
             href="/docs"
-            className="flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all"
+            className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3 rounded-xl font-semibold transition-all"
             style={{ border: '1px solid var(--border)', color: 'var(--fg-muted)', background: 'var(--surface)' }}
           >
             Browse docs

@@ -54,10 +54,10 @@ export default function Integrations() {
               {githubTools.map((tool) => (
                 <div
                   key={tool.name}
-                  className="flex items-start gap-3 py-2 last:border-0"
+                  className="flex items-start gap-2 sm:gap-3 py-2 last:border-0"
                   style={{ borderBottom: '1px solid var(--border)' }}
                 >
-                  <code className="font-mono text-xs shrink-0 mt-0.5 px-1.5 py-0.5 rounded" style={{ color: '#00A9FF', background: 'rgba(0,169,255,0.1)' }}>
+                  <code className="font-mono text-xs shrink-0 mt-0.5 px-1.5 py-0.5 rounded max-w-[120px] truncate" style={{ color: '#00A9FF', background: 'rgba(0,169,255,0.1)' }}>
                     {tool.name}
                   </code>
                   <span className="text-sm" style={{ color: 'var(--fg-muted)' }}>{tool.desc}</span>
