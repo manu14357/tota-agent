@@ -37,7 +37,11 @@ mkdirSync(installDir, { recursive: true });
 writeFileSync(join(installDir, 'package.json'), '{}');
 execSync(`npm install "${tarballPath}" --omit=dev --no-save`, { cwd: installDir, stdio: 'pipe' });
 
-const modDir = join(installDir, 'node_modules', '@manu14357', 'tota-agent');
+const pkgName = JSON.parse(require('fs').readFileSync(join(ROOT, 'package.json'), 'utf-8')).name;
+// Support both scoped (@scope/name) and unscoped (name) packages
+const modDir = pkgName.startsWith('@')
+  ? join(installDir, 'node_modules', pkgName.split('/')[0], pkgName.split('/')[1])
+  : join(installDir, 'node_modules', pkgName);
 
 console.log('\n4/5 Verifying package integrity...');
 
