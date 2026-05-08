@@ -31,10 +31,16 @@ import { createListIssuesTool } from './github/list-issues.js';
 import { createCreateIssueTool } from './github/create-issue.js';
 import { createGithubApiTool } from './github/github-api.js';
 import { createFetchUrlTool } from './web/fetch-url.js';
+import { createWebSearchTool } from './web/web-search.js';
+import { createAnalyzeImageTool, type VisionHandler } from './vision/analyze-image.js';
+import { createDelegateTaskTool, type DelegateHandler } from './system/delegate-task.js';
+import { createRunCodeTool } from './shell/run-code.js';
+import { loadMCPTools } from './mcp/mcp-loader.js';
 import { isGitHubConfigured, setGitHubToken } from '../utils/github.js';
 import type { SkillLoader } from '../skills/loader.js';
 import type { Scheduler } from '../core/scheduler.js';
 import type { TokenBudget } from '../utils/tokens.js';
+import type { TotaConfig, WebSearchConfig, MCPServerConfig } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
 
 export interface ChatCommandContext {
@@ -58,16 +64,31 @@ export class CapabilityRegistry {
   private tokenBudget?: TokenBudget;
   private sendFileHandler?: (filePath: string) => Promise<void>;
   private sendMessageHandler?: (content: string) => Promise<void>;
+  private visionHandler?: VisionHandler;
+  private delegateHandler?: DelegateHandler;
   private currentChannelId = 'cli';
   private currentChannelType = 'cli';
   private chatCommandContext?: ChatCommandContext;
   private currentCwd = process.cwd();
+  private totaConfig?: TotaConfig;
 
   constructor(skillLoader?: SkillLoader, scheduler?: Scheduler, tokenBudget?: TokenBudget) {
     this.permissions = new PermissionManager();
     this.skillLoader = skillLoader;
     this.scheduler = scheduler;
     this.tokenBudget = tokenBudget;
+  }
+
+  setConfig(config: TotaConfig): void {
+    this.totaConfig = config;
+  }
+
+  setVisionHandler(handler: VisionHandler): void {
+    this.visionHandler = handler;
+  }
+
+  setDelegateHandler(handler: DelegateHandler): void {
+    this.delegateHandler = handler;
   }
 
   setChatCommandContext(ctx: ChatCommandContext): void {
@@ -175,6 +196,67 @@ export class CapabilityRegistry {
 
     this.tools.fetch_url = createFetchUrlTool();
     logger.info('Web fetch tool registered');
+
+    // Web search tool
+    if (this.totaConfig?.webSearch?.enabled !== false) {
+      this.tools.web_search = createWebSearchTool(() => this.totaConfig?.webSearch);
+      logger.info('Web search tool registered');
+    }
+
+    // Vision/image analysis tool
+    if (this.visionHandler) {
+      this.tools.analyze_image = createAnalyzeImageTool(() => this.visionHandler ?? null);
+      logger.info('Vision analysis tool registered');
+    }
+
+    // Delegation tool
+    if (this.delegateHandler) {
+      this.tools.delegate_task = createDelegateTaskTool(() => this.delegateHandler ?? null);
+      logger.info('Task delegation tool registered');
+    }
+
+    // Code execution sandbox
+    this.tools.run_code = createRunCodeTool();
+    logger.info('Code execution tool registered');
+
+    // Wrap all tools with output truncation
+    this.tools = this.applyTruncation(this.tools);
+  }
+
+  /** Async — must be called after registerAll() to load MCP server tools */
+  async registerMCPTools(): Promise<void> {
+    const servers = this.totaConfig?.mcp?.servers;
+    if (!servers || servers.length === 0) return;
+    const mcpTools = await loadMCPTools(servers);
+    const count = Object.keys(mcpTools).length;
+    if (count > 0) {
+      const truncated = this.applyTruncation(mcpTools);
+      Object.assign(this.tools, truncated);
+      logger.info({ count }, 'MCP tools registered');
+    }
+  }
+
+  /** Wraps every tool's execute to truncate large outputs */
+  private applyTruncation(tools: Record<string, Tool>, maxChars = 12000): Record<string, Tool> {
+    const wrapped: Record<string, Tool> = {};
+    for (const [name, t] of Object.entries(tools)) {
+      const originalExecute = (t as any).execute;
+      if (typeof originalExecute !== 'function') {
+        wrapped[name] = t;
+        continue;
+      }
+      wrapped[name] = {
+        ...t,
+        execute: async (...args: any[]) => {
+          const result = await originalExecute(...args);
+          if (typeof result === 'string' && result.length > maxChars) {
+            return result.slice(0, maxChars) + `\n\n... [output truncated — ${result.length} chars total, showing first ${maxChars}]`;
+          }
+          return result;
+        },
+      } as Tool;
+    }
+    return wrapped;
   }
 
   getTools(): Record<string, Tool> {

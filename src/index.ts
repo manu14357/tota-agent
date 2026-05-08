@@ -1168,11 +1168,39 @@ async function runAgent(isDaemon: boolean = false): Promise<void> {
     setGitHubToken(process.env.GITHUB_TOKEN);
   }
 
+  capabilities.setConfig(config);
+
+  // Wire vision handler — uses the default provider with image content blocks
+  capabilities.setVisionHandler(async ({ imageSource, mimeType, isUrl, question }) => {
+    const provider = providers.getDefault();
+    if (!provider) return 'No provider configured for vision.';
+    const { generateText } = await import('ai');
+    const imageContent: any = isUrl
+      ? { type: 'image', image: new URL(imageSource as string) }
+      : { type: 'image', image: imageSource as Buffer, mimeType };
+    const result = await generateText({
+      model: provider.getModelInstance(),
+      messages: [{ role: 'user', content: [imageContent, { type: 'text', text: question }] }],
+    });
+    return result.text || '(No description returned)';
+  });
+
+  // Delegate handler stub — replaced after agent is created below
+  let delegateHandlerRef: ((task: string) => Promise<string>) | null = null;
+  capabilities.setDelegateHandler(async (task: string) => {
+    if (!delegateHandlerRef) return 'Agent not yet initialized.';
+    return delegateHandlerRef(task);
+  });
+
   capabilities.registerAll();
+  await capabilities.registerMCPTools();
 
   const agent = new Agent(
     config, providers, identity, shortTerm, longTerm, episodic, userMemory, channels, tokenBudget, capabilities, scheduler,
   );
+
+  // Wire actual delegate handler now that agent exists
+  delegateHandlerRef = (task: string) => agent.runSubTask(task);
 
   await agent.birth();
   await agent.wake();

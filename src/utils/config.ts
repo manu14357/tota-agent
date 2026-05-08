@@ -57,6 +57,40 @@ export type ProviderName =
   | 'mimo'
   | 'mimoTokenPlan';
 
+export interface LoopGuardConfig {
+  /** Max LLM steps per request (default 50). Raise for complex multi-tool tasks. */
+  maxSteps: number;
+  /** Hard abort after this many total tool calls (default 100). */
+  absoluteMax: number;
+  /** Hard abort after this many failed tool calls (default 25). */
+  failedAbsoluteMax: number;
+  /** Abort when same tool called with identical params N times in a row (default 5). */
+  identicalThreshold: number;
+  /** Abort when same tool keeps failing N times in a row (default 8). */
+  similarThreshold: number;
+  /** Warn/ask user when same tool is called N times in a row (default 10). */
+  sameToolThreshold: number;
+  /** Abort after N consecutive steps with no tool calls (reasoning-only loops, default 10). */
+  noActionMax: number;
+  /** Abort when output text is >70% identical for N steps in a row (default 3). */
+  textRepeatThreshold: number;
+}
+
+export interface WebSearchConfig {
+  enabled: boolean;
+  /** Provider: 'brave' | 'serper' | 'tavily' (auto-detected from env vars). */
+  provider: 'brave' | 'serper' | 'tavily' | 'auto';
+  apiKey: string;
+  maxResults: number;
+}
+
+export interface MCPServerConfig {
+  name: string;
+  url: string;
+  apiKey?: string;
+  enabled: boolean;
+}
+
 export interface TotaConfig {
   identity: {
     name: string;
@@ -89,6 +123,16 @@ export interface TotaConfig {
       pairedChatId?: number;
       pairedUsername?: string;
     };
+    api: {
+      enabled: boolean;
+      port: number;
+      apiKey: string;
+    };
+  };
+  loopGuard: LoopGuardConfig;
+  webSearch: WebSearchConfig;
+  mcp: {
+    servers: MCPServerConfig[];
   };
   github: {
     username: string;
@@ -215,6 +259,30 @@ export function getDefaultConfig(): TotaConfig {
         members: [],
         pending: [],
       },
+      api: {
+        enabled: getEnvBool('API_CHANNEL_ENABLED', false),
+        port: getEnvNum('API_CHANNEL_PORT', 3001),
+        apiKey: getEnv('API_CHANNEL_KEY', ''),
+      },
+    },
+    loopGuard: {
+      maxSteps: getEnvNum('LOOP_MAX_STEPS', 50),
+      absoluteMax: getEnvNum('LOOP_ABSOLUTE_MAX', 100),
+      failedAbsoluteMax: getEnvNum('LOOP_FAILED_ABSOLUTE_MAX', 25),
+      identicalThreshold: getEnvNum('LOOP_IDENTICAL_THRESHOLD', 5),
+      similarThreshold: getEnvNum('LOOP_SIMILAR_THRESHOLD', 8),
+      sameToolThreshold: getEnvNum('LOOP_SAME_TOOL_THRESHOLD', 10),
+      noActionMax: getEnvNum('LOOP_NO_ACTION_MAX', 10),
+      textRepeatThreshold: getEnvNum('LOOP_TEXT_REPEAT_THRESHOLD', 3),
+    },
+    webSearch: {
+      enabled: getEnvBool('WEB_SEARCH_ENABLED', true),
+      provider: (getEnv('WEB_SEARCH_PROVIDER', 'auto') as WebSearchConfig['provider']),
+      apiKey: getEnv('WEB_SEARCH_API_KEY', getEnv('BRAVE_API_KEY', getEnv('SERPER_API_KEY', getEnv('TAVILY_API_KEY', '')))),
+      maxResults: getEnvNum('WEB_SEARCH_MAX_RESULTS', 5),
+    },
+    mcp: {
+      servers: [],
     },
     github: {
       username: getEnv('GITHUB_USERNAME', ''),

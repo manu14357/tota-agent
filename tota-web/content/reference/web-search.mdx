@@ -1,0 +1,74 @@
+---
+title: Web Search
+---
+
+tota can search the web using three providers. Set one API key and the `web_search` tool is available immediately.
+
+## Providers
+
+| Provider | Env Var | Free tier | Sign up |
+|----------|---------|-----------|---------|
+| **Brave Search** | `BRAVE_API_KEY` | Yes (2,000 req/month) | [brave.com/search/api](https://brave.com/search/api/) |
+| **Serper** | `SERPER_API_KEY` | Yes (2,500 req) | [serper.dev](https://serper.dev) |
+| **Tavily** | `TAVILY_API_KEY` | Yes (1,000 req/month) | [tavily.com](https://tavily.com) |
+
+## Setup
+
+Add your key to `~/.tota/.env`:
+
+```bash
+BRAVE_API_KEY=your-key-here
+```
+
+That's it. The `web_search` tool is enabled by default and auto-detects the provider from whichever key it finds.
+
+## Provider selection
+
+When `WEB_SEARCH_PROVIDER=auto` (the default), tota checks for keys in this order:
+
+1. `BRAVE_API_KEY`
+2. `SERPER_API_KEY`
+3. `TAVILY_API_KEY`
+
+To pin a specific provider:
+
+```bash
+WEB_SEARCH_PROVIDER=serper
+SERPER_API_KEY=your-key-here
+```
+
+## Options
+
+| Env Var | Description | Default |
+|---------|-------------|---------|
+| `WEB_SEARCH_ENABLED` | Enable or disable the tool entirely | `true` |
+| `WEB_SEARCH_PROVIDER` | `auto`, `brave`, `serper`, or `tavily` | `auto` |
+| `WEB_SEARCH_MAX_RESULTS` | Maximum results per search (1–10) | `5` |
+
+## Usage
+
+Just ask naturally — the agent decides when to search:
+
+```
+What are the latest LLM benchmarks?
+Search for the Node.js 22 changelog and summarize the main changes.
+```
+
+You can also specify the number of results:
+
+```
+Search for "vitest vs jest" and give me the top 3 results.
+```
+
+## Result format
+
+Results are returned as numbered markdown with title, URL, and snippet:
+
+```
+**Web Search Results for:** vitest vs jest
+
+1. **Vitest vs Jest: A comparison** — https://example.com/...
+   Vitest is a Vite-native test framework...
+
+2. ...
+```

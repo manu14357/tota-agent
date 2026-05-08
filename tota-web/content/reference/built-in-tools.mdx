@@ -2,7 +2,7 @@
 title: Built-in Tools
 ---
 
-tota ships with 31 built-in tools, grouped into 9 capability areas.
+tota ships with 40+ built-in tools, grouped into capability areas.
 
 ## Filesystem
 
@@ -24,6 +24,14 @@ tota ships with 31 built-in tools, grouped into 9 capability areas.
 | Tool | Description |
 |------|-------------|
 | `execute_command` | Run a shell command with timeout and output capture |
+
+## Code Sandbox
+
+| Tool | Description |
+|------|-------------|
+| `run_code` | Execute a code snippet in an isolated sandbox. Supports Python, JavaScript (Node.js), Bash, TypeScript, Ruby, and Go. Output capped at 8,000 chars. |
+
+Sandbox is isolated from your working directory — use `execute_command` for in-project commands.
 
 ## Git
 
@@ -48,8 +56,14 @@ tota ships with 31 built-in tools, grouped into 9 capability areas.
 
 | Tool | Description |
 |------|-------------|
-| `web_search` | Search the web (Brave Search) |
+| `web_search` | Search the web using Brave, Serper, or Tavily (auto-detected from env keys) |
 | `read_url` | Fetch and extract main content from a URL |
+
+## Vision
+
+| Tool | Description |
+|------|-------------|
+| `analyze_image` | Analyze a local image file or image URL. Detects MIME type automatically. Supports JPEG, PNG, GIF, WebP. |
 
 ## Memory
 
@@ -78,4 +92,27 @@ tota ships with 31 built-in tools, grouped into 9 capability areas.
 | Tool | Description |
 |------|-------------|
 | `get_current_time` | Return current datetime and timezone |
+| `delegate_task` | Delegate a focused sub-task to a fresh agent instance and return its result |
+
+## MCP Plugins
+
+When MCP servers are configured, their tools appear automatically with the prefix `mcp_<server>_<tool>`:
+
+```
+mcp_filesystem_read_file
+mcp_my_db_query
+```
+
+See [MCP Plugins](/integrations/mcp-plugins) for setup instructions.
+
+## Tool Output Truncation
+
+All tool outputs are capped at **12,000 characters**. If a tool returns more, the output is truncated with a clear notice:
+
+```
+... [output truncated — 45320 chars total, showing first 12000]
+```
+
+This prevents token budget overflows on large file reads or command outputs.
+
 | `sleep` | Wait for N seconds (use sparingly) |

@@ -7,6 +7,8 @@ All configuration and data is stored in `~/.tota/`.
 | File / Directory | Description |
 |-----------------|-------------|
 | `~/.tota/config.json` | Main config: agent name, user name, providers, models, Telegram token |
+| `~/.tota/tota.yaml` | Extended config: loop guard, web search, MCP servers, API channel |
+| `~/.tota/.env` | API keys and tokens (sourced automatically) |
 | `~/.tota/memory/` | SQLite Second Brain database and FTS index |
 | `~/.tota/daemon.pid` | PID of the running background daemon |
 | `~/.tota/daemon.log` | Background mode logs (last 1000 lines kept, then rotated) |
@@ -15,3 +17,51 @@ All configuration and data is stored in `~/.tota/`.
 | `~/.tota/tasks.json` | Persisted scheduled tasks |
 
 Nothing is stored in your project directory. You can delete `~/.tota/` to start completely fresh.
+
+## Web Search
+
+| Env Var | Description | Default |
+|---------|-------------|---------|
+| `WEB_SEARCH_ENABLED` | Enable the `web_search` tool | `true` |
+| `WEB_SEARCH_PROVIDER` | `brave`, `serper`, `tavily`, or `auto` | `auto` |
+| `WEB_SEARCH_MAX_RESULTS` | Max results returned (1–10) | `5` |
+| `BRAVE_API_KEY` | [Brave Search API](https://brave.com/search/api/) key | — |
+| `SERPER_API_KEY` | [Serper](https://serper.dev) API key | — |
+| `TAVILY_API_KEY` | [Tavily](https://tavily.com) API key | — |
+
+When `WEB_SEARCH_PROVIDER=auto`, tota picks whichever key it finds first (Brave → Serper → Tavily).
+
+## REST API Channel
+
+| Env Var | Description | Default |
+|---------|-------------|---------|
+| `API_CHANNEL_ENABLED` | Enable the HTTP API channel | `false` |
+| `API_CHANNEL_PORT` | Port to listen on | `3001` |
+| `API_CHANNEL_KEY` | Optional bearer token for auth | — |
+
+## Loop Guard
+
+| Env Var | Description | Default |
+|---------|-------------|---------|
+| `LOOP_MAX_STEPS` | Max agentic steps per request | `50` |
+| `LOOP_ABSOLUTE_MAX` | Hard cap on total tool calls | `100` |
+| `LOOP_FAILED_ABSOLUTE_MAX` | Stop after this many failed calls | `25` |
+| `LOOP_IDENTICAL_THRESHOLD` | Consecutive identical calls before warning | `5` |
+| `LOOP_SIMILAR_THRESHOLD` | Consecutive failing calls before warning | `8` |
+| `LOOP_SAME_TOOL_THRESHOLD` | Consecutive same-tool calls before warning | `10` |
+| `LOOP_NO_ACTION_MAX` | Steps with no tool calls before stopping | `10` |
+| `LOOP_TEXT_REPEAT_THRESHOLD` | Repeated step texts before warning | `3` |
+
+## MCP Servers (tota.yaml)
+
+```yaml
+mcp:
+  servers:
+    - name: my-tools
+      url: http://localhost:8080/mcp
+      enabled: true
+      apiKey: optional-bearer-token
+```
+
+Each server must implement the [Model Context Protocol](https://modelcontextprotocol.io) JSON-RPC `tools/list` and `tools/call` methods over HTTP.
+

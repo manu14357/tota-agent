@@ -68,7 +68,7 @@ export default function Hero() {
             }}
           >
             <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#00A9FF' }} />
-            31 built-in tools · 9 AI providers · SQLite Second Brain
+            40+ built-in tools · 9 AI providers · Web search · Vision · Code sandbox · MCP plugins
           </span>
         </div>
 
@@ -88,7 +88,7 @@ export default function Hero() {
         >
           Permission-hardened tools, token budgets, and multi-channel access.
           <br className="hidden sm:block" />
-          Remembers what matters. Asks before it acts. Runs 24/7 from CLI or Telegram.
+          Remembers what matters. Asks before it acts. Runs 24/7 from CLI, Telegram, or REST API.
         </p>
 
         {/* Install snippet */}

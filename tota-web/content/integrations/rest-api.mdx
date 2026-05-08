@@ -1,0 +1,96 @@
+---
+title: REST API
+---
+
+tota exposes a lightweight HTTP API channel so you can control it programmatically from scripts, CI pipelines, or other services.
+
+## Enable
+
+Add to `~/.tota/.env`:
+
+```bash
+API_CHANNEL_ENABLED=true
+API_CHANNEL_PORT=3001
+API_CHANNEL_KEY=your-secret-key   # optional — omit for open access
+```
+
+Restart tota after changing env vars.
+
+## Endpoints
+
+### `GET /status`
+
+Check if the agent is running and ready.
+
+```bash
+curl http://localhost:3001/status
+```
+
+```json
+{ "status": "ok", "ready": true }
+```
+
+### `POST /message`
+
+Send a message to the agent and receive a response.
+
+```bash
+curl -X POST http://localhost:3001/message \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your-secret-key" \
+  -d '{ "content": "What is the current date?" }'
+```
+
+```json
+{
+  "requestId": "a1b2c3d4-...",
+  "response": "Today is Monday, 26 May 2025."
+}
+```
+
+**Request body:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `content` | `string` | The message to send (required) |
+| `timeout` | `number` | Response timeout in seconds (optional, default: 30) |
+
+## Authentication
+
+If `API_CHANNEL_KEY` is set, every request must include it as either:
+
+```
+Authorization: Bearer your-secret-key
+```
+
+or:
+
+```
+X-Api-Key: your-secret-key
+```
+
+Requests without a valid token receive `401 Unauthorized`.
+
+If no `API_CHANNEL_KEY` is configured, the API is open — suitable for local development only.
+
+## Example: Python client
+
+```python
+import requests
+
+BASE = "http://localhost:3001"
+HEADERS = {"Authorization": "Bearer your-secret-key", "Content-Type": "application/json"}
+
+def ask(prompt: str) -> str:
+    r = requests.post(f"{BASE}/message", json={"content": prompt}, headers=HEADERS)
+    r.raise_for_status()
+    return r.json()["response"]
+
+print(ask("Summarize the README in one sentence."))
+```
+
+## Notes
+
+- Only one request is processed at a time per agent instance.
+- Streaming responses are collected and returned as a single string.
+- The API channel runs alongside CLI and Telegram — all channels share the same agent and memory.

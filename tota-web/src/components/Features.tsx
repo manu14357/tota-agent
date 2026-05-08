@@ -8,6 +8,12 @@ import {
   Radio,
   Clock,
   Plug,
+  Search,
+  Eye,
+  Code2,
+  GitBranch,
+  Server,
+  Puzzle,
 } from 'lucide-react'
 
 const features = [
@@ -66,13 +72,67 @@ const features = [
     borderColor: 'rgba(20,184,166,0.2)',
   },
   {
+    icon: Search,
+    title: 'Web Search',
+    description:
+      'Built-in web_search tool with Brave, Serper, and Tavily support. Auto-detects provider from env keys. Search results formatted as numbered markdown.',
+    accent: 'text-violet-400',
+    bg: 'rgba(139,92,246,0.1)',
+    borderColor: 'rgba(139,92,246,0.2)',
+  },
+  {
+    icon: Eye,
+    title: 'Vision',
+    description:
+      'Analyze local images or image URLs with analyze_image. Auto-detects MIME type from magic bytes. Works with any provider that has vision support.',
+    accent: 'text-pink-400',
+    bg: 'rgba(236,72,153,0.1)',
+    borderColor: 'rgba(236,72,153,0.2)',
+  },
+  {
+    icon: Code2,
+    title: 'Code Sandbox',
+    description:
+      'Execute Python, JavaScript, Bash, TypeScript, Ruby, and Go in an isolated temporary sandbox via run_code. Output capped at 8,000 chars. Auto-cleanup.',
+    accent: 'text-lime-400',
+    bg: 'rgba(132,204,22,0.1)',
+    borderColor: 'rgba(132,204,22,0.2)',
+  },
+  {
+    icon: GitBranch,
+    title: 'Task Delegation',
+    description:
+      'delegate_task spawns a focused sub-agent for complex sub-tasks and returns the result. Enables multi-step autonomous workflows without losing context.',
+    accent: 'text-orange-400',
+    bg: 'rgba(249,115,22,0.1)',
+    borderColor: 'rgba(249,115,22,0.2)',
+  },
+  {
+    icon: Puzzle,
+    title: 'MCP Plugins',
+    description:
+      'Connect any Model Context Protocol server over HTTP. Tools appear instantly as mcp_<server>_<tool>. Any JSON-RPC MCP server is supported.',
+    accent: 'text-cyan-400',
+    bg: 'rgba(6,182,212,0.1)',
+    borderColor: 'rgba(6,182,212,0.2)',
+  },
+  {
+    icon: Server,
+    title: 'REST API Channel',
+    description:
+      'Control tota programmatically via HTTP. POST /message, GET /status. Optional bearer-token auth. Runs alongside CLI and Telegram on a configurable port.',
+    accent: 'text-indigo-400',
+    bg: 'rgba(99,102,241,0.1)',
+    borderColor: 'rgba(99,102,241,0.2)',
+  },
+  {
     icon: Plug,
     title: 'Extensible Skills',
     description:
       'Install community skills with one command. Skills are markdown-based SKILL.md files with elevated permissions. Schedule them as recurring cron tasks.',
-    accent: 'text-orange-400',
-    bg: 'rgba(249,115,22,0.1)',
-    borderColor: 'rgba(249,115,22,0.2)',
+    accent: 'text-rose-400',
+    bg: 'rgba(244,63,94,0.1)',
+    borderColor: 'rgba(244,63,94,0.2)',
   },
 ]
 
@@ -91,14 +151,11 @@ export default function Features() {
           </p>
         </div>
 
-        {/* Feature grid */}
+        {/* Feature grid — 3 columns, last row centered if odd */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-          {features.slice(0, 6).map((feat) => (
+          {features.map((feat) => (
             <FeatureCard key={feat.title} {...feat} />
           ))}
-          <div className="sm:col-span-2 lg:col-span-1 lg:col-start-2">
-            <FeatureCard {...features[6]} />
-          </div>
         </div>
       </div>
     </section>

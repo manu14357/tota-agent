@@ -7,8 +7,8 @@
 </p>
 
 <p align="center">
-  Remembers what matters. Asks before it acts. Runs 24/7 from CLI or Telegram.<br>
-  31 built-in tools · Extensible skills · SQLite-backed Second Brain memory.
+  Remembers what matters. Asks before it acts. Runs 24/7 from CLI, Telegram, or REST API.<br>
+  40+ built-in tools · Web search · Vision · Code sandbox · MCP plugins · Extensible skills · SQLite-backed Second Brain memory.
 </p>
 
 <p align="center">
@@ -55,6 +55,12 @@ Every AI agent can read files and run commands. Most do it silently. **tota asks
 | **Token-aware** | Daily budget with auto-concise at 70%. `/budget` command to check, reset, or override. |
 | **Live streaming** | Real-time token streaming on CLI with markdown re-render. Telegram streaming with editable messages. |
 | **Always on** | Daemon mode with crash recovery and system service (macOS, Linux, Windows). |
+| **Web search** | Built-in web search via Brave, Serper, or Tavily. Auto-detects from env keys. |
+| **Vision** | Analyze local images and URLs with your AI provider's vision capabilities. |
+| **Code sandbox** | Execute Python, JavaScript, Bash, TypeScript, Ruby, and Go in an isolated temp sandbox. |
+| **Task delegation** | Agent can spawn sub-tasks and delegate to itself for complex multi-step workflows. |
+| **MCP plugins** | Connect any MCP-compatible tool server over HTTP — tools appear instantly in the agent. |
+| **REST API channel** | Control tota programmatically over HTTP with optional bearer-token auth. |
 | **Extensible** | Install community skills with one command. Schedule skills as recurring tasks. |
 
 ---
@@ -153,12 +159,118 @@ These work on both CLI and Telegram and do not consume API tokens.
 |----------|-------|
 | **Filesystem** | `read_file`, `write_file`, `create_file`, `edit_file`, `list_dir`, `delete_file`, `send_file`, `approve_scope` |
 | **Shell** | `run_command`, `cd`, `approve_command` |
+| **Code sandbox** | `run_code` — execute Python / JS / Bash / TS / Ruby / Go in an isolated sandbox |
 | **Messaging** | `send_message` |
 | **Git** | `git_status`, `git_diff`, `git_log`, `git_add`, `git_commit`, `git_push` |
-| **Web** | `fetch_url` |
+| **Web** | `fetch_url`, `web_search` — search via Brave, Serper, or Tavily |
+| **Vision** | `analyze_image` — analyze local images or image URLs |
+| **Delegation** | `delegate_task` — spawn a focused sub-agent for a sub-task |
 | **Skills** | `install_skill`, `list_skills`, `use_skill` |
 | **Scheduler** | `schedule_task`, `list_scheduled_tasks`, `cancel_scheduled_task` |
 | **System** | `budget_status` |
+| **MCP** | `mcp_<server>_<tool>` — tools loaded dynamically from MCP servers |
+
+---
+
+## Web Search
+
+tota can search the web using three providers — set one API key and it works automatically.
+
+| Provider | Env Var | Sign up |
+|----------|---------|---------|
+| **Brave Search** | `BRAVE_API_KEY` | [brave.com/search/api](https://brave.com/search/api/) |
+| **Serper** | `SERPER_API_KEY` | [serper.dev](https://serper.dev) |
+| **Tavily** | `TAVILY_API_KEY` | [tavily.com](https://tavily.com) |
+
+Auto-detection: if `WEB_SEARCH_PROVIDER=auto` (default), tota picks whichever key it finds. Or pin a specific provider:
+
+```bash
+# ~/.tota/.env
+WEB_SEARCH_PROVIDER=brave
+BRAVE_API_KEY=your-key-here
+```
+
+Disable entirely: `WEB_SEARCH_ENABLED=false`
+
+---
+
+## Vision / Image Analysis
+
+tota can analyze images — local files or URLs — using your provider's vision model.
+
+```
+Analyze this screenshot: /path/to/screenshot.png
+What's in this image? https://example.com/chart.jpg
+```
+
+The `analyze_image` tool automatically detects MIME types from magic bytes, supports JPEG, PNG, GIF, and WebP, and works with any provider that supports vision.
+
+---
+
+## Code Sandbox
+
+The `run_code` tool executes code in an isolated temporary directory — no access to your project files.
+
+Supported languages: **Python**, **JavaScript (Node.js)**, **Bash**, **TypeScript**, **Ruby**, **Go**
+
+```
+Run this Python script and show me the output:
+  import json; print(json.dumps({"x": 42}))
+```
+
+- Timeout: 30 s default, configurable up to 120 s
+- Output capped at 8,000 characters
+- Sandbox cleaned up after each run
+- Accepts optional stdin input
+
+---
+
+## REST API Channel
+
+Control tota programmatically over HTTP:
+
+```bash
+# Enable in ~/.tota/.env
+API_CHANNEL_ENABLED=true
+API_CHANNEL_PORT=3001
+API_CHANNEL_KEY=your-secret-key   # optional
+```
+
+**Endpoints:**
+
+```
+GET  /status          → { "status": "ok", "ready": true }
+POST /message         → { "content": "your message", "timeout": 30 }
+                      ← { "requestId": "...", "response": "..." }
+```
+
+**Authentication** (if `API_CHANNEL_KEY` set):
+```
+Authorization: Bearer your-secret-key
+# or
+X-Api-Key: your-secret-key
+```
+
+---
+
+## MCP Plugins
+
+Connect any [Model Context Protocol](https://modelcontextprotocol.io) server to tota. Tools load automatically at startup and appear with the prefix `mcp_<server>_<tool>`.
+
+```yaml
+# ~/.tota/tota.yaml
+mcp:
+  servers:
+    - name: filesystem
+      url: http://localhost:8080/mcp
+      enabled: true
+    - name: my-db
+      url: http://localhost:9090/mcp
+      apiKey: secret-token
+      enabled: true
+```
+
+Any MCP server speaking the JSON-RPC `tools/list` + `tools/call` protocol over HTTP is supported.
 
 ---
 
@@ -231,12 +343,16 @@ Private chats only. Group messages are always ignored.
 ## Architecture
 
 - **TypeScript + Node.js 20+** — ESM, tsup build
-- **Vercel AI SDK v4** — `generateText` + `streamText`, 10-step agentic loop, provider fallback
+- **Vercel AI SDK v6** — `generateText` + `streamText`, 50-step (configurable) agentic loop, provider fallback
 - **grammY** — Telegram bot with typing indicators, editable streaming, file uploads
+- **REST API channel** — Node.js `http.createServer`, bearer-token auth, request/response pairing
 - **SQLite + FTS5** — Second Brain with full-text search and auto-consolidation
 - **JSONL** — Short-term, long-term, and episodic conversation memory
 - **Custom daemon manager** — Background spawn + PID file + watchdog crash recovery
 - **Platform services** — macOS LaunchAgent, Linux systemd, Windows Task Scheduler
+- **MCP loader** — JSON-RPC `tools/list` + `tools/call` over HTTP, dynamic tool registration
+- **Code sandbox** — Isolated `os.tmpdir()/tota-sandbox/<runId>/` with cleanup after each run
+- **Tool truncation** — All tool outputs capped at 12,000 chars with clear truncation notice
 
 ---
 

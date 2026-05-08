@@ -14,6 +14,19 @@ const telegramFeatures = [
   { icon: '🔒', label: 'Private chats only', desc: 'Groups and channels always ignored' },
 ]
 
+const mcpFeatures = [
+  { icon: '🔌', label: 'Any MCP server', desc: 'JSON-RPC tools/list + tools/call over HTTP' },
+  { icon: '🏷️', label: 'Auto-prefixed tools', desc: 'mcp_<server>_<tool> — no naming conflicts' },
+  { icon: '🔑', label: 'Bearer auth', desc: 'Per-server apiKey forwarded automatically' },
+  { icon: '⚡', label: 'Load at startup', desc: 'Tools registered alongside built-ins' },
+  { icon: '🛡️', label: 'Graceful errors', desc: 'Unavailable servers logged and skipped' },
+]
+
+const apiEndpoints = [
+  { method: 'GET', path: '/status', desc: 'Check if agent is running and ready' },
+  { method: 'POST', path: '/message', desc: 'Send a message, receive a response' },
+]
+
 export default function Integrations() {
   return (
     <section id="integrations" className="py-24 sm:py-32">
@@ -24,7 +37,7 @@ export default function Integrations() {
             Integrations
           </h2>
           <p className="text-lg" style={{ color: 'var(--fg-muted)' }}>
-            Native GitHub tooling and a full Telegram bot — both first-class.
+            Native GitHub tooling, Telegram bot, REST API, and MCP plugins — all first-class.
           </p>
         </div>
 
@@ -118,17 +131,120 @@ export default function Integrations() {
               <div className="space-y-2">
                 {[
                   { role: 'Admin', desc: 'First user · Can approve / reject / manage', color: '#00A9FF' },
-                  { role: 'Member', desc: 'Approved · Can send messages', color: '#89CFF3' },
-                  { role: 'Pending', desc: 'Sent /start · Awaiting admin approval', color: '#fbbf24' },
+                  { role: 'Member', desc: 'Approved user · Full chat access', color: 'var(--fg-muted)' },
                 ].map((r) => (
                   <div key={r.role} className="flex items-center gap-2">
-                    <span className="text-xs font-medium w-14 shrink-0" style={{ color: r.color }}>
-                      {r.role}
-                    </span>
+                    <span className="text-xs font-mono font-medium px-1.5 py-0.5 rounded" style={{ color: r.color, background: 'var(--surface-raised)' }}>{r.role}</span>
                     <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>{r.desc}</span>
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+
+          {/* REST API */}
+          <div className="rounded-2xl p-6 flex flex-col gap-5" style={{ border: '1px solid rgba(99,102,241,0.25)', background: 'var(--surface)' }}>
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl" style={{ background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)' }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="2" y="3" width="20" height="14" rx="2" />
+                  <path d="M8 21h8M12 17v4" />
+                  <path d="M7 8h2m2 0h6M7 11h4m2 0h4" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="font-semibold text-lg" style={{ color: 'var(--fg)' }}>
+                  REST API Channel
+                </h3>
+                <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>
+                  HTTP control · Bearer-token auth · Port 3001 (configurable)
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              {apiEndpoints.map((ep) => (
+                <div key={ep.path} className="flex items-start gap-3 py-2" style={{ borderBottom: '1px solid var(--border)' }}>
+                  <span className="font-mono text-xs font-bold shrink-0 px-1.5 py-0.5 rounded" style={{ color: ep.method === 'GET' ? '#34d399' : '#60a5fa', background: ep.method === 'GET' ? 'rgba(52,211,153,0.1)' : 'rgba(96,165,250,0.1)' }}>
+                    {ep.method}
+                  </span>
+                  <code className="font-mono text-xs shrink-0 mt-0.5" style={{ color: 'var(--accent)' }}>{ep.path}</code>
+                  <span className="text-sm" style={{ color: 'var(--fg-muted)' }}>{ep.desc}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="rounded-xl p-3" style={{ background: 'var(--code-bg)', border: '1px solid var(--code-border)' }}>
+              <p className="text-xs font-mono mb-1" style={{ color: 'var(--fg-subtle)' }}>
+                <span style={{ color: '#60a5fa' }}>POST</span>{' '}
+                <span style={{ color: 'var(--accent)' }}>/message</span>
+              </p>
+              <p className="text-xs font-mono" style={{ color: 'var(--fg-muted)' }}>
+                {'{ "content": "What time is it?" }'}<br />
+                <span style={{ color: '#34d399' }}>← {'{ "response": "It\'s 3:14 PM UTC." }'}</span>
+              </p>
+            </div>
+
+            <div className="rounded-xl p-3" style={{ background: 'var(--code-bg)', border: '1px solid var(--code-border)' }}>
+              <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+                <span className="font-medium" style={{ color: 'var(--fg)' }}>Enable —</span>{' '}
+                set{' '}
+                <code className="font-mono" style={{ color: 'var(--accent)' }}>API_CHANNEL_ENABLED=true</code>
+                {' '}in{' '}
+                <code className="font-mono" style={{ color: 'var(--fg-subtle)' }}>~/.tota/.env</code>
+              </p>
+            </div>
+          </div>
+
+          {/* MCP Plugins */}
+          <div className="rounded-2xl p-6 flex flex-col gap-5" style={{ border: '1px solid rgba(6,182,212,0.25)', background: 'var(--surface)' }}>
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl" style={{ background: 'rgba(6,182,212,0.1)', border: '1px solid rgba(6,182,212,0.2)' }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="font-semibold text-lg" style={{ color: 'var(--fg)' }}>
+                  MCP Plugins
+                </h3>
+                <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>
+                  Model Context Protocol · HTTP JSON-RPC · Auto-registered at startup
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {mcpFeatures.map((f) => (
+                <div key={f.label} className="flex items-start gap-3">
+                  <span className="text-base shrink-0 mt-0.5">{f.icon}</span>
+                  <div>
+                    <span className="text-sm font-medium" style={{ color: 'var(--fg)' }}>
+                      {f.label}
+                    </span>
+                    <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>{f.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="rounded-xl p-3" style={{ background: 'var(--code-bg)', border: '1px solid var(--code-border)' }}>
+              <p className="text-xs font-mono mb-1" style={{ color: 'var(--fg-subtle)' }}>~/.tota/tota.yaml</p>
+              <pre className="text-xs font-mono leading-relaxed" style={{ color: 'var(--fg-muted)' }}>{`mcp:
+  servers:
+    - name: my-tools
+      url: http://localhost:8080/mcp
+      enabled: true`}</pre>
+            </div>
+
+            <div className="rounded-xl p-3" style={{ background: 'var(--code-bg)', border: '1px solid var(--code-border)' }}>
+              <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+                <span className="font-medium" style={{ color: 'var(--fg)' }}>Tool naming —</span>{' '}
+                tools from server{' '}
+                <code className="font-mono" style={{ color: 'var(--accent)' }}>my-tools</code>
+                {' '}appear as{' '}
+                <code className="font-mono" style={{ color: 'var(--accent)' }}>mcp_my-tools_&lt;name&gt;</code>
+              </p>
             </div>
           </div>
         </div>

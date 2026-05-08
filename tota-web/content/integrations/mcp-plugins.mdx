@@ -1,0 +1,80 @@
+---
+title: MCP Plugins
+---
+
+tota supports [Model Context Protocol (MCP)](https://modelcontextprotocol.io) servers. Any MCP server that speaks HTTP JSON-RPC can be connected, and its tools will appear in the agent automatically.
+
+## How it works
+
+On startup, tota calls `tools/list` on each configured server. The returned tools are registered with the prefix `mcp_<server>_<tool>`. When the agent calls one, tota forwards the request to the server via `tools/call` and returns the result.
+
+## Configuration
+
+Add servers to `~/.tota/tota.yaml`:
+
+```yaml
+mcp:
+  servers:
+    - name: filesystem
+      url: http://localhost:8080/mcp
+      enabled: true
+
+    - name: my-db
+      url: http://localhost:9090/mcp
+      apiKey: secret-token
+      enabled: true
+```
+
+| Field | Description |
+|-------|-------------|
+| `name` | Short identifier (used as prefix in tool names) |
+| `url` | Full URL of the MCP server's JSON-RPC endpoint |
+| `apiKey` | Optional bearer token sent as `Authorization: Bearer <key>` |
+| `enabled` | Set to `false` to skip this server without removing it |
+
+## Tool naming
+
+Tools from the server appear as:
+
+```
+mcp_<name>_<tool>
+```
+
+For example, a server named `filesystem` with a tool `read_file` appears as `mcp_filesystem_read_file`.
+
+## Protocol requirements
+
+Your MCP server must handle:
+
+- `POST <url>` with `{ "jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {} }`
+  - Returns `{ "result": { "tools": [ { "name", "description", "inputSchema" } ] } }`
+- `POST <url>` with `{ "jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": { "name", "arguments": {} } }`
+  - Returns `{ "result": { "content": [ { "type": "text", "text": "..." } ] } }`
+
+## Error handling
+
+If a server is unreachable or returns an error at startup, tota logs a warning and continues without that server's tools. Individual tool-call failures are returned as error strings to the agent.
+
+## Example: Running a local MCP server
+
+```bash
+# Install a community MCP server
+npm install -g @modelcontextprotocol/server-filesystem
+
+# Start it
+mcp-server-filesystem --port 8080
+
+# Add to tota config
+echo "
+mcp:
+  servers:
+    - name: fs
+      url: http://localhost:8080/mcp
+      enabled: true
+" >> ~/.tota/tota.yaml
+
+# Restart tota
+tota restart
+```
+
+The tool `mcp_fs_read_file` will now be available to the agent.

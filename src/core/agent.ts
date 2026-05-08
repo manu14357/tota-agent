@@ -37,10 +37,7 @@ class ToolCallLoopDetector {
   private hardAborted = false;
   private recentStepTexts: Array<string> = [];
   private consecutiveNoActionSteps = 0;
-
-  private static readonly ABSOLUTE_MAX = 25;
-  private static readonly FAILED_ABSOLUTE_MAX = 12;
-  private static readonly NO_ACTION_MAX = 5;
+  private static readonly MAX_STEP_TEXTS = 12;
 
   private static readonly HIGH_TOLERANCE_TOOLS = new Set([
     'fetch_url',
@@ -48,22 +45,42 @@ class ToolCallLoopDetector {
     'list_dir',
     'web_search',
     'github_api',
+    'analyze_image',
   ]);
 
-  private static readonly IDENTICAL_THRESHOLD = 3;
-  private static readonly SIMILAR_THRESHOLD = 4;
-  private static readonly TEXT_REPEAT_THRESHOLD = 3;
-  private static readonly MAX_STEP_TEXTS = 12;
+  private readonly absoluteMax: number;
+  private readonly failedAbsoluteMax: number;
+  private readonly noActionMax: number;
+  private readonly identicalThreshold: number;
+  private readonly similarThreshold: number;
+  private readonly textRepeatThreshold: number;
+  private readonly sameToolThreshold: number;
 
-  private static getSameToolThreshold(toolName: string, failingCount: number): number {
-    const baseHigh = 5;
-    const baseNormal = 3;
+  constructor(cfg?: {
+    absoluteMax?: number;
+    failedAbsoluteMax?: number;
+    noActionMax?: number;
+    identicalThreshold?: number;
+    similarThreshold?: number;
+    textRepeatThreshold?: number;
+    sameToolThreshold?: number;
+  }) {
+    this.absoluteMax = cfg?.absoluteMax ?? 100;
+    this.failedAbsoluteMax = cfg?.failedAbsoluteMax ?? 25;
+    this.noActionMax = cfg?.noActionMax ?? 10;
+    this.identicalThreshold = cfg?.identicalThreshold ?? 5;
+    this.similarThreshold = cfg?.similarThreshold ?? 8;
+    this.textRepeatThreshold = cfg?.textRepeatThreshold ?? 3;
+    this.sameToolThreshold = cfg?.sameToolThreshold ?? 10;
+  }
+
+  private getSameToolThreshold(toolName: string, failingCount: number): number {
     const isHigh = ToolCallLoopDetector.HIGH_TOLERANCE_TOOLS.has(toolName);
-    let threshold = isHigh ? baseHigh : baseNormal;
+    const base = isHigh ? this.sameToolThreshold + 2 : this.sameToolThreshold;
     if (failingCount >= 3) {
-      threshold = Math.min(threshold, isHigh ? 3 : 2);
+      return Math.max(2, Math.floor(base * 0.5));
     }
-    return threshold;
+    return base;
   }
 
   record(toolName: string, params: Record<string, any>, failed: boolean = false): void {
@@ -78,7 +95,7 @@ class ToolCallLoopDetector {
 
   recordNoActionResult(): boolean {
     this.consecutiveNoActionSteps++;
-    return this.consecutiveNoActionSteps >= ToolCallLoopDetector.NO_ACTION_MAX;
+    return this.consecutiveNoActionSteps >= this.noActionMax;
   }
 
   recordStepText(text: string): void {
@@ -92,9 +109,9 @@ class ToolCallLoopDetector {
   }
 
   detectAbsoluteLimit(): boolean {
-    if (this.totalCalls >= ToolCallLoopDetector.ABSOLUTE_MAX) return true;
+    if (this.totalCalls >= this.absoluteMax) return true;
     const failCount = this.recentCalls.filter(c => c.failed).length;
-    if (failCount >= ToolCallLoopDetector.FAILED_ABSOLUTE_MAX) return true;
+    if (failCount >= this.failedAbsoluteMax) return true;
     return false;
   }
 
@@ -112,7 +129,7 @@ class ToolCallLoopDetector {
       }
     }
 
-    if (identicalCount >= ToolCallLoopDetector.IDENTICAL_THRESHOLD) {
+    if (identicalCount >= this.identicalThreshold) {
       this.hardAborted = true;
       return {
         tool: last.tool,
@@ -140,7 +157,7 @@ class ToolCallLoopDetector {
       }
     }
 
-    if (similarCount >= ToolCallLoopDetector.SIMILAR_THRESHOLD) {
+    if (similarCount >= this.similarThreshold) {
       this.hardAborted = true;
       return {
         tool: last.tool,
@@ -153,7 +170,7 @@ class ToolCallLoopDetector {
   }
 
   detectTextRepetition(): { pattern: string; count: number } | null {
-    if (this.recentStepTexts.length < ToolCallLoopDetector.TEXT_REPEAT_THRESHOLD) return null;
+    if (this.recentStepTexts.length < this.textRepeatThreshold) return null;
 
     const texts = this.recentStepTexts;
     const last = texts[texts.length - 1];
@@ -168,7 +185,7 @@ class ToolCallLoopDetector {
       }
     }
 
-    if (repeatCount >= ToolCallLoopDetector.TEXT_REPEAT_THRESHOLD) {
+    if (repeatCount >= this.textRepeatThreshold) {
       return {
         pattern: last.slice(0, 60),
         count: repeatCount,
@@ -205,7 +222,7 @@ class ToolCallLoopDetector {
       }
     }
 
-    const threshold = ToolCallLoopDetector.getSameToolThreshold(last.tool, failingConsecutive);
+    const threshold = this.getSameToolThreshold(last.tool, failingConsecutive);
     if (consecutiveCount >= threshold) {
       return { tool: last.tool, count: consecutiveCount };
     }
@@ -217,7 +234,7 @@ class ToolCallLoopDetector {
         toolCounts[call.tool] = (toolCounts[call.tool] || 0) + 1;
       }
       for (const [tool, count] of Object.entries(toolCounts)) {
-        if (count >= 5) {
+        if (count >= Math.floor(this.sameToolThreshold * 1.5)) {
           return { tool, count };
         }
       }
@@ -239,7 +256,7 @@ class ToolCallLoopDetector {
   }
 }
 
-const MAX_STEPS = 10;
+const MAX_STEPS = 50; // default; overridden per-request via config.loopGuard.maxSteps
 
 export class Agent {
   readonly lifecycle: Lifecycle;
@@ -503,7 +520,15 @@ export class Agent {
       let usedProvider: { name: string; model: string } | null = null;
       let lastError: any = null;
       let streamedText = '';
-      const loopDetector = new ToolCallLoopDetector();
+      const loopDetector = new ToolCallLoopDetector({
+        absoluteMax: this.config.loopGuard?.absoluteMax,
+        failedAbsoluteMax: this.config.loopGuard?.failedAbsoluteMax,
+        identicalThreshold: this.config.loopGuard?.identicalThreshold,
+        similarThreshold: this.config.loopGuard?.similarThreshold,
+        sameToolThreshold: this.config.loopGuard?.sameToolThreshold,
+        noActionMax: this.config.loopGuard?.noActionMax,
+        textRepeatThreshold: this.config.loopGuard?.textRepeatThreshold,
+      });
       const loopAbortController = new AbortController();
       let loopWarningSent = false;
 
@@ -520,7 +545,7 @@ export class Agent {
             ? { deepseek: { thinking: { type: 'enabled' as const } } }
             : undefined;
 
-          logger.info({ provider: provider.name, model: provider.getModel(), steps: MAX_STEPS, stream: canStream }, 'Generating agentic response');
+          logger.info({ provider: provider.name, model: provider.getModel(), steps: this.config.loopGuard?.maxSteps ?? MAX_STEPS, stream: canStream }, 'Generating agentic response');
 
           if (canStream && channel) {
             const streamResult = streamText({
@@ -528,7 +553,7 @@ export class Agent {
               system: systemPrompt,
               messages,
               tools: this.capabilities.getTools(),
-              stopWhen: stepCountIs(MAX_STEPS),
+              stopWhen: stepCountIs(this.config.loopGuard?.maxSteps ?? MAX_STEPS),
               abortSignal: loopAbortController.signal,
               ...(deepseekProviderOptions ? { providerOptions: deepseekProviderOptions } : {}),
               onStepFinish: async ({ toolCalls, toolResults }) => {
@@ -549,9 +574,10 @@ export class Agent {
                     loopDetector.record(tc.toolName, tc.input as Record<string, any>, failed);
                   }
                   if (loopDetector.detectAbsoluteLimit()) {
+                    const absMax = this.config.loopGuard?.absoluteMax ?? 100;
                     logger.warn('Absolute tool call limit reached — aborting');
                     if (channel && msg.channelType !== 'internal') {
-                      await channel.send('⚠ Tool call limit reached (25 calls). Stopping to prevent runaway loop.', msg.channelId).catch(() => {});
+                      await channel.send(`⚠ Tool call limit reached (${absMax} calls). Stopping to prevent runaway loop.`, msg.channelId).catch(() => {});
                     }
                     loopAbortController.abort();
                     return;
@@ -693,7 +719,7 @@ export class Agent {
               system: systemPrompt,
               messages,
               tools: this.capabilities.getTools(),
-              stopWhen: stepCountIs(MAX_STEPS),
+              stopWhen: stepCountIs(this.config.loopGuard?.maxSteps ?? MAX_STEPS),
               abortSignal: loopAbortController.signal,
               ...(deepseekProviderOptions ? { providerOptions: deepseekProviderOptions } : {}),
               onStepFinish: async ({ toolCalls, toolResults }) => {
@@ -714,9 +740,10 @@ export class Agent {
                     loopDetector.record(tc.toolName, tc.input as Record<string, any>, failed);
                   }
                   if (loopDetector.detectAbsoluteLimit()) {
+                    const absMax = this.config.loopGuard?.absoluteMax ?? 100;
                     logger.warn('Absolute tool call limit reached — aborting');
                     if (channel && msg.channelType !== 'internal') {
-                      await channel.send('⚠ Tool call limit reached (25 calls). Stopping to prevent runaway loop.', msg.channelId).catch(() => {});
+                      await channel.send(`⚠ Tool call limit reached (${absMax} calls). Stopping to prevent runaway loop.`, msg.channelId).catch(() => {});
                     }
                     loopAbortController.abort();
                     return;
@@ -1910,5 +1937,25 @@ Always specify owner and repo parameters on GitHub tools. The user's GitHub user
         continue;
       }
     }
+  }
+
+  /** Run a focused sub-task in an isolated context, returning the final text response. */
+  async runSubTask(prompt: string): Promise<string> {
+    const provider = this.providers.getDefault();
+    if (!provider) throw new Error('No provider available for sub-task');
+
+    const systemPrompt = this.buildSystemPrompt();
+    const { generateText } = await import('ai');
+    const { stepCountIs } = await import('ai');
+
+    const result = await generateText({
+      model: provider.getModelInstance(),
+      system: systemPrompt,
+      messages: [{ role: 'user', content: prompt }],
+      tools: this.capabilities.getTools(),
+      stopWhen: stepCountIs(this.config.loopGuard?.maxSteps ?? MAX_STEPS),
+    });
+
+    return result.text || '[Sub-task completed with no text output]';
   }
 }
