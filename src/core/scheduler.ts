@@ -1,4 +1,4 @@
-import cron from 'node-cron';
+import cron, { type ScheduledTask as CronScheduledTask } from 'node-cron';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
@@ -55,7 +55,7 @@ export function saveSchedules(tasks: ScheduledTaskManifest[]): void {
 }
 
 export class Scheduler {
-  private tasks: Map<string, cron.ScheduledTask> = new Map();
+  private tasks: Map<string, CronScheduledTask> = new Map();
   private delayedTasks: Map<string, NodeJS.Timeout> = new Map();
   private taskManifests: Map<string, ScheduledTaskManifest> = new Map();
   private heartbeatIntervalMinutes: number;

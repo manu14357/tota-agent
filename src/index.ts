@@ -51,8 +51,25 @@ import { ProviderModelFetchError, fetchProviderModelCatalog } from './utils/prov
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkgVersion = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8')).version;
 
+function getTerminalWidth(): number {
+  return process.stdout.columns || 80;
+}
+
+/** Strip ANSI escape codes to measure visible character width. */
+function stripAnsi(str: string): string {
+  return str.replace(/\x1b\[[\d;]*m/g, '');
+}
+
+/** Center a (possibly ANSI-colored) string within `width` columns. */
+function centerLine(coloredText: string, width: number): string {
+  const visible = stripAnsi(coloredText).length;
+  const pad = Math.max(0, Math.floor((width - visible) / 2));
+  return ' '.repeat(pad) + coloredText;
+}
+
 function hr() {
-  console.log(chalk.dim('─'.repeat(50)));
+  const cols = Math.min(getTerminalWidth(), 80);
+  console.log(chalk.dim('─'.repeat(cols)));
 }
 
 // ── ASCII art banner (braille) ─────────────────────────────────────────────────
@@ -90,14 +107,14 @@ const TOTA_ASCII = [
   '        [ T O T A - A G E N T ]',
 ].filter(l => l.trim());
 
-// ── Side-by-side renderer ──────────────────────────────────────────────────────
+// ── Side-by-side renderer (wide terminals ≥ 90 cols) ─────────────────────────
 function printSideBySide(artLines: string[], textLines: string[], artWidth: number = 50): void {
   const textOffset = Math.max(0, Math.floor((artLines.length - textLines.length) / 2));
   for (let i = 0; i < artLines.length; i++) {
     const art = artLines[i] ?? '';
     const textIdx = i - textOffset;
     const text = (textIdx >= 0 && textIdx < textLines.length) ? textLines[textIdx] : '';
-    const pad = ' '.repeat(Math.max(0, artWidth - art.length));
+    const pad = ' '.repeat(Math.max(0, artWidth - stripAnsi(art).length));
     if (text) {
       console.log(`  ${art}${pad}  ${text}`);
     } else {
@@ -106,7 +123,27 @@ function printSideBySide(artLines: string[], textLines: string[], artWidth: numb
   }
 }
 
+// ── Stacked renderer (medium terminals 50–89 cols) ─────────────────────────────
+function printStacked(artLines: string[], textLines: string[], cols: number): void {
+  for (const line of artLines) {
+    console.log(centerLine(line, cols));
+  }
+  console.log('');
+  for (const line of textLines) {
+    console.log(centerLine(line, cols));
+  }
+}
+
+// ── Minimal renderer (narrow terminals < 50 cols) ──────────────────────────────
+function printMinimal(textLines: string[], cols: number): void {
+  for (const line of textLines) {
+    console.log(centerLine(line, cols));
+  }
+}
+
 function banner() {
+  const cols = getTerminalWidth();
+  const coloredArt = BANNER_ART_LINES.map(l => chalk.cyan(l));
   const textLines = [
     ...TOTA_ASCII.map(l => chalk.bold.cyan(l)),
     '',
@@ -114,11 +151,25 @@ function banner() {
     chalk.dim(`v${pkgVersion} · by manu14357 · github.com/manu14357/tota-agent`),
   ];
   console.log('');
-  printSideBySide(BANNER_ART_LINES.map(l => chalk.cyan(l)), textLines);
+  if (cols >= 90) {
+    printSideBySide(coloredArt, textLines);
+  } else if (cols >= 50) {
+    printStacked(coloredArt, textLines, cols);
+  } else {
+    printMinimal([
+      chalk.bold.cyan('[ T O T A - A G E N T ]'),
+      '',
+      chalk.white('an AI agent for personal tasks'),
+      chalk.dim(`v${pkgVersion}`),
+      chalk.dim('github.com/manu14357/tota-agent'),
+    ], cols);
+  }
   console.log('');
 }
 
 function splashScreen() {
+  const cols = getTerminalWidth();
+  const coloredArt = BANNER_ART_LINES.map(l => chalk.cyan(l));
   const textLines = [
     ...TOTA_ASCII.map(l => chalk.bold.cyan(l)),
     '',
@@ -127,7 +178,19 @@ function splashScreen() {
     chalk.dim('github.com/manu14357/tota-agent'),
   ];
   console.log('');
-  printSideBySide(BANNER_ART_LINES.map(l => chalk.cyan(l)), textLines);
+  if (cols >= 90) {
+    printSideBySide(coloredArt, textLines);
+  } else if (cols >= 50) {
+    printStacked(coloredArt, textLines, cols);
+  } else {
+    printMinimal([
+      chalk.bold.cyan('[ T O T A - A G E N T ]'),
+      '',
+      chalk.dim('an AI agent for personal tasks'),
+      chalk.cyan('by manu14357'),
+      chalk.dim('github.com/manu14357/tota-agent'),
+    ], cols);
+  }
   console.log('');
 }
 
