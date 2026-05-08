@@ -62,9 +62,9 @@ export default function Hero() {
           <span
             className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium"
             style={{
-              border: '1px solid var(--border-hover)',
+              border: '1px solid var(--accent)',
               background: 'var(--accent-dim)',
-              color: 'var(--accent-light)',
+              color: 'var(--accent)',
             }}
           >
             <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#00A9FF' }} />
@@ -74,14 +74,7 @@ export default function Hero() {
 
         {/* Headline */}
         <h1 className="text-center text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.08] mb-6">
-          <span
-            style={{
-              background:
-                'linear-gradient(135deg, #CDF5FD 0%, #A0E9FF 30%, #89CFF3 60%, #00A9FF 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-            }}
-          >
+          <span className="hero-gradient-text">
             Soul-driven
           </span>
           <br />
@@ -90,8 +83,8 @@ export default function Hero() {
 
         {/* Subheadline */}
         <p
-          className="text-center text-lg sm:text-xl max-w-2xl mx-auto mb-10 leading-relaxed"
-          style={{ color: 'var(--fg-muted)' }}
+          className="text-center text-lg sm:text-xl max-w-2xl mx-auto mb-10 leading-relaxed font-medium"
+          style={{ color: 'var(--fg)' }}
         >
           Permission-hardened tools, token budgets, and multi-channel access.
           <br className="hidden sm:block" />
@@ -108,14 +101,14 @@ export default function Hero() {
             }}
           >
             <Terminal size={14} style={{ color: 'var(--accent)' }} className="shrink-0" />
-            <span style={{ color: 'var(--fg-muted)' }}>{NPX_CMD}</span>
+            <span style={{ color: 'var(--fg)', fontWeight: 500 }}>{NPX_CMD}</span>
             <CopyButton text={NPX_CMD} />
           </div>
         </div>
 
-        <p className="text-center text-xs mb-10" style={{ color: 'var(--fg-subtle)' }}>
+        <p className="text-center text-xs mb-10" style={{ color: 'var(--fg-muted)' }}>
           Or:{' '}
-          <code className="font-mono" style={{ color: 'var(--fg-subtle)' }}>
+          <code className="font-mono" style={{ color: 'var(--accent)' }}>
             npm i -g @manu14357/tota-agent
           </code>
         </p>

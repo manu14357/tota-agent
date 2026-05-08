@@ -78,6 +78,20 @@ pre {
   background-color: rgba(0, 169, 255, 0.2);
 }
 
+/* Hero gradient text — light mode uses darker blues for contrast on pale bg */
+.hero-gradient-text {
+  background: linear-gradient(135deg, #004e99 0%, #0078cc 30%, #00A9FF 70%, #89CFF3 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.dark .hero-gradient-text {
+  background: linear-gradient(135deg, #CDF5FD 0%, #A0E9FF 30%, #89CFF3 60%, #00A9FF 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
 /* Smooth anchor scroll offset for sticky header */
 [id] {
   scroll-margin-top: 5rem;
