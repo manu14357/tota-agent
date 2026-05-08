@@ -47,6 +47,7 @@ import { runWithWatchdog } from './cli/watchdog.js';
 import { setGitHubToken } from './utils/github.js';
 import { selectWithArrowKeys } from './utils/arrow-select.js';
 import { ProviderModelFetchError, fetchProviderModelCatalog } from './utils/provider-models.js';
+import { startUpdateCheck, printUpdateNotice } from './utils/update-check.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkgVersion = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8')).version;
@@ -107,7 +108,21 @@ const TOTA_ASCII = [
   '        [ T O T A - A G E N T ]',
 ].filter(l => l.trim());
 
-// ── Side-by-side renderer (wide terminals ≥ 90 cols) ─────────────────────────
+// ── Compact ASCII art for small screens (fits in ~40 cols) ────────────────────
+// Scaled-down elephant using simple block characters
+const BANNER_ART_SMALL = [
+  '   ░░░░░░░░░░░░░░░░░░░░░░░░░   ',
+  '  ░░  ╔═══════════════╗  ░░░   ',
+  ' ░░   ║  ◉         ◉  ║   ░░  ',
+  ' ░░   ║   ~  ___  ~   ║   ░░  ',
+  ' ░░   ╚══╗         ╔══╝   ░░  ',
+  '  ░░░░░░ ╚═════════╝ ░░░░░░   ',
+  '  ░░  ║ ░░░░░░░░░░░ ║  ░░     ',
+  '  ░░  ║ ║  ░░░░░  ║ ║  ░░     ',
+  '   ░  ╚═╝  ░░░░░  ╚═╝  ░      ',
+];
+
+// ── Side-by-side renderer (wide terminals ≥ 100 cols) ────────────────────────
 function printSideBySide(artLines: string[], textLines: string[], artWidth: number = 50): void {
   const textOffset = Math.max(0, Math.floor((artLines.length - textLines.length) / 2));
   for (let i = 0; i < artLines.length; i++) {
@@ -123,7 +138,7 @@ function printSideBySide(artLines: string[], textLines: string[], artWidth: numb
   }
 }
 
-// ── Stacked renderer (medium terminals 50–89 cols) ─────────────────────────────
+// ── Stacked renderer: art on top, text below (medium terminals 60–99 cols) ───
 function printStacked(artLines: string[], textLines: string[], cols: number): void {
   for (const line of artLines) {
     console.log(centerLine(line, cols));
@@ -134,62 +149,110 @@ function printStacked(artLines: string[], textLines: string[], cols: number): vo
   }
 }
 
-// ── Minimal renderer (narrow terminals < 50 cols) ──────────────────────────────
+// ── Small screen renderer: compact art on top, text below (< 60 cols) ────────
+function printSmall(textLines: string[], cols: number): void {
+  // Compact elephant block — fits ~34 visible chars wide
+  const elephant = [
+    '   .  .   .  .',
+    "  ( `  ) ( ` )",
+    ' (  (  )  (  ) )',
+    "  `.   _____  .'",
+    "    `-| TOT |-'",
+    "      |  A  |",
+    "   ___| ___ |___",
+    "  |   |/   \\|   |",
+    "  |___|     |___|",
+  ];
+  for (const line of elephant) {
+    console.log(centerLine(chalk.cyan(line), cols));
+  }
+  console.log('');
+  for (const line of textLines) {
+    console.log(centerLine(line, cols));
+  }
+}
+
+// ── Minimal renderer: text only, no art (very narrow < 38 cols) ──────────────
 function printMinimal(textLines: string[], cols: number): void {
   for (const line of textLines) {
     console.log(centerLine(line, cols));
   }
 }
 
-function banner() {
-  const cols = getTerminalWidth();
-  const coloredArt = BANNER_ART_LINES.map(l => chalk.cyan(l));
-  const textLines = [
-    ...TOTA_ASCII.map(l => chalk.bold.cyan(l)),
-    '',
-    chalk.white('an AI agent for personal tasks'),
-    chalk.dim(`v${pkgVersion} · by manu14357 · github.com/manu14357/tota-agent`),
-  ];
-  console.log('');
-  if (cols >= 90) {
-    printSideBySide(coloredArt, textLines);
-  } else if (cols >= 50) {
-    printStacked(coloredArt, textLines, cols);
-  } else {
-    printMinimal([
+// ── Determine which TOTA text lines to show based on available width ──────────
+function getTotaTextLines(cols: number, pkgVer: string, subtitle: string, byline: string): string[] {
+  // The widest TOTA ASCII line is ~38 chars. For narrow screens use a compact label.
+  if (cols >= 60) {
+    return [
+      ...TOTA_ASCII.map(l => chalk.bold.cyan(l)),
+      '',
+      chalk.white(subtitle),
+      chalk.dim(`v${pkgVer} · ${byline}`),
+    ];
+  }
+  if (cols >= 38) {
+    return [
       chalk.bold.cyan('[ T O T A - A G E N T ]'),
       '',
-      chalk.white('an AI agent for personal tasks'),
-      chalk.dim(`v${pkgVersion}`),
-      chalk.dim('github.com/manu14357/tota-agent'),
-    ], cols);
+      chalk.white(subtitle),
+      chalk.dim(`v${pkgVer}`),
+      chalk.dim(byline),
+    ];
+  }
+  return [
+    chalk.bold.cyan('[ TOTA ]'),
+    chalk.dim(`v${pkgVer}`),
+  ];
+}
+
+function banner() {
+  const cols = getTerminalWidth();
+  const textLines = getTotaTextLines(
+    cols,
+    pkgVersion,
+    'an AI agent for personal tasks',
+    'github.com/manu14357/tota-agent',
+  );
+
+  console.log('');
+  if (cols >= 100) {
+    // Wide: braille art left, TOTA text right
+    const coloredArt = BANNER_ART_LINES.map(l => chalk.cyan(l));
+    printSideBySide(coloredArt, textLines);
+  } else if (cols >= 60) {
+    // Medium: braille art on top, TOTA text below
+    const coloredArt = BANNER_ART_LINES.map(l => chalk.cyan(l));
+    printStacked(coloredArt, textLines, cols);
+  } else if (cols >= 38) {
+    // Small: compact art on top, compact TOTA label below
+    printSmall(textLines, cols);
+  } else {
+    // Very narrow: text only
+    printMinimal(textLines, cols);
   }
   console.log('');
 }
 
 function splashScreen() {
   const cols = getTerminalWidth();
-  const coloredArt = BANNER_ART_LINES.map(l => chalk.cyan(l));
-  const textLines = [
-    ...TOTA_ASCII.map(l => chalk.bold.cyan(l)),
-    '',
-    chalk.dim('an AI agent for personal tasks'),
-    chalk.cyan('by manu14357'),
-    chalk.dim('github.com/manu14357/tota-agent'),
-  ];
+  const textLines = getTotaTextLines(
+    cols,
+    pkgVersion,
+    'an AI agent for personal tasks',
+    'github.com/manu14357/tota-agent',
+  );
+
   console.log('');
-  if (cols >= 90) {
+  if (cols >= 100) {
+    const coloredArt = BANNER_ART_LINES.map(l => chalk.cyan(l));
     printSideBySide(coloredArt, textLines);
-  } else if (cols >= 50) {
+  } else if (cols >= 60) {
+    const coloredArt = BANNER_ART_LINES.map(l => chalk.cyan(l));
     printStacked(coloredArt, textLines, cols);
+  } else if (cols >= 38) {
+    printSmall(textLines, cols);
   } else {
-    printMinimal([
-      chalk.bold.cyan('[ T O T A - A G E N T ]'),
-      '',
-      chalk.dim('an AI agent for personal tasks'),
-      chalk.cyan('by manu14357'),
-      chalk.dim('github.com/manu14357/tota-agent'),
-    ], cols);
+    printMinimal(textLines, cols);
   }
   console.log('');
 }
@@ -1041,8 +1104,14 @@ async function runAgent(isDaemon: boolean = false): Promise<void> {
   config = ensureCreatorField(config);
   const name = config.identity.name;
 
+  // Start update check in background (non-blocking — result awaited after banner)
+  if (!isDaemon) {
+    startUpdateCheck(getTotaHome(), pkgVersion);
+  }
+
   if (!isDaemon) {
     banner();
+    await printUpdateNotice();
     console.log(chalk.white(`  ${name} is waking up...`));
     console.log('');
   } else {
