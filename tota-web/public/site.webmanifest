@@ -1,0 +1,17 @@
+{
+  "name": "tota — Soul-driven AI Agent",
+  "short_name": "tota",
+  "description": "Soul-driven AI agent with permission-hardened tools, token budgets, and multi-channel access.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#00A9FF",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
