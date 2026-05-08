@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Copy, Check, ArrowRight, Terminal } from 'lucide-react'
+import { Copy, Check, ArrowRight, Terminal, Star, Heart } from 'lucide-react'
 
 const NPX_CMD = 'npx tota-agent'
 
@@ -47,6 +47,15 @@ const terminalLines = [
 ]
 
 export default function Hero() {
+  const [stars, setStars] = useState<number | null>(null)
+
+  useEffect(() => {
+    fetch('https://api.github.com/repos/manu14357/tota-agent')
+      .then((r) => r.json())
+      .then((d) => { if (typeof d.stargazers_count === 'number') setStars(d.stargazers_count) })
+      .catch(() => {/* silent fail */})
+  }, [])
+
   return (
     <section className="relative pt-24 pb-16 sm:pt-36 sm:pb-24 lg:pt-40 lg:pb-28 overflow-hidden">
       {/* Gradient glow */}
@@ -127,14 +136,33 @@ export default function Hero() {
             href="https://github.com/manu14357/tota-agent"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3 rounded-xl font-semibold transition-all"
+            className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3 rounded-xl font-semibold transition-all hover:scale-[1.02]"
             style={{
               color: 'var(--fg-muted)',
               border: '1px solid var(--border)',
               background: 'var(--surface)',
             }}
           >
-            View on GitHub
+            <Star size={15} className="shrink-0" />
+            {stars !== null ? (
+              <span>{stars.toLocaleString()} stars · GitHub</span>
+            ) : (
+              <span>View on GitHub</span>
+            )}
+          </a>
+          <a
+            href="https://github.com/sponsors/manu14357"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3 rounded-xl font-semibold transition-all hover:scale-[1.02]"
+            style={{
+              color: '#ea4aaa',
+              border: '1px solid rgba(234,74,170,0.35)',
+              background: 'rgba(234,74,170,0.07)',
+            }}
+          >
+            <Heart size={15} className="shrink-0" />
+            Sponsor
           </a>
         </div>
 

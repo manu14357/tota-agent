@@ -16,6 +16,7 @@
   <a href="https://github.com/manu14357/tota-agent/blob/main/LICENSE"><img src="https://img.shields.io/github/license/manu14357/tota-agent" alt="license"></a>
   <a href="https://nodejs.org/"><img src="https://img.shields.io/node/v/tota-agent" alt="node"></a>
   <a href="https://github.com/manu14357/tota-agent"><img src="https://img.shields.io/github/stars/manu14357/tota-agent?style=social" alt="stars"></a>
+  <a href="https://github.com/sponsors/manu14357"><img src="https://img.shields.io/badge/sponsor-%E2%9D%A4-ea4aaa?logo=github-sponsors" alt="sponsor"></a>
 </p>
 
 ---
