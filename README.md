@@ -12,9 +12,9 @@
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/@manu14357/tota-agent"><img src="https://img.shields.io/npm/v/@manu14357/tota-agent?color=blue" alt="npm"></a>
+  <a href="https://www.npmjs.com/package/tota-agent"><img src="https://img.shields.io/npm/v/tota-agent?color=blue" alt="npm"></a>
   <a href="https://github.com/manu14357/tota-agent/blob/main/LICENSE"><img src="https://img.shields.io/github/license/manu14357/tota-agent" alt="license"></a>
-  <a href="https://nodejs.org/"><img src="https://img.shields.io/node/v/@manu14357/tota-agent" alt="node"></a>
+  <a href="https://nodejs.org/"><img src="https://img.shields.io/node/v/tota-agent" alt="node"></a>
   <a href="https://github.com/manu14357/tota-agent"><img src="https://img.shields.io/github/stars/manu14357/tota-agent?style=social" alt="stars"></a>
 </p>
 
@@ -23,13 +23,13 @@
 ## Quick Start
 
 ```bash
-npx @manu14357/tota-agent
+npx tota-agent
 ```
 
 Or install globally:
 
 ```bash
-npm i -g @manu14357/tota-agent
+npm i -g tota-agent
 tota
 ```
 

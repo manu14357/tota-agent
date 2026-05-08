@@ -47,7 +47,7 @@ const links: FooterGroup[] = [
     heading: 'Project',
     items: [
       { label: 'GitHub', href: 'https://github.com/manu14357/tota-agent', external: true },
-      { label: 'npm', href: 'https://www.npmjs.com/package/@manu14357/tota-agent', external: true },
+      { label: 'npm', href: 'https://www.npmjs.com/package/tota-agent', external: true },
       { label: 'MIT License', href: 'https://github.com/manu14357/tota-agent/blob/main/LICENSE', external: true },
       { label: 'Changelog', href: 'https://github.com/manu14357/tota-agent/blob/main/CHANGELOG.md', external: true },
     ],

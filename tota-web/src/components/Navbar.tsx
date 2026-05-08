@@ -56,7 +56,7 @@ export default function Navbar() {
         <div className="hidden md:flex items-center gap-1">
           <NavLink href="/docs" icon={<BookOpen size={14} strokeWidth={2} />}>Docs</NavLink>
           <ExternalLink href="https://github.com/manu14357/tota-agent" icon={<Github size={14} strokeWidth={2} />}>GitHub</ExternalLink>
-          <ExternalLink href="https://www.npmjs.com/package/@manu14357/tota-agent" icon={<Package size={14} strokeWidth={2} />}>npm</ExternalLink>
+          <ExternalLink href="https://www.npmjs.com/package/tota-agent" icon={<Package size={14} strokeWidth={2} />}>npm</ExternalLink>
           <div className="ml-2 flex items-center gap-2">
             <ThemeToggle />
             <Link
@@ -100,7 +100,7 @@ export default function Navbar() {
             <Github size={15} /> GitHub
           </a>
           <a
-            href="https://www.npmjs.com/package/@manu14357/tota-agent"
+            href="https://www.npmjs.com/package/tota-agent"
             target="_blank" rel="noopener noreferrer"
             className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium"
             style={{ color: 'var(--fg-muted)' }}

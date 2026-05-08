@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { Copy, Check, ArrowRight, Terminal } from 'lucide-react'
 
-const NPX_CMD = 'npx @manu14357/tota-agent'
+const NPX_CMD = 'npx tota-agent'
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false)
@@ -109,7 +109,7 @@ export default function Hero() {
         <p className="text-center text-xs mb-10" style={{ color: 'var(--fg-muted)' }}>
           Or:{' '}
           <code className="font-mono" style={{ color: 'var(--accent)' }}>
-            npm i -g @manu14357/tota-agent
+            npm i -g tota-agent
           </code>
         </p>
 

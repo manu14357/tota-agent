@@ -1598,7 +1598,7 @@ program
 
     let latestVersion = '';
     try {
-      latestVersion = execSync('npm view @manu14357/tota-agent version', { encoding: 'utf-8' }).trim();
+      latestVersion = execSync('npm view tota-agent version', { encoding: 'utf-8' }).trim();
     } catch {
       console.log(chalk.red('  ✗ Failed to fetch latest version from npm'));
       console.log('');
@@ -1617,7 +1617,7 @@ program
     console.log('');
 
     try {
-      execSync('npm rm -g @manu14357/tota-agent', { stdio: 'pipe' });
+      execSync('npm rm -g tota-agent', { stdio: 'pipe' });
     } catch {
       try {
         const globalDir = execSync('npm root -g', { encoding: 'utf-8' }).trim();
@@ -1628,14 +1628,14 @@ program
     }
 
     try {
-      execSync('npm i -g @manu14357/tota-agent@latest', { stdio: 'inherit' });
+      execSync('npm i -g tota-agent@latest', { stdio: 'inherit' });
       console.log('');
       console.log(chalk.green(`  ✓ Upgraded to v${latestVersion}`));
       console.log(chalk.dim('  Run `tota` to start the new version.'));
     } catch {
       console.log('');
       console.log(chalk.red('  ✗ Upgrade failed. Try manually:'));
-      console.log(chalk.dim('    npm rm -g @manu14357/tota-agent && npm i -g @manu14357/tota-agent'));
+      console.log(chalk.dim('    npm rm -g tota-agent && npm i -g tota-agent'));
     }
 
     console.log('');

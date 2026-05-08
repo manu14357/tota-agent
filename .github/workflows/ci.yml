@@ -131,10 +131,10 @@ jobs:
       - name: Check if version already published
         run: |
           PKG_VERSION=$(node -p "require('./package.json').version")
-          if npm view "@manu14357/tota-agent@$PKG_VERSION" version 2>/dev/null; then
+          if npm view "tota-agent@$PKG_VERSION" version 2>/dev/null; then
             echo "Version $PKG_VERSION already published — skipping."
             exit 0
           fi
-      - run: npm publish --access public --provenance
+      - run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

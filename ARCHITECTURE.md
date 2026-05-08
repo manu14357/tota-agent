@@ -1,7 +1,7 @@
 # tota — Architecture
 
 > Source of truth for the technical design of tota-agent.
-> GitHub: https://github.com/manu14357/tota-agent | npm: @manu14357/tota-agent
+> GitHub: https://github.com/manu14357/tota-agent | npm: tota-agent
 
 ---
 
@@ -82,7 +82,7 @@ tota-agent/
 │   ├── check-native-deps.js  # SQLite native dependency check
 │   ├── verify-package.cjs    # Pack + install + smoke test
 │   └── publish.sh
-├── package.json              # @manu14357/tota-agent, bin: tota
+├── package.json              # tota-agent, bin: tota
 ├── tsconfig.json
 ├── tsup.config.ts
 └── .env.example

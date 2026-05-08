@@ -3,7 +3,7 @@ const steps = [
     number: '01',
     title: 'Install',
     description: 'One command — no Docker, no config files, no cloud signup.',
-    code: 'npm i -g @manu14357/tota-agent',
+    code: 'npm i -g tota-agent',
   },
   {
     number: '02',

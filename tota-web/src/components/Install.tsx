@@ -5,8 +5,8 @@ import Link from 'next/link'
 import { Copy, Check, ArrowRight } from 'lucide-react'
 
 const installSteps = [
-  { comment: '# Install globally', cmd: 'npm i -g @manu14357/tota-agent' },
-  { comment: '# Or try without installing', cmd: 'npx @manu14357/tota-agent' },
+  { comment: '# Install globally', cmd: 'npm i -g tota-agent' },
+  { comment: '# Or try without installing', cmd: 'npx tota-agent' },
   { comment: '', cmd: '' },
   { comment: '# First run — 30s setup wizard', cmd: 'tota' },
   { comment: '', cmd: '' },

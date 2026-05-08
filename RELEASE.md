@@ -17,7 +17,7 @@
 ### Repository
 
 - GitHub: <https://github.com/manu14357/tota-agent>
-- npm: `npm i -g @manu14357/tota-agent`
+- npm: `npm i -g tota-agent`
 
 ---
 

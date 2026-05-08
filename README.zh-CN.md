@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/@manu14357/tota-agent"><img src="https://img.shields.io/npm/v/@manu14357/tota-agent?color=blue" alt="npm"></a>
+  <a href="https://www.npmjs.com/package/tota-agent"><img src="https://img.shields.io/npm/v/tota-agent?color=blue" alt="npm"></a>
   <a href="https://github.com/manu14357/tota-agent/blob/main/LICENSE"><img src="https://img.shields.io/github/license/manu14357/tota-agent" alt="license"></a>
   <a href="https://github.com/manu14357/tota-agent"><img src="https://img.shields.io/github/stars/manu14357/tota-agent?style=social" alt="stars"></a>
 </p>
@@ -26,13 +26,13 @@
 ## 快速开始
 
 ```bash
-npx @manu14357/tota-agent
+npx tota-agent
 ```
 
 或全局安装：
 
 ```bash
-npm i -g @manu14357/tota-agent
+npm i -g tota-agent
 tota
 ```
 
