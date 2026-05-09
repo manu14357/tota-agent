@@ -150,6 +150,56 @@ export async function printUpdateNotice(): Promise<void> {
 }
 
 /**
+ * Enforce that the installed version is up-to-date before running any command.
+ * If a newer version is available on npm, print a blocking message and exit(1).
+ * Pass `skipCheck: true` for the upgrade command itself.
+ */
+export async function enforceUpToDate(currentVersion: string, totaHome: string): Promise<void> {
+  const cachePath = getCachePath(totaHome);
+  let latestVersion: string | null = null;
+
+  const cache = readCache(cachePath);
+  const now = Date.now();
+
+  if (cache && now - cache.checkedAt < CHECK_INTERVAL_MS) {
+    latestVersion = cache.latestVersion;
+  } else {
+    latestVersion = await fetchLatestVersion();
+    if (latestVersion) {
+      writeCache(cachePath, { checkedAt: now, latestVersion });
+    } else if (cache) {
+      latestVersion = cache.latestVersion;
+    }
+  }
+
+  if (!latestVersion) return; // Network unavailable → allow through
+  if (!isNewerVersion(latestVersion, currentVersion)) return; // Already up-to-date
+
+  const cols = Math.min(process.stdout.columns || 80, 72);
+  const border = chalk.red('─'.repeat(cols));
+
+  console.log('');
+  console.log(border);
+  console.log(chalk.red.bold('  ✗ tota is out of date — upgrade required'));
+  console.log('');
+  console.log(
+    chalk.white(`  Installed: `) + chalk.dim(`v${currentVersion}`) +
+    chalk.white(`   →   Latest: `) + chalk.bold.green(`v${latestVersion}`)
+  );
+  console.log('');
+  console.log(chalk.dim('  tota must be upgraded before use. Run one of:'));
+  console.log('');
+  console.log('  ' + chalk.cyan('tota upgrade'));
+  console.log('  ' + chalk.cyan('npm i -g tota-agent'));
+  console.log('');
+  console.log(chalk.dim('  If you see "file already exists", first run:'));
+  console.log('  ' + chalk.cyan('rm $(which tota) && npm i -g tota-agent'));
+  console.log(border);
+  console.log('');
+  process.exit(1);
+}
+
+/**
  * Returns highlights for known version upgrades.
  * Keeps it minimal — only summarises what's actually new between versions.
  */

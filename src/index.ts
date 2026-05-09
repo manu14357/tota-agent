@@ -47,7 +47,7 @@ import { runWithWatchdog } from './cli/watchdog.js';
 import { setGitHubToken } from './utils/github.js';
 import { selectWithArrowKeys } from './utils/arrow-select.js';
 import { ProviderModelFetchError, fetchProviderModelCatalog } from './utils/provider-models.js';
-import { startUpdateCheck, printUpdateNotice } from './utils/update-check.js';
+import { startUpdateCheck, printUpdateNotice, enforceUpToDate } from './utils/update-check.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkgVersion = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8')).version;
@@ -1801,4 +1801,11 @@ program
     console.log('');
   });
 
-program.parse();
+// Block usage if a newer version is available — skip only for `tota upgrade`
+program.hook('preAction', async (thisCommand) => {
+  const commandName = thisCommand.name();
+  if (commandName === 'upgrade') return;
+  await enforceUpToDate(pkgVersion, getTotaHome());
+});
+
+program.parseAsync();
