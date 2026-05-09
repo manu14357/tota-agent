@@ -329,7 +329,9 @@ function installWindows(): void {
   const home = getTotaHome();
   const logPath = join(home, 'daemon.log');
 
-  const cmd = `"${nodeBin}" "${scriptPath}" start --daemon`;
+  // /tr value passed through cmd.exe: inner paths with spaces must use \" escaping
+  // so cmd.exe doesn't treat the first inner " as the end of the /tr argument.
+  const cmd = `\\"${nodeBin}\\" \\"${scriptPath}\\" start --daemon`;
 
   try {
     execSync(
@@ -337,8 +339,10 @@ function installWindows(): void {
       { stdio: 'inherit', shell: 'cmd.exe' }
     );
   } catch {
+    // Show the raw (unescaped) command so the user can paste it directly into cmd
+    const rawCmd = `"${nodeBin}" "${scriptPath}" start --daemon`;
     console.log(chalk.yellow('  schtasks create failed. Try running from an Administrator cmd:'));
-    console.log(chalk.dim(`    schtasks /create /tn "${WIN_TASK_NAME}" /tr "${cmd}" /sc onlogon /rl limited /f`));
+    console.log(chalk.dim(`    schtasks /create /tn "${WIN_TASK_NAME}" /tr "${rawCmd}" /sc onlogon /rl limited /f`));
   }
 
   try {
