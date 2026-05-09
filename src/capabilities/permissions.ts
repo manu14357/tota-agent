@@ -244,6 +244,9 @@ export class PermissionManager {
   }
 
   async checkFsAccess(path: string, mode: 'read' | 'write'): Promise<{ allowed: boolean; reason?: string }> {
+    if (this.autoApproveAll) {
+      return { allowed: true };
+    }
     if (mode === 'read' && this.elevatedCommands.has('fs_read')) {
       return { allowed: true };
     }
@@ -382,7 +385,8 @@ export class PermissionManager {
     const scopes = this.manifest.capabilities.filesystem.scopes;
     for (const scope of scopes) {
       const scopeResolved = resolve(scope.path.replace(/^~/, homedir()));
-      if (resolvedPath === scopeResolved || resolvedPath.startsWith(scopeResolved + sep)) {
+      const prefix = scopeResolved.endsWith(sep) ? scopeResolved : scopeResolved + sep;
+      if (resolvedPath === scopeResolved || resolvedPath.startsWith(prefix)) {
         return scope;
       }
     }
@@ -419,7 +423,8 @@ export class PermissionManager {
   private findTempScope(resolvedPath: string): FileScope | undefined {
     for (const scope of this.tempScopes) {
       const scopeResolved = resolve(scope.path.replace(/^~/, homedir()));
-      if (resolvedPath === scopeResolved || resolvedPath.startsWith(scopeResolved + sep)) {
+      const prefix = scopeResolved.endsWith(sep) ? scopeResolved : scopeResolved + sep;
+      if (resolvedPath === scopeResolved || resolvedPath.startsWith(prefix)) {
         return scope;
       }
     }

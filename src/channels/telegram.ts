@@ -311,8 +311,14 @@ export class TelegramChannel extends BaseChannel {
 
       this.pendingApprovals.delete(data);
       resolver();
-      const action = data.split(':')[1];
-      await ctx.answerCallbackQuery({ text: action === 'no' ? 'Denied' : 'Approved' });
+      const action = data.split(':').slice(1).join(':');
+      let toast = 'Done';
+      if (action === 'allow-all') toast = '✅ Allow All enabled';
+      else if (action === 'ask-me') toast = '🔒 Ask Me mode set';
+      else if (action === 'no') toast = 'Denied';
+      else if (action === 'yes') toast = 'Approved';
+      else if (action === 'always') toast = 'Always approved';
+      await ctx.answerCallbackQuery({ text: toast });
     });
 
     bot.catch((err) => {

@@ -1298,6 +1298,9 @@ async function runAgent(isDaemon: boolean = false): Promise<void> {
         capabilities.permissions.setAutoApproveAll(true);
         capabilities.permissions.addTempScope('/', true, true);
         logger.info({ chatId }, 'Telegram: Allow All mode set for session');
+      } else {
+        capabilities.permissions.setAutoApproveAll(false);
+        logger.info({ chatId }, 'Telegram: Ask Me mode set for session');
       }
     });
   }
