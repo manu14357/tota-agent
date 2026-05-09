@@ -1218,7 +1218,7 @@ async function configure(existingConfig?: TotaConfig, section?: string): Promise
     console.log(chalk.dim('  Running: npx playwright install chromium ...'));
     try {
       const { execSync: exec2 } = await import('node:child_process');
-      exec2('npx playwright install chromium', { stdio: 'inherit', shell: true });
+      exec2('npx playwright install chromium', { stdio: 'inherit' });
       console.log(chalk.green('  ✓ Chromium installed. Browser tools are ready.'));
     } catch (e: any) {
       console.log(chalk.yellow(`  Could not install Chromium automatically: ${e.message}`));
