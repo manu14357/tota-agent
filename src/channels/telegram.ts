@@ -1,5 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import https from 'node:https';
+import http from 'node:http';
+import os from 'node:os';
 import { Bot, InputFile, InlineKeyboard } from 'grammy';
 import { autoRetry } from '@grammyjs/auto-retry';
 import type { ChannelMessage } from '../types/channel.js';
@@ -157,6 +160,136 @@ export class TelegramChannel extends BaseChannel {
       };
       this.emit(msg);
     });
+
+    // ── Inbound file handler (document, photo, audio, video, voice) ──────────
+    const handleInboundFile = async (ctx: any, fileInfo: { fileId: string; filename: string; caption?: string; mimeType?: string }) => {
+      const chatId: number = ctx.chat?.id;
+      const userId: number | undefined = ctx.from?.id;
+      if (!chatId || !userId) return;
+
+      if (ctx.chat?.type !== 'private') return;
+
+      const approvedUser = findTelegramApprovedUser(this.config, userId);
+      if (!approvedUser) return;
+
+      const token = this.config.channels.telegram.botToken;
+      if (!token) return;
+
+      try {
+        // Get file info from Telegram
+        const tgFile = await this.bot!.api.getFile(fileInfo.fileId);
+        if (!tgFile.file_path) {
+          await this.sendDirectMessage(chatId, 'Could not retrieve file from Telegram (file_path missing).');
+          return;
+        }
+
+        // Download the file
+        const uploadDir = path.join(os.homedir(), '.tota', 'tmp', 'uploads', String(userId));
+        fs.mkdirSync(uploadDir, { recursive: true });
+
+        const localPath = path.join(uploadDir, fileInfo.filename);
+        const downloadUrl = `https://api.telegram.org/file/bot${token}/${tgFile.file_path}`;
+
+        await downloadFile(downloadUrl, localPath);
+        logger.info({ localPath, chatId, userId }, 'Telegram inbound file downloaded');
+
+        // Emit a message that tells the agent a file was received
+        const caption = fileInfo.caption?.trim() ? ` — user note: "${fileInfo.caption}"` : '';
+        const content = `[User sent a file${caption}]\nFile saved to: ${localPath}\nFilename: ${fileInfo.filename}${fileInfo.mimeType ? `\nType: ${fileInfo.mimeType}` : ''}\n\nYou can now read, analyze, or process this file using the appropriate tool (read_pdf, read_excel, read_docx, read_file, analyze_image, etc.), then use send_file to send results back.`;
+
+        const msg: ChannelMessage = {
+          id: ctx.message.message_id.toString(),
+          channelId: `telegram:${chatId}`,
+          channelType: 'telegram',
+          senderId: userId.toString(),
+          senderName: ctx.from?.first_name,
+          content,
+          timestamp: ctx.message.date * 1000,
+          metadata: {
+            chatId,
+            messageId: ctx.message.message_id,
+            attachments: [{ path: localPath, filename: fileInfo.filename, mimeType: fileInfo.mimeType }],
+          },
+        };
+
+        this.lastActiveChatId = chatId;
+
+        if (!this.permissionModes.has(chatId)) {
+          this.permissionModes.set(chatId, 'ask-me');
+        }
+
+        this.emit(msg);
+      } catch (err: any) {
+        logger.error({ err: err.message, chatId }, 'Failed to handle inbound Telegram file');
+        await this.sendDirectMessage(chatId, `Failed to receive file: ${err.message}`);
+      }
+    };
+
+    bot.on('message:document', async (ctx) => {
+      const doc = ctx.message.document;
+      await handleInboundFile(ctx, {
+        fileId: doc.file_id,
+        filename: doc.file_name ?? `document-${Date.now()}`,
+        caption: ctx.message.caption,
+        mimeType: doc.mime_type,
+      });
+    });
+
+    bot.on('message:photo', async (ctx) => {
+      // Telegram sends multiple resolutions; pick the largest (last)
+      const photos = ctx.message.photo;
+      const photo = photos[photos.length - 1];
+      const filename = `photo-${Date.now()}.jpg`;
+      await handleInboundFile(ctx, {
+        fileId: photo.file_id,
+        filename,
+        caption: ctx.message.caption,
+        mimeType: 'image/jpeg',
+      });
+    });
+
+    bot.on('message:audio', async (ctx) => {
+      const audio = ctx.message.audio;
+      const ext = audio.mime_type?.split('/')[1] ?? 'mp3';
+      await handleInboundFile(ctx, {
+        fileId: audio.file_id,
+        filename: audio.file_name ?? `audio-${Date.now()}.${ext}`,
+        caption: ctx.message.caption,
+        mimeType: audio.mime_type,
+      });
+    });
+
+    bot.on('message:video', async (ctx) => {
+      const video = ctx.message.video;
+      const ext = video.mime_type?.split('/')[1] ?? 'mp4';
+      await handleInboundFile(ctx, {
+        fileId: video.file_id,
+        filename: video.file_name ?? `video-${Date.now()}.${ext}`,
+        caption: ctx.message.caption,
+        mimeType: video.mime_type,
+      });
+    });
+
+    bot.on('message:voice', async (ctx) => {
+      const voice = ctx.message.voice;
+      await handleInboundFile(ctx, {
+        fileId: voice.file_id,
+        filename: `voice-${Date.now()}.ogg`,
+        caption: ctx.message.caption,
+        mimeType: voice.mime_type ?? 'audio/ogg',
+      });
+    });
+
+    bot.on('message:sticker', async (ctx) => {
+      const sticker = ctx.message.sticker;
+      const ext = sticker.is_animated ? 'tgs' : sticker.is_video ? 'webm' : 'webp';
+      await handleInboundFile(ctx, {
+        fileId: sticker.file_id,
+        filename: `sticker-${Date.now()}.${ext}`,
+        mimeType: `image/${ext}`,
+      });
+    });
+    // ─────────────────────────────────────────────────────────────────────────
 
     bot.on('callback_query:data', async (ctx) => {
       const data = ctx.callbackQuery.data;
@@ -1018,4 +1151,29 @@ export class TelegramChannel extends BaseChannel {
       await this.bot.api.sendMessage(chatId, content).catch(() => {});
     }
   }
+}
+
+/** Download a file from a URL to a local path using Node.js built-in http/https */
+function downloadFile(url: string, destPath: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const client = url.startsWith('https') ? https : http;
+    const file = fs.createWriteStream(destPath);
+    client.get(url, (res) => {
+      if (res.statusCode !== 200) {
+        file.close();
+        fs.unlink(destPath, () => {});
+        reject(new Error(`Download failed: HTTP ${res.statusCode} for ${url}`));
+        return;
+      }
+      res.pipe(file);
+      file.on('finish', () => file.close(() => resolve()));
+      file.on('error', (err) => {
+        fs.unlink(destPath, () => {});
+        reject(err);
+      });
+    }).on('error', (err) => {
+      fs.unlink(destPath, () => {});
+      reject(err);
+    });
+  });
 }

@@ -6,3 +6,7 @@ export { createDeleteFileTool } from './delete-file.js';
 export { createEditFileTool } from './edit-file.js';
 export { createSendFileTool } from './send-file.js';
 export { createApproveScopeTool } from './approve-scope.js';
+export { createReadPdfTool } from './read-pdf.js';
+export { createReadExcelTool, createWriteExcelTool } from './read-excel.js';
+export { createReadDocxTool } from './read-docx.js';
+export { createFindFilesTool } from './find-files.js';

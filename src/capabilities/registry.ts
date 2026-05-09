@@ -35,6 +35,19 @@ import { createWebSearchTool } from './web/web-search.js';
 import { createAnalyzeImageTool, type VisionHandler } from './vision/analyze-image.js';
 import { createDelegateTaskTool, type DelegateHandler } from './system/delegate-task.js';
 import { createRunCodeTool } from './shell/run-code.js';
+import { createReadPdfTool } from './filesystem/read-pdf.js';
+import { createReadExcelTool, createWriteExcelTool } from './filesystem/read-excel.js';
+import { createReadDocxTool } from './filesystem/read-docx.js';
+import { createFindFilesTool } from './filesystem/find-files.js';
+import {
+  createBrowserOpenTool,
+  createBrowserClickTool,
+  createBrowserTypeTool,
+  createBrowserScreenshotTool,
+  createBrowserExtractTool,
+  createBrowserScrollTool,
+  createBrowserCloseTool,
+} from './web/browser.js';
 import { loadMCPTools } from './mcp/mcp-loader.js';
 import { isGitHubConfigured, setGitHubToken } from '../utils/github.js';
 import type { SkillLoader } from '../skills/loader.js';
@@ -141,6 +154,13 @@ export class CapabilityRegistry {
 
       this.tools.approve_scope = createApproveScopeTool(this.permissions, () => this.getCwd());
 
+      // Document readers
+      this.tools.read_pdf = createReadPdfTool(this.permissions, () => this.getCwd());
+      this.tools.read_excel = createReadExcelTool(this.permissions, () => this.getCwd());
+      this.tools.write_excel = createWriteExcelTool(this.permissions, () => this.getCwd());
+      this.tools.read_docx = createReadDocxTool(this.permissions, () => this.getCwd());
+      this.tools.find_files = createFindFilesTool(this.permissions, () => this.getCwd());
+
       logger.info('Filesystem tools registered');
     }
 
@@ -218,6 +238,16 @@ export class CapabilityRegistry {
     // Code execution sandbox
     this.tools.run_code = createRunCodeTool();
     logger.info('Code execution tool registered');
+
+    // Browser automation
+    this.tools.browser_open = createBrowserOpenTool(this.sendFileHandler);
+    this.tools.browser_click = createBrowserClickTool();
+    this.tools.browser_type = createBrowserTypeTool();
+    this.tools.browser_screenshot = createBrowserScreenshotTool(this.sendFileHandler);
+    this.tools.browser_extract = createBrowserExtractTool();
+    this.tools.browser_scroll = createBrowserScrollTool();
+    this.tools.browser_close = createBrowserCloseTool();
+    logger.info('Browser automation tools registered');
 
     // Wrap all tools with output truncation
     this.tools = this.applyTruncation(this.tools);
