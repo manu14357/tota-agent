@@ -977,6 +977,39 @@ export class Agent {
     }
 
     const toolNames = this.capabilities.getToolNames();
+
+    // Computer-use tools hint
+    const hasComputerUse = toolNames.includes('computer_screenshot') || toolNames.includes('computer_see');
+    if (hasComputerUse) {
+      prompt += `\n\nComputer-use tools are ACTIVE on this machine. You can directly control the desktop:
+- computer_screenshot: capture the full screen (no arguments needed)
+- computer_see: capture screen then analyze it with vision AI (pass a question)
+- computer_click: click at x,y coordinates
+- computer_type: type text (keyboard input)
+- computer_key: press keyboard keys (e.g. "enter", "ctrl+c", "cmd+space")
+- computer_move: move mouse to x,y
+- computer_scroll: scroll at x,y
+- computer_drag: drag from one position to another
+- computer_screen_size: get screen width/height
+
+IMPORTANT: When the user asks you to open apps, take screenshots, interact with the desktop, automate UI workflows, or see what is on screen — USE THESE TOOLS. Do not say you cannot see the screen or control the computer. You can. Just call the tool.`;
+    }
+
+    // Browser automation tools hint
+    const hasBrowser = toolNames.includes('browser_open');
+    if (hasBrowser) {
+      prompt += `\n\nBrowser automation tools are ACTIVE (Playwright/Chromium):
+- browser_open: open a URL in the browser
+- browser_click: click a CSS selector
+- browser_type: type into an input field
+- browser_screenshot: screenshot the current page
+- browser_extract: extract text content from a CSS selector
+- browser_scroll: scroll the page
+- browser_close: close the browser
+
+USE THESE TOOLS for web tasks — visiting sites, filling forms, scraping content, checking pages. Prefer browser_open + browser_screenshot + browser_extract for reading web pages.`;
+    }
+
     const githubTools = ['create_pr', 'review_pr', 'list_issues', 'create_issue', 'github_api'];
     const hasGitHub = githubTools.some(t => toolNames.includes(t));
     if (hasGitHub) {

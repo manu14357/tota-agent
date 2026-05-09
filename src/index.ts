@@ -1247,11 +1247,13 @@ async function configure(existingConfig?: TotaConfig, section?: string): Promise
 
   const computerChoice = await selectWithArrowKeys('Computer-Use', computerOptions);
   if (computerChoice === 'enable') {
+    config.capabilities = { ...config.capabilities, computer: { enabled: true } };
     appendToEnv('COMPUTER_USE_ENABLED', 'true');
     console.log(chalk.green('  ✓ COMPUTER_USE_ENABLED=true saved to ~/.tota/.env'));
     console.log(chalk.dim('  Desktop tools use @nut-tree-fork/nut-js. On Linux: sudo apt install libxtst-dev'));
     console.log(chalk.dim('  Android tools use `adb` — ensure adb is in your PATH.'));
   } else if (computerChoice === 'disable') {
+    config.capabilities = { ...config.capabilities, computer: { enabled: false } };
     appendToEnv('COMPUTER_USE_ENABLED', 'false');
     console.log(chalk.dim('  COMPUTER_USE_ENABLED=false saved to ~/.tota/.env'));
   } else {
