@@ -48,6 +48,8 @@ Or configure just one feature without running the full wizard:
 tota setup websearch    # add a web search key
 tota setup telegram     # change your Telegram bot
 tota setup llm          # swap LLM provider
+tota setup browser      # install Chromium for browser automation
+tota setup computer     # enable computer-use & Android ADB tools
 tota setup api          # enable the REST API channel
 ```
 
@@ -250,6 +252,10 @@ tota can see and control your desktop — click, type, scroll, drag, and press k
 ### Enable
 
 ```bash
+# Option 1 — wizard (recommended)
+tota setup computer
+
+# Option 2 — env var
 # ~/.tota/.env
 COMPUTER_USE_ENABLED=true
 ```

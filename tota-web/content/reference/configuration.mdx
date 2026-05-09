@@ -39,6 +39,75 @@ When `WEB_SEARCH_PROVIDER=auto`, tota picks whichever key it finds first (Brave 
 | `API_CHANNEL_PORT` | Port to listen on | `3001` |
 | `API_CHANNEL_KEY` | Optional bearer token for auth | — |
 
+## Browser Automation
+
+Browser tools work out of the box — no keys needed. Install the Chromium binary once:
+
+```bash
+npx playwright install chromium
+# or via the wizard:
+tota setup browser
+```
+
+| Tool | Description |
+|------|-------------|
+| `browser_open` | Open a URL in headless Chromium |
+| `browser_click` | Click an element (selector or visible text) |
+| `browser_type` | Type text into an input field |
+| `browser_screenshot` | Capture the current page |
+| `browser_extract` | Extract text / attributes via CSS selector |
+| `browser_scroll` | Scroll up, down, left, or right |
+| `browser_close` | Close the shared browser instance |
+
+## Computer-Use (Desktop + Android)
+
+| Env Var | Description | Default |
+|---------|-------------|---------|
+| `COMPUTER_USE_ENABLED` | Enable computer-use and Android ADB tools | `false` |
+
+Or in `~/.tota/tota.yaml`:
+
+```yaml
+capabilities:
+  computer:
+    enabled: true
+```
+
+Enable via wizard: `tota setup computer`
+
+### Desktop tools (macOS, Linux, Windows)
+
+Uses [`@nut-tree-fork/nut-js`](https://github.com/nut-tree/nut.js). On Linux, first run `sudo apt install libxtst-dev`.
+
+| Tool | Description |
+|------|-------------|
+| `computer_screenshot` | Capture the full screen or a region |
+| `computer_see` | Screenshot + vision AI analysis in one step |
+| `computer_click` | Left, right, or double-click at (x, y) |
+| `computer_move` | Move cursor to (x, y) |
+| `computer_type` | Type text at the current keyboard focus |
+| `computer_key` | Press a key or combo (`cmd+c`, `ctrl+z`, `enter`, etc.) |
+| `computer_scroll` | Scroll at a position |
+| `computer_drag` | Click and drag between two coordinates |
+| `computer_screen_size` | Get display resolution |
+
+### Android tools (ADB)
+
+Requires `adb` in your PATH and a connected device or emulator.
+
+| Tool | Description |
+|------|-------------|
+| `adb_devices` | List connected Android devices |
+| `adb_screenshot` | Take a screenshot of an Android device |
+| `adb_see` | Android screenshot + vision AI analysis |
+| `adb_tap` | Tap at (x, y) on the device |
+| `adb_swipe` | Swipe between two points |
+| `adb_type` | Type text into the focused field |
+| `adb_key` | Send key event (3=HOME, 4=BACK, 66=ENTER…) |
+| `adb_shell` | Run any `adb shell` command |
+| `adb_pull` | Pull a file from the device |
+| `adb_push` | Push a local file to the device |
+
 ## Loop Guard
 
 | Env Var | Description | Default |

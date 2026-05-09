@@ -754,6 +754,8 @@ export const SETUP_SECTIONS: Record<string, string> = {
   telegram: 'Telegram',
   github: 'GitHub Integration',
   websearch: 'Web Search',
+  browser: 'Browser Automation',
+  computer: 'Computer-Use & Android',
   api: 'REST API Channel',
   budget: 'Token Budget',
 };
@@ -1197,6 +1199,65 @@ async function configure(existingConfig?: TotaConfig, section?: string): Promise
     }
   }
   } // end budget section
+
+  if (!section || section === 'browser') {
+  hr();
+  console.log('');
+  console.log(chalk.bold.white('  Browser Automation'));
+  console.log(chalk.dim('  Playwright-powered Chromium: open pages, click, type, screenshot, extract.'));
+  console.log(chalk.dim('  Works out of the box — no API keys needed.'));
+  console.log('');
+
+  const browserOptions = [
+    { value: 'skip', label: 'Skip — browser tools are already available' },
+    { value: 'install', label: 'Install Chromium browser binary now (npx playwright install chromium)' },
+  ];
+
+  const browserChoice = await selectWithArrowKeys('Browser Automation', browserOptions);
+  if (browserChoice === 'install') {
+    console.log(chalk.dim('  Running: npx playwright install chromium ...'));
+    try {
+      const { execSync: exec2 } = await import('node:child_process');
+      exec2('npx playwright install chromium', { stdio: 'inherit', shell: true });
+      console.log(chalk.green('  ✓ Chromium installed. Browser tools are ready.'));
+    } catch (e: any) {
+      console.log(chalk.yellow(`  Could not install Chromium automatically: ${e.message}`));
+      console.log(chalk.dim('  Run manually: npx playwright install chromium'));
+    }
+  } else {
+    console.log(chalk.dim('  Skipped. Run `npx playwright install chromium` when ready.'));
+  }
+  } // end browser section
+
+  if (!section || section === 'computer') {
+  hr();
+  console.log('');
+  console.log(chalk.bold.white('  Computer-Use & Android'));
+  console.log(chalk.dim('  Let tota see your screen (via vision AI) and control mouse/keyboard.'));
+  console.log(chalk.dim('  Also enables Android ADB tools (tap, swipe, type, shell...).'));
+  console.log(chalk.dim('  Disabled by default for safety.'));
+  console.log('');
+
+  const computerEnabled = config.capabilities?.computer?.enabled ?? false;
+  const computerOptions = [
+    { value: 'skip',    label: isReconfig ? (computerEnabled ? 'Keep enabled' : 'Keep disabled / skip') : 'Skip — keep computer-use disabled' },
+    { value: 'enable',  label: 'Enable computer-use (desktop + Android ADB tools)' },
+    ...(isReconfig && computerEnabled ? [{ value: 'disable', label: 'Disable computer-use' }] : []),
+  ];
+
+  const computerChoice = await selectWithArrowKeys('Computer-Use', computerOptions);
+  if (computerChoice === 'enable') {
+    appendToEnv('COMPUTER_USE_ENABLED', 'true');
+    console.log(chalk.green('  ✓ COMPUTER_USE_ENABLED=true saved to ~/.tota/.env'));
+    console.log(chalk.dim('  Desktop tools use @nut-tree-fork/nut-js. On Linux: sudo apt install libxtst-dev'));
+    console.log(chalk.dim('  Android tools use `adb` — ensure adb is in your PATH.'));
+  } else if (computerChoice === 'disable') {
+    appendToEnv('COMPUTER_USE_ENABLED', 'false');
+    console.log(chalk.dim('  COMPUTER_USE_ENABLED=false saved to ~/.tota/.env'));
+  } else {
+    console.log(chalk.dim('  Skipped. Set COMPUTER_USE_ENABLED=true in ~/.tota/.env to enable later.'));
+  }
+  } // end computer section
 
   hr();
   saveConfig(config);

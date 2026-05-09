@@ -94,6 +94,8 @@ export function getManual(): string {
     ['tota setup telegram', 'Configure Telegram only'],
     ['tota setup github', 'Configure GitHub integration only'],
     ['tota setup websearch', 'Configure Web Search key only'],
+    ['tota setup browser', 'Install Chromium browser binary (Playwright)'],
+    ['tota setup computer', 'Enable/disable computer-use & Android ADB tools'],
     ['tota setup api', 'Configure REST API channel only'],
     ['tota setup budget', 'Configure token budget only'],
     ['tota setup identity', 'Configure name and owner only'],
@@ -209,14 +211,96 @@ export function getManual(): string {
   sections.push('');
 
   const webInfo = [
-    'Set one of these env vars (or run tota setup / tota doctor) to enable web_search:',
+    'Set one of these env vars (or run tota setup websearch / tota doctor) to enable web_search:',
     '  BRAVE_API_KEY    — Brave Search (brave.com/search/api)',
     '  SERPER_API_KEY   — Serper (serper.dev)',
     '  TAVILY_API_KEY   — Tavily (tavily.com)',
+    'Auto-detected: tota picks whichever key it finds. Pin with WEB_SEARCH_PROVIDER=brave|serper|tavily',
+    'Disable entirely: WEB_SEARCH_ENABLED=false',
     'Ask tota: "search the web for <query>" once a key is set.',
   ];
 
   for (const s of webInfo) {
+    sections.push(`  ${chalk.dim('\u2022')} ${s}`);
+  }
+
+  sections.push('');
+  sections.push(chalk.bold.white('  Vision / Image Analysis'));
+  sections.push('');
+
+  const visionInfo = [
+    'Requires a vision-capable model (OpenAI gpt-4o, Anthropic claude-3-5-sonnet, Gemini, etc.).',
+    'Supports JPEG, PNG, GIF, WebP — local files or image URLs.',
+    'Ask tota: "analyze this image: /path/to/file.png" or "what is in https://…/photo.jpg"',
+    'Used automatically by computer_see and adb_see for screen understanding.',
+  ];
+
+  for (const s of visionInfo) {
+    sections.push(`  ${chalk.dim('\u2022')} ${s}`);
+  }
+
+  sections.push('');
+  sections.push(chalk.bold.white('  Browser Automation'));
+  sections.push('');
+
+  const browserInfo = [
+    'Playwright-powered Chromium — no API keys needed, works out of the box.',
+    'Install the browser binary once: npx playwright install chromium',
+    'Or run the wizard:          tota setup browser',
+    'Tools: browser_open, browser_click, browser_type, browser_screenshot, browser_extract, browser_scroll, browser_close',
+    'Examples:',
+    '  "Open https://example.com and take a screenshot"',
+    '  "Go to https://github.com and click Sign in"',
+    '  "Extract all links from the current page"',
+    '  "Type hello into the search box and press Enter"',
+  ];
+
+  for (const s of browserInfo) {
+    sections.push(`  ${chalk.dim('\u2022')} ${s}`);
+  }
+
+  sections.push('');
+  sections.push(chalk.bold.white('  Computer-Use (Desktop Control)'));
+  sections.push('');
+
+  const computerInfo = [
+    'Enable: add COMPUTER_USE_ENABLED=true to ~/.tota/.env, or run: tota setup computer',
+    'macOS, Linux, Windows — cross-platform via @nut-tree-fork/nut-js.',
+    'Linux extra dep: sudo apt install libxtst-dev',
+    'Desktop tools: computer_screenshot, computer_see, computer_click, computer_move,',
+    '               computer_type, computer_key, computer_scroll, computer_drag, computer_screen_size',
+    'Examples:',
+    '  "Look at my screen and tell me what is open"',
+    '  "Click the button at 640, 480"',
+    '  "Type hello world and press Enter"',
+    '  "Press cmd+c"',
+    '  "Drag from 100,200 to 500,200"',
+    '  "What is my screen resolution?"',
+  ];
+
+  for (const s of computerInfo) {
+    sections.push(`  ${chalk.dim('\u2022')} ${s}`);
+  }
+
+  sections.push('');
+  sections.push(chalk.bold.white('  Android Control (ADB)'));
+  sections.push('');
+
+  const adbInfo = [
+    'Enable: same flag as computer-use — COMPUTER_USE_ENABLED=true',
+    'Requires adb in your PATH and a connected device/emulator.',
+    'Tools: adb_devices, adb_screenshot, adb_see, adb_tap, adb_swipe, adb_type,',
+    '       adb_key, adb_shell, adb_pull, adb_push',
+    'Examples:',
+    '  "List my connected Android devices"',
+    '  "Take a screenshot of my Android phone and describe what is on screen"',
+    '  "Tap at 540, 960 on my phone"',
+    '  "Press the Android back button (key 4)"',
+    '  "Run pm list packages on my Android device"',
+    '  "Pull /sdcard/Download/file.pdf from the device"',
+  ];
+
+  for (const s of adbInfo) {
     sections.push(`  ${chalk.dim('•')} ${s}`);
   }
 
