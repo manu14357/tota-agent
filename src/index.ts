@@ -1036,6 +1036,126 @@ async function configure(existingConfig?: TotaConfig): Promise<void> {
 
   hr();
   console.log('');
+  console.log(chalk.bold.white('  Web Search (optional)'));
+  console.log(chalk.dim('  Enable tota to search the web. Provide an API key for one of the'));
+  console.log(chalk.dim('  supported providers below. Leave empty to skip.'));
+  console.log('');
+  console.log(chalk.dim('    Brave Search  — brave.com/search/api'));
+  console.log(chalk.dim('    Serper        — serper.dev'));
+  console.log(chalk.dim('    Tavily        — tavily.com'));
+  console.log('');
+
+  const webSearchProviders = [
+    { key: 'brave', label: 'Brave Search', envKey: 'BRAVE_API_KEY', prefix: '' },
+    { key: 'serper', label: 'Serper', envKey: 'SERPER_API_KEY', prefix: '' },
+    { key: 'tavily', label: 'Tavily', envKey: 'TAVILY_API_KEY', prefix: '' },
+  ] as const;
+
+  const existingWebKey = process.env.BRAVE_API_KEY || process.env.SERPER_API_KEY || process.env.TAVILY_API_KEY || config.webSearch?.apiKey || '';
+  const existingWebProvider = process.env.BRAVE_API_KEY ? 'Brave' : process.env.SERPER_API_KEY ? 'Serper' : process.env.TAVILY_API_KEY ? 'Tavily' : '';
+
+  const webSearchOptions = [
+    { value: 'skip', label: isReconfig ? 'Keep current / skip' : 'Skip' },
+    ...webSearchProviders.map((p, i) => ({ value: p.envKey, label: `${i + 1}. ${p.label}` })),
+  ];
+
+  if (existingWebKey && existingWebProvider) {
+    console.log(chalk.dim(`  Current: ${existingWebProvider} (${maskKey(existingWebKey)})`));
+    console.log('');
+  }
+
+  const webChoice = await selectWithArrowKeys('Web Search Provider', webSearchOptions);
+
+  if (webChoice && webChoice !== 'skip') {
+    const chosen = webSearchProviders.find(p => p.envKey === webChoice)!;
+    const currentKey = process.env[chosen.envKey] || '';
+    const mask = isReconfig && currentKey ? ` [${maskKey(currentKey)}]` : '';
+    while (true) {
+      const wsKey = await ask(chalk.white(`  ${chosen.label} API key${mask}: `));
+      if (!wsKey) {
+        if (isReconfig && currentKey) {
+          console.log(chalk.dim(`  Keeping current ${chosen.label} key.`));
+        }
+        break;
+      }
+      if (wsKey.length < 10 || /\s/.test(wsKey)) {
+        console.log(chalk.red('  That doesn\'t look like a valid API key. Try again.'));
+        continue;
+      }
+      appendToEnv(chosen.envKey, wsKey);
+      console.log(chalk.green(`  ✓ ${chosen.label} API key saved to ~/.tota/.env`));
+      break;
+    }
+  }
+
+  hr();
+  console.log('');
+  console.log(chalk.bold.white('  REST API Channel (optional)'));
+  console.log(chalk.dim('  Expose a local HTTP endpoint so other apps or scripts can send'));
+  console.log(chalk.dim('  messages to tota and get replies (POST /message).'));
+  console.log(chalk.dim('  Leave empty to skip. You can enable it later with tota doctor.'));
+  console.log('');
+
+  const apiEnabled = config.channels.api?.enabled ?? false;
+  const apiCurrentPort = config.channels.api?.port ?? 3001;
+  const apiCurrentKey = config.channels.api?.apiKey ?? '';
+
+  const apiEnableOptions = [
+    { value: 'skip', label: isReconfig ? (apiEnabled ? 'Keep enabled' : 'Keep disabled / skip') : 'Skip — don\'t enable the REST API' },
+    { value: 'enable', label: 'Enable the REST API channel' },
+    ...(isReconfig && apiEnabled ? [{ value: 'disable', label: 'Disable the REST API channel' }] : []),
+  ];
+
+  if (isReconfig && apiEnabled) {
+    console.log(chalk.dim(`  Current: enabled on port ${apiCurrentPort}${apiCurrentKey ? `, key: ${maskKey(apiCurrentKey)}` : ', no auth'}`));
+    console.log('');
+  }
+
+  const apiChoice = await selectWithArrowKeys('REST API Channel', apiEnableOptions);
+
+  if (apiChoice === 'disable') {
+    config.channels.api.enabled = false;
+    console.log(chalk.dim('  REST API channel disabled.'));
+  } else if (apiChoice === 'enable') {
+    config.channels.api.enabled = true;
+
+    const portPrompt = isReconfig
+      ? chalk.white(`  Port [${apiCurrentPort}]: `)
+      : chalk.white(`  Port [3001]: `);
+    while (true) {
+      const portStr = await ask(portPrompt);
+      if (!portStr) {
+        config.channels.api.port = apiCurrentPort;
+        break;
+      }
+      const portNum = parseInt(portStr, 10);
+      if (isNaN(portNum) || portNum < 1 || portNum > 65535) {
+        console.log(chalk.red('  Please enter a valid port number (1–65535).'));
+        continue;
+      }
+      config.channels.api.port = portNum;
+      break;
+    }
+
+    const keyMask = isReconfig && apiCurrentKey ? ` [${maskKey(apiCurrentKey)}]` : '';
+    const apiKeyPrompt = isReconfig && apiCurrentKey
+      ? chalk.white(`  API key for auth (Enter to keep current)${keyMask}: `)
+      : chalk.white('  API key for auth (optional, Enter to skip — no auth): ');
+    const newApiKey = await ask(apiKeyPrompt);
+    if (newApiKey) {
+      if (newApiKey.length < 8 || /\s/.test(newApiKey)) {
+        console.log(chalk.yellow('  That key looks too short or has spaces — saved anyway. Consider using a longer key.'));
+      }
+      config.channels.api.apiKey = newApiKey;
+      console.log(chalk.green(`  ✓ REST API channel enabled on port ${config.channels.api.port} with auth.`));
+    } else {
+      if (isReconfig && apiCurrentKey) config.channels.api.apiKey = apiCurrentKey;
+      console.log(chalk.green(`  ✓ REST API channel enabled on port ${config.channels.api.port}${config.channels.api.apiKey ? ' with auth' : ' (no auth)'}.`));
+    }
+  }
+
+  hr();
+  console.log('');
   console.log(chalk.bold.white('  Token Budget'));
   console.log('');
 
@@ -1322,7 +1442,7 @@ async function runAgent(isDaemon: boolean = false): Promise<void> {
 
     console.log('');
     console.log(chalk.green(`  ${name} is live. Type a message and press Enter.`));
-    console.log(chalk.dim('  Ctrl+C to exit · /help for commands'));
+    console.log(chalk.dim('  Ctrl+C to exit  ·  /help for commands  ·  / for menu'));
     console.log('');
     cliChannel?.showPrompt();
   } else {

@@ -1528,6 +1528,26 @@ Always specify owner and repo parameters on GitHub tools. The user's GitHub user
       return true;
     }
 
+    if (cmd === '/tasks') {
+      const manifests = this.scheduler.getManifests();
+      if (manifests.length === 0) {
+        await channel.send('No scheduled tasks. Ask me to schedule something — e.g. "remind me every day at 9am to…"', channelId);
+      } else {
+        const lines = [
+          `**${manifests.length} scheduled task${manifests.length > 1 ? 's' : ''}:**`,
+          '',
+          ...manifests.map(m => {
+            const schedule = m.cron ? `cron: \`${m.cron}\`` : m.executeAt ? `at: ${new Date(m.executeAt).toLocaleString()}` : 'delayed';
+            return `• \`${m.id}\` — ${m.description} (${schedule})`;
+          }),
+          '',
+          'Use `cancel_scheduled_task` tool or ask me to cancel a task by ID.',
+        ];
+        await channel.send(lines.join('\n'), channelId);
+      }
+      return true;
+    }
+
     if (cmd === '/stream on') {
       this.telegramStreaming = true;
       await channel.send('Telegram streaming enabled. Responses will appear progressively.', channelId);
@@ -1570,10 +1590,12 @@ Always specify owner and repo parameters on GitHub tools. The user's GitHub user
         const action = await select('tota Commands', [
           { value: 'status', label: 'Status' },
           { value: 'memory', label: 'Memory' },
+          { value: 'tasks', label: 'Tasks' },
           { value: 'permissions', label: permLabel },
           { value: 'telegram', label: 'Telegram' },
           { value: 'tools', label: 'Tools' },
           { value: 'skills', label: 'Skills' },
+          { value: 'budget', label: 'Budget' },
           { value: 'stream', label: streamLabel },
           { value: 'help', label: 'Help' },
           { value: 'exit', label: 'Exit' },
@@ -1614,6 +1636,16 @@ Always specify owner and repo parameters on GitHub tools. The user's GitHub user
 
         if (action === 'skills') {
           await this.handleChatCommand('/skills', 'cli', channelId);
+          continue;
+        }
+
+        if (action === 'tasks') {
+          await this.handleChatCommand('/tasks', 'cli', channelId);
+          continue;
+        }
+
+        if (action === 'budget') {
+          await this.handleChatCommand('/budget', 'cli', channelId);
           continue;
         }
 

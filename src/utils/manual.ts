@@ -21,8 +21,12 @@ export function getManual(): string {
     ['delete_file', 'Delete a file', 'path'],
     ['send_message', 'Send a message to approved Telegram users', 'content'],
     ['run_command', 'Execute a shell command', 'command'],
+    ['run_code', 'Execute code in a sandbox (Python/JS/Bash/TS/Ruby/Go)', 'language, code, timeout?, stdin?'],
     ['approve_command', 'Permanently approve a command type', 'command (e.g. "curl")'],
     ['fetch_url', 'Fetch a URL and return content', 'url, format? (text/markdown)'],
+    ['web_search', 'Search the web (Brave/Serper/Tavily — needs API key in env)', 'query, max_results?'],
+    ['analyze_image', 'Analyze a local image or URL (vision-capable model required)', 'path_or_url, prompt?'],
+    ['delegate_task', 'Spawn a sub-agent for a focused sub-task', 'task, context?'],
     ['git_status', 'Show working tree status', 'path?'],
     ['git_diff', 'Show file changes', 'path?, staged?'],
     ['git_log', 'Show commit history', 'count?, path?'],
@@ -36,6 +40,14 @@ export function getManual(): string {
     ['list_scheduled_tasks', 'List all scheduled tasks', '—'],
     ['cancel_scheduled_task', 'Cancel a scheduled task', 'id'],
     ['budget_status', 'Check token budget', '—'],
+    ['mcp_<server>_<tool>', 'MCP plugin tools (loaded from ~/.tota/tota.yaml mcp.servers)', 'varies per server'],
+    ['browser_open', 'Open a URL in a headless browser', 'url'],
+    ['browser_click', 'Click an element on the current page', 'selector'],
+    ['browser_type', 'Type text into an input on the current page', 'selector, text'],
+    ['browser_screenshot', 'Take a screenshot of the current page', '—'],
+    ['browser_extract', 'Extract text/HTML from the current page', 'selector?'],
+    ['browser_scroll', 'Scroll the current page', 'direction, amount?'],
+    ['browser_close', 'Close the headless browser', '—'],
   ];
 
   for (const [name, desc, params] of tools) {
@@ -70,6 +82,7 @@ export function getManual(): string {
     ['tota service install', 'Install as system service (auto-start)'],
     ['tota service uninstall', 'Uninstall system service'],
     ['tota service status', 'Show system service status'],
+    ['tota upgrade', 'Upgrade tota to the latest version from npm'],
     ['tota --verbose', 'Start with debug logging on stderr'],
   ];
 
@@ -106,6 +119,11 @@ export function getManual(): string {
     ['/stream', 'Toggle text streaming on/off (Telegram)'],
     ['/stream on', 'Enable streaming (live text updates)'],
     ['/stream off', 'Disable streaming (single message)'],
+    ['/budget', 'Show current token budget status'],
+    ['/budget override', 'Allow one more request past the daily budget'],
+    ['/budget reset', 'Reset daily token usage to zero'],
+    ['/budget set <n>', 'Set a new daily token budget'],
+    ['/exit', 'Shut down tota (also /quit)'],
     ['/unpair', 'Reset all Telegram access for this tota instance (admins only)'],
   ];
 
@@ -160,16 +178,69 @@ export function getManual(): string {
   }
 
   sections.push('');
+  sections.push(chalk.bold.white('  Web Search'));
+  sections.push('');
+
+  const webInfo = [
+    'Set one of these env vars (or run tota setup / tota doctor) to enable web_search:',
+    '  BRAVE_API_KEY    — Brave Search (brave.com/search/api)',
+    '  SERPER_API_KEY   — Serper (serper.dev)',
+    '  TAVILY_API_KEY   — Tavily (tavily.com)',
+    'Ask tota: "search the web for <query>" once a key is set.',
+  ];
+
+  for (const s of webInfo) {
+    sections.push(`  ${chalk.dim('•')} ${s}`);
+  }
+
+  sections.push('');
+  sections.push(chalk.bold.white('  REST API Channel'));
+  sections.push('');
+
+  const apiInfo = [
+    'Expose a local HTTP endpoint so scripts/apps can message tota.',
+    'Enable it during setup (tota setup / tota doctor) or set env vars:',
+    '  API_CHANNEL_ENABLED=true  — enable the channel',
+    '  API_CHANNEL_PORT          — port to listen on (default: 3001)',
+    '  API_CHANNEL_KEY           — Bearer/X-Api-Key token (optional auth)',
+    'POST /message  { "content": "..." }  →  { "reply": "..." }',
+    'GET  /status                         →  { "status": "ok", "ready": true }',
+  ];
+
+  for (const s of apiInfo) {
+    sections.push(`  ${chalk.dim('•')} ${s}`);
+  }
+
+  sections.push('');
+  sections.push(chalk.bold.white('  MCP Plugins'));
+  sections.push('');
+
+  const mcpInfo = [
+    'Connect any JSON-RPC MCP server by adding it to ~/.tota/tota.yaml:',
+    '  mcp:',
+    '    servers:',
+    '      - name: myserver',
+    '        url: http://localhost:4000',
+    '        apiKey: optional-key',
+    'Tools are auto-loaded as mcp_<server>_<tool> at startup.',
+  ];
+
+  for (const s of mcpInfo) {
+    sections.push(`  ${chalk.dim('•')} ${s}`);
+  }
+
+  sections.push('');
   sections.push(chalk.bold.white('  Configuration'));
   sections.push('');
 
   const configInfo = [
-    ['~/.tota/tota.yaml', 'Main config (providers, channels, budget)'],
+    ['~/.tota/tota.yaml', 'Main config (providers, channels, budget, MCP servers)'],
     ['~/.tota/permissions.yaml', 'Capabilities and approval rules'],
     ['~/.tota/soul/*.md', 'Agent personality (soul, persona, taste, heartbeat)'],
     ['~/.tota/skills/', 'Installed skills'],
     ['~/.tota/schedules.yaml', 'Scheduled tasks'],
     ['~/.tota/token-usage.json', 'Daily token usage tracking'],
+    ['~/.tota/.env', 'API keys & env overrides (web search, GitHub)'],
     ['~/.tota/memory/', 'Short-term, long-term, episodic memory'],
   ];
 
