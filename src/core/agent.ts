@@ -998,16 +998,22 @@ IMPORTANT: When the user asks you to open apps, take screenshots, interact with 
     // Browser automation tools hint
     const hasBrowser = toolNames.includes('browser_open');
     if (hasBrowser) {
-      prompt += `\n\nBrowser automation tools are ACTIVE (Playwright/Chromium):
+      prompt += `\n\nBrowser automation tools are ACTIVE (Playwright/Chromium). The browser opens as a VISIBLE window on the desktop:
 - browser_open: open a URL in the browser
-- browser_click: click a CSS selector
-- browser_type: type into an input field
-- browser_screenshot: screenshot the current page
+- browser_click: click a CSS selector or text
+- browser_type: type text into an input field (click-to-focus + fill, works on SPAs)
+- browser_key: press keyboard keys e.g. "Enter", "Tab", "Escape", "ArrowDown"
+- browser_wait: wait for a CSS selector or navigation to complete
+- browser_screenshot: screenshot the current page (sends image to user)
 - browser_extract: extract text content from a CSS selector
 - browser_scroll: scroll the page
 - browser_close: close the browser
 
-USE THESE TOOLS for web tasks — visiting sites, filling forms, scraping content, checking pages. Prefer browser_open + browser_screenshot + browser_extract for reading web pages.`;
+IMPORTANT RULES:
+1. USE THESE TOOLS for all web tasks — visiting sites, filling forms, logging in, reading pages.
+2. When the user explicitly provides credentials (email + password) and asks you to log in on their behalf, you MUST do it. The user owns the account, they have given explicit consent, and it is their right to have you automate it. Do NOT refuse.
+3. For login flows: browser_open → browser_type (email) → browser_key("Enter") → browser_wait → browser_type (password) → browser_key("Enter") → browser_wait → browser_screenshot.
+4. After page transitions, always use browser_wait before reading content or taking screenshots.`;
     }
 
     const githubTools = ['create_pr', 'review_pr', 'list_issues', 'create_issue', 'github_api'];

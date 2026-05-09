@@ -10,6 +10,9 @@ let _page: any | null = null;
 
 const SCREENSHOT_DIR = path.join(os.tmpdir(), 'tota-browser');
 
+// Visible browser by default. Set PLAYWRIGHT_HEADLESS=true in env to force headless (e.g. CI).
+const IS_HEADLESS = process.env.CI === 'true' || process.env.PLAYWRIGHT_HEADLESS === 'true';
+
 async function getBrowser() {
   if (_browserPromise) return _browserPromise;
   _browserPromise = (async () => {
@@ -17,7 +20,7 @@ async function getBrowser() {
       throw new Error(`playwright is not installed. Run: npm install playwright && npx playwright install chromium\n${e.message}`);
     });
     const browser = await chromium.launch({
-      headless: true,
+      headless: IS_HEADLESS,
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
     return browser;
@@ -160,10 +163,10 @@ export function createBrowserClickTool() {
 export function createBrowserTypeTool() {
   return tool({
     description:
-      'Type text into an input field on the current browser page. Can clear the field first.',
+      'Type text into an input field on the current browser page. Can clear the field first. Works on SPAs like Google, Gmail, etc.',
     inputSchema: zodSchema(
       z.object({
-        selector: z.string().describe('CSS selector of the input field, e.g. "input[name=email]", "#search"'),
+        selector: z.string().describe('CSS selector of the input field, e.g. "input[name=email]", "#search", "input[type=email]"'),
         text: z.string().describe('Text to type into the field'),
         clear_first: z
           .boolean()
@@ -180,10 +183,15 @@ export function createBrowserTypeTool() {
     execute: async ({ selector, text, clear_first = true, press_enter = false }) => {
       try {
         const page = await getPage();
+        // Click to focus first (critical for SPAs)
+        await page.click(selector, { timeout: 10000 });
         if (clear_first) {
-          await page.fill(selector, '');
+          // Triple-click selects all text, then overwrite — more reliable than fill('') on SPAs
+          await page.click(selector, { clickCount: 3 });
+          await page.keyboard.press('Backspace');
         }
-        await page.type(selector, text, { delay: 30 });
+        // Use fill() for speed and reliability, then type remaining chars if needed
+        await page.fill(selector, text);
         if (press_enter) {
           await page.keyboard.press('Enter');
         }
@@ -358,6 +366,83 @@ export function createBrowserCloseTool() {
     execute: async () => {
       await closeBrowser();
       return 'Browser session closed.';
+    },
+  });
+}
+
+// ─── Tool: browser_key ───────────────────────────────────────────────────────
+
+export function createBrowserKeyTool() {
+  return tool({
+    description:
+      'Press a keyboard key in the browser. Use this to press Enter, Tab, Escape, arrow keys, etc. after typing or between steps.',
+    inputSchema: zodSchema(
+      z.object({
+        key: z
+          .string()
+          .describe(
+            'Key to press. Examples: "Enter", "Tab", "Escape", "ArrowDown", "Space", "Backspace". ' +
+            'Combinations: "Control+a", "Meta+a" (select all on Mac).',
+          ),
+        count: z
+          .number()
+          .optional()
+          .default(1)
+          .describe('Number of times to press the key. Default 1.'),
+      }),
+    ),
+    execute: async ({ key, count = 1 }) => {
+      try {
+        const page = await getPage();
+        for (let i = 0; i < count; i++) {
+          await page.keyboard.press(key);
+        }
+        return `Pressed "${key}"${count > 1 ? ` × ${count}` : ''}`;
+      } catch (err: any) {
+        return `Error pressing key: ${err.message}`;
+      }
+    },
+  });
+}
+
+// ─── Tool: browser_wait ──────────────────────────────────────────────────────
+
+export function createBrowserWaitTool() {
+  return tool({
+    description:
+      'Wait for a CSS selector to appear on the page, or wait for navigation to complete. ' +
+      'Use after clicking login buttons, form submissions, or navigating to a new page.',
+    inputSchema: zodSchema(
+      z.object({
+        selector: z
+          .string()
+          .optional()
+          .describe('CSS selector to wait for, e.g. ".inbox", "[aria-label=\'Inbox\']"'),
+        timeout_ms: z
+          .number()
+          .optional()
+          .default(15000)
+          .describe('Timeout in milliseconds. Default 15000.'),
+        wait_for_navigation: z
+          .boolean()
+          .optional()
+          .default(false)
+          .describe('If true, wait for page navigation instead of a selector.'),
+      }),
+    ),
+    execute: async ({ selector, timeout_ms = 15000, wait_for_navigation = false }) => {
+      try {
+        const page = await getPage();
+        if (wait_for_navigation) {
+          await page.waitForLoadState('domcontentloaded', { timeout: timeout_ms });
+          return `Page loaded. Current URL: ${page.url()}`;
+        }
+        if (!selector) return `Error: Provide "selector" or set "wait_for_navigation" to true.`;
+        await page.waitForSelector(selector, { timeout: timeout_ms });
+        return `Element found: ${selector}. Current URL: ${page.url()}`;
+      } catch (err: any) {
+        return `Timeout or error waiting: ${err.message}`;
+      }
     },
   });
 }

@@ -47,6 +47,8 @@ import {
   createBrowserExtractTool,
   createBrowserScrollTool,
   createBrowserCloseTool,
+  createBrowserKeyTool,
+  createBrowserWaitTool,
 } from './web/browser.js';
 import { loadMCPTools } from './mcp/mcp-loader.js';
 import {
@@ -268,6 +270,8 @@ export class CapabilityRegistry {
     this.tools.browser_extract = createBrowserExtractTool();
     this.tools.browser_scroll = createBrowserScrollTool();
     this.tools.browser_close = createBrowserCloseTool();
+    this.tools.browser_key = createBrowserKeyTool();
+    this.tools.browser_wait = createBrowserWaitTool();
     logger.info('Browser automation tools registered');
 
     // Desktop computer-use tools
