@@ -8,7 +8,7 @@
 
 <p align="center">
   Remembers what matters. Asks before it acts. Runs 24/7 from CLI, Telegram, or REST API.<br>
-  40+ built-in tools · Web search · Vision · Code sandbox · MCP plugins · Extensible skills · SQLite-backed Second Brain memory.
+  50+ built-in tools · Web search · Vision · Code sandbox · Browser automation · Document readers · MCP plugins · Extensible skills · SQLite-backed Second Brain memory.
 </p>
 
 <p align="center">
@@ -59,6 +59,10 @@ Every AI agent can read files and run commands. Most do it silently. **tota asks
 | **Web search** | Built-in web search via Brave, Serper, or Tavily. Auto-detects from env keys. |
 | **Vision** | Analyze local images and URLs with your AI provider's vision capabilities. |
 | **Code sandbox** | Execute Python, JavaScript, Bash, TypeScript, Ruby, and Go in an isolated temp sandbox. |
+| **Document readers** | Read PDF, Excel (.xlsx/.csv), and Word (.docx) files — text, tables, metadata. |
+| **Advanced file finder** | Find files by glob, content keyword, type, date range, and size across deep directory trees. |
+| **Browser automation** | Playwright-powered Chromium browser — open pages, click, type, screenshot, extract, scroll. |
+| **Telegram file receiving** | Users can send documents, photos, audio, and video directly to tota via Telegram. |
 | **Task delegation** | Agent can spawn sub-tasks and delegate to itself for complex multi-step workflows. |
 | **MCP plugins** | Connect any MCP-compatible tool server over HTTP — tools appear instantly in the agent. |
 | **REST API channel** | Control tota programmatically over HTTP with optional bearer-token auth. |
@@ -159,6 +163,9 @@ These work on both CLI and Telegram and do not consume API tokens.
 | Category | Tools |
 |----------|-------|
 | **Filesystem** | `read_file`, `write_file`, `create_file`, `edit_file`, `list_dir`, `delete_file`, `send_file`, `approve_scope` |
+| **Document readers** | `read_pdf`, `read_excel`, `write_excel`, `read_docx` — PDF, Excel, Word document support |
+| **File finder** | `find_files` — advanced search by glob, content keyword, type, date range, and size |
+| **Browser** | `browser_open`, `browser_click`, `browser_type`, `browser_screenshot`, `browser_extract`, `browser_scroll`, `browser_close` |
 | **Shell** | `run_command`, `cd`, `approve_command` |
 | **Code sandbox** | `run_code` — execute Python / JS / Bash / TS / Ruby / Go in an isolated sandbox |
 | **Messaging** | `send_message` |

@@ -36,14 +36,15 @@ const terminalLines = [
   { prompt: true, text: 'tota' },
   { prompt: false, text: '  ✦ tota is listening...', dim: true },
   { prompt: false, text: '' },
-  { prompt: false, text: 'you  check my git status and make a commit', user: true },
+  { prompt: false, text: 'you  summarize the PDF I just sent and open its company website', user: true },
   { prompt: false, text: '' },
-  { prompt: false, text: '  ● git_status  ', tool: true },
+  { prompt: false, text: '  ● read_pdf  report.pdf', tool: true },
+  { prompt: false, text: '  ● browser_open  https://acme.com', tool: true },
   { prompt: false, text: '' },
-  { prompt: false, text: '  3 files staged: agent.ts, store.ts, web/index.ts' },
-  { prompt: false, text: '  Commit message: "feat: add web capability"' },
+  { prompt: false, text: '  PDF: 14 pages · Q1 revenue up 32%' },
+  { prompt: false, text: '  Site: "ACME Corp — Building the future"' },
   { prompt: false, text: '' },
-  { prompt: false, text: '  ⚡ Allow git commit? [y/N]', ask: true },
+  { prompt: false, text: '  ⚡ Take a screenshot? [y/N]', ask: true },
 ]
 
 export default function Hero() {
@@ -77,7 +78,7 @@ export default function Hero() {
             }}
           >
             <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#00A9FF' }} />
-            40+ built-in tools · 9 AI providers · Web search · Vision · Code sandbox · MCP plugins
+            50+ built-in tools · 9 AI providers · Web search · Vision · PDF/Excel/DOCX · Browser automation · MCP plugins
           </span>
         </div>
 

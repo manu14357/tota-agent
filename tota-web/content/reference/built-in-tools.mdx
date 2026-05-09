@@ -2,7 +2,7 @@
 title: Built-in Tools
 ---
 
-tota ships with 40+ built-in tools, grouped into capability areas.
+tota ships with 50+ built-in tools, grouped into capability areas.
 
 ## Filesystem
 
@@ -10,20 +10,46 @@ tota ships with 40+ built-in tools, grouped into capability areas.
 |------|-------------|
 | `read_file` | Read file contents with optional line range |
 | `write_file` | Write or overwrite a file |
-| `append_file` | Append content to an existing file |
+| `create_file` | Create a new file |
+| `edit_file` | Apply a targeted string replacement edit to an existing file |
 | `delete_file` | Delete a file |
-| `copy_file` | Copy a file from source to destination |
-| `move_file` | Move or rename a file |
-| `list_directory` | List directory contents |
-| `create_directory` | Create a directory (recursive) |
-| `search_files` | Search for files by name or glob pattern |
-| `search_in_files` | Search for text within files (grep-like) |
+| `list_dir` | List directory contents |
+| `send_file` | Send a file to the user (Telegram or API channel) |
+| `approve_scope` | Approve a filesystem path for read or write access |
+| `find_files` | Advanced file finder — search by glob pattern, content keyword, file type, date range, and size. Recurses up to depth 6, skips `node_modules`/`.git`/`dist`. |
+
+## Document Readers
+
+| Tool | Description |
+|------|-------------|
+| `read_pdf` | Extract text, page count, and metadata from a PDF file |
+| `read_excel` | Read an Excel / CSV file and render as a markdown table or JSON (supports `.xlsx`, `.xls`, `.ods`, `.csv`) |
+| `write_excel` | Create an `.xlsx` file from provided rows and headers, with auto-sized columns and bold header row |
+| `read_docx` | Extract plain text or HTML from a Word `.docx` file |
+
+All document tools use permission-gated filesystem access and dynamic imports — tota starts normally even without the optional packages installed.
+
+## Browser Automation
+
+| Tool | Description |
+|------|-------------|
+| `browser_open` | Open a URL in a headless Chromium browser; returns page title, URL, and visible text |
+| `browser_click` | Click an element by CSS selector or visible text |
+| `browser_type` | Type text into an input field (optionally press Enter) |
+| `browser_screenshot` | Take a full-page or element screenshot and send it to the user |
+| `browser_extract` | Extract text or attribute values from elements matching a CSS selector |
+| `browser_scroll` | Scroll the page up, down, to the top, or to the bottom |
+| `browser_close` | Close the browser session and free resources |
+
+Browser tools use a shared lazy Chromium instance (Playwright). Install the browser once with `npx playwright install chromium`.
 
 ## Shell
 
 | Tool | Description |
 |------|-------------|
-| `execute_command` | Run a shell command with timeout and output capture |
+| `run_command` | Run a shell command with timeout and output capture |
+| `cd` | Change the working directory |
+| `approve_command` | Approve a shell command pattern for the current session |
 
 ## Code Sandbox
 
@@ -31,7 +57,7 @@ tota ships with 40+ built-in tools, grouped into capability areas.
 |------|-------------|
 | `run_code` | Execute a code snippet in an isolated sandbox. Supports Python, JavaScript (Node.js), Bash, TypeScript, Ruby, and Go. Output capped at 8,000 chars. |
 
-Sandbox is isolated from your working directory — use `execute_command` for in-project commands.
+Sandbox is isolated from your working directory — use `run_command` for in-project commands.
 
 ## Git
 
@@ -41,6 +67,8 @@ Sandbox is isolated from your working directory — use `execute_command` for in
 | `git_diff` | Show diffs (staged, unstaged, or between refs) |
 | `git_log` | Show commit history |
 | `git_commit` | Stage and commit changes with a message |
+| `git_add` | Stage files |
+| `git_push` | Push commits to remote |
 
 ## GitHub
 
