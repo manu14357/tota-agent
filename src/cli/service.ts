@@ -49,7 +49,7 @@ function getDistPath(): string {
   }
   // Last resort: use argv[1] even if not confirmed to exist
   if (process.argv[1]) return process.argv[1];
-  throw new Error('Cannot determine tota script path for service install. Install globally via npm: npm install -g @manu14357/tota-agent');
+  throw new Error('Cannot determine tota script path for service install. Install globally via npm: npm install -g tota-agent');
 }
 
 export function installService(): void {

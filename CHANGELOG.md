@@ -58,5 +58,5 @@ First public release of **tota** — a soul-driven AI agent by [manu14357](https
 ### Repository
 
 - GitHub: <https://github.com/manu14357/tota-agent>
-- npm: `@manu14357/tota-agent`
+- npm: `tota-agent`
 - Author: [manohar](https://github.com/manu14357)

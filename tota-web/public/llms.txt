@@ -4,7 +4,7 @@
 
 tota is an open-source CLI agent built on Node.js 20+. It ships with 31 built-in tools across filesystem, shell, git, GitHub, web, memory, messaging, and scheduling. It supports 9 AI providers (DeepSeek, OpenAI, Anthropic, Grok, Mimo, Ollama, OpenAI-compatible) with automatic provider fallback. Memory is stored locally in a SQLite Second Brain with full-text search. The agent runs as a background daemon with system service support (macOS LaunchAgent, Linux systemd, Windows Task Scheduler). Permissions are 3-tier: read-only tools run silently, write tools prompt in "Ask Me" mode, dangerous tools always prompt. Skills extend the agent via SKILL.md files. Remote access is via a private Telegram bot.
 
-Install: `npm i -g @manu14357/tota-agent` · GitHub: https://github.com/manu14357/tota-agent · npm: https://www.npmjs.com/package/@manu14357/tota-agent
+Install: `npm i -g tota-agent` · GitHub: https://github.com/manu14357/tota-agent · npm: https://www.npmjs.com/package/tota-agent
 
 ## Docs
 
