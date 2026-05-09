@@ -12,10 +12,41 @@ title: Full Command Reference
 | `tota stop` | Stop a background tota process |
 | `tota logs` | Show last 100 lines of daemon logs |
 | `tota status` | Show config, providers, daemon PID, and budget |
-| `tota doctor` | Reconfigure settings — press Enter to keep current values |
-| `tota setup` | Re-run the setup wizard (same as doctor) |
+| `tota doctor` | Reconfigure all settings — press Enter to keep current values |
+| `tota doctor <feature>` | Reconfigure one section only |
+| `tota setup` | Re-run the full setup wizard |
+| `tota setup <feature>` | Configure one section only (see below) |
 | `tota help` | Show the full manual (tools, commands, config paths) |
+| `tota upgrade` | Upgrade tota to the latest version from npm |
 | `tota service install` | Install as system service (auto-start on boot) |
 | `tota service uninstall` | Uninstall the system service |
 | `tota service status` | Show system service status |
 | `tota --verbose` | Start with debug logging on stderr |
+
+## `tota setup <feature>` — Configure a Single Section
+
+You don’t have to run the full wizard just to change one thing. Pass a feature name to update only that section. The agent keeps running — open a new terminal tab or split your terminal.
+
+| Feature | What it configures |
+|---------|-------------------|
+| `identity` | Your name and agent name |
+| `llm` | LLM providers and models |
+| `telegram` | Telegram bot token and pairing |
+| `github` | GitHub username, PAT, default repo |
+| `websearch` | Web search provider key (Brave / Serper / Tavily) |
+| `api` | REST API channel (port, auth key) |
+| `budget` | Daily token budget |
+
+```bash
+tota setup websearch    # add or change your web search key
+tota setup llm          # swap or add a provider
+tota setup telegram     # update your Telegram bot token
+tota setup api          # enable / configure the REST API channel
+tota setup budget       # change your daily token limit
+```
+
+`tota doctor <feature>` is an alias for the same thing.
+
+## In the `/` Menu
+
+While chatting, open the `/` command picker and choose **Configure**. Select the feature you want — tota prints the exact command to run in a new terminal. The running session is not interrupted.

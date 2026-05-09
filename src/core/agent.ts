@@ -1592,6 +1592,7 @@ Always specify owner and repo parameters on GitHub tools. The user's GitHub user
           { value: 'memory', label: 'Memory' },
           { value: 'tasks', label: 'Tasks' },
           { value: 'permissions', label: permLabel },
+          { value: 'configure', label: 'Configure' },
           { value: 'telegram', label: 'Telegram' },
           { value: 'tools', label: 'Tools' },
           { value: 'skills', label: 'Skills' },
@@ -1641,6 +1642,11 @@ Always specify owner and repo parameters on GitHub tools. The user's GitHub user
 
         if (action === 'tasks') {
           await this.handleChatCommand('/tasks', 'cli', channelId);
+          continue;
+        }
+
+        if (action === 'configure') {
+          await this.openCliConfigureMenu(channel, channelId, select);
           continue;
         }
 
@@ -1769,6 +1775,37 @@ Always specify owner and repo parameters on GitHub tools. The user's GitHub user
     } else {
       await channel.withMenu(runMenu);
     }
+  }
+
+  private async openCliConfigureMenu(
+    channel: CLIChannel,
+    channelId: string,
+    select: (title: string, options: ArrowSelectOption[]) => Promise<string>,
+  ): Promise<void> {
+    const CONFIGURE_FEATURES = [
+      { value: 'llm',       label: 'LLM Providers',     cmd: 'tota setup llm' },
+      { value: 'telegram',  label: 'Telegram',           cmd: 'tota setup telegram' },
+      { value: 'github',    label: 'GitHub Integration', cmd: 'tota setup github' },
+      { value: 'websearch', label: 'Web Search',         cmd: 'tota setup websearch' },
+      { value: 'api',       label: 'REST API Channel',   cmd: 'tota setup api' },
+      { value: 'budget',    label: 'Token Budget',       cmd: 'tota setup budget' },
+      { value: 'identity',  label: 'Identity & Name',    cmd: 'tota setup identity' },
+    ];
+
+    const feature = await select('Configure', [
+      ...CONFIGURE_FEATURES.map((f) => ({ value: f.value, label: f.label })),
+      { value: 'back', label: 'Back' },
+    ]);
+
+    if (feature === 'back') return;
+
+    const chosen = CONFIGURE_FEATURES.find((f) => f.value === feature);
+    if (!chosen) return;
+
+    await channel.send(
+      `**Configure ${chosen.label}**\n\nRun this in your terminal:\n\`\`\`\n${chosen.cmd}\n\`\`\`\n\nThe agent keeps running — open a new tab or split your terminal.`,
+      channelId,
+    );
   }
 
   private async openCliTelegramMenu(

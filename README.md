@@ -42,6 +42,15 @@ To reconfigure at any time:
 tota doctor
 ```
 
+Or configure just one feature without running the full wizard:
+
+```bash
+tota setup websearch    # add a web search key
+tota setup telegram     # change your Telegram bot
+tota setup llm          # swap LLM provider
+tota setup api          # enable the REST API channel
+```
+
 ---
 
 ## Why tota?
@@ -117,8 +126,9 @@ tota service uninstall
 | `tota restart` | Restart background process |
 | `tota stop` | Stop background process |
 | `tota logs` | View daemon logs |
-| `tota doctor` | Reconfigure (Enter to keep current values) |
-| `tota setup` | Re-run setup wizard |
+| `tota doctor` | Reconfigure all settings (Enter keeps current) |
+| `tota setup` | Re-run full setup wizard |
+| `tota setup <feature>` | Configure one feature only (see below) |
 | `tota status` | Show config and daemon status |
 | `tota help` | Show full manual |
 | `tota upgrade` | Upgrade to latest version |
@@ -133,6 +143,20 @@ tota service uninstall
 | `tota service uninstall` | Uninstall system service |
 | `tota service status` | Show service status |
 | `tota --verbose` | Start with debug logging |
+
+### `tota setup <feature>`
+
+Configure a single section without touching everything else. The agent keeps running — open a new terminal tab.
+
+| Feature | What it configures |
+|---------|-------------------|
+| `identity` | Your name and agent name |
+| `llm` | LLM providers and models |
+| `telegram` | Telegram bot token and pairing |
+| `github` | GitHub username, PAT, default repo |
+| `websearch` | Web search provider key (Brave / Serper / Tavily) |
+| `api` | REST API channel (port, auth key) |
+| `budget` | Daily token budget |
 
 ---
 

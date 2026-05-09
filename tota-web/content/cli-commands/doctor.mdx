@@ -12,3 +12,35 @@ title: Doctor (Reconfigure)
 ```bash
 tota doctor
 ```
+
+## Configure a Single Feature
+
+You don’t need to step through every section to change one thing. Pass a feature name to jump straight to that section:
+
+```bash
+tota setup websearch    # add or swap your web search key
+tota setup llm          # change provider or model
+tota setup telegram     # update bot token
+tota setup github       # update PAT or default repo
+tota setup api          # enable / configure the REST API channel
+tota setup budget       # change your daily token limit
+tota setup identity     # update your name or agent name
+```
+
+`tota doctor <feature>` is an alias for the same thing.
+
+| Feature | What it configures |
+|---------|-------------------|
+| `identity` | Your name and agent name |
+| `llm` | LLM providers and models |
+| `telegram` | Telegram bot token and pairing |
+| `github` | GitHub username, PAT, default repo |
+| `websearch` | Web search provider key (Brave / Serper / Tavily) |
+| `api` | REST API channel (port, auth key) |
+| `budget` | Daily token budget |
+
+The running agent is not interrupted — open a new terminal tab while tota is running.
+
+## From the `/` Menu
+
+While chatting in the CLI, open the **`/`** command picker and choose **Configure**. Pick a feature from the list — tota prints the exact command to run so you can paste it in a new terminal without interrupting the session.

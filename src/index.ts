@@ -748,11 +748,25 @@ async function completeInitialTelegramPairing(config: TotaConfig): Promise<void>
   }
 }
 
-async function configure(existingConfig?: TotaConfig): Promise<void> {
-  const isReconfig = !!existingConfig;
+export const SETUP_SECTIONS: Record<string, string> = {
+  identity: 'Identity & Name',
+  llm: 'LLM Providers',
+  telegram: 'Telegram',
+  github: 'GitHub Integration',
+  websearch: 'Web Search',
+  api: 'REST API Channel',
+  budget: 'Token Budget',
+};
+
+async function configure(existingConfig?: TotaConfig, section?: string): Promise<void> {
+  const isReconfig = !!existingConfig || !!section;
   const config = existingConfig ?? loadConfig();
 
-  if (isReconfig) {
+  if (section) {
+    const label = SETUP_SECTIONS[section] ?? section;
+    banner();
+    console.log(chalk.yellow(`  Configuring: ${label} — press Enter to keep current value.`));
+  } else if (isReconfig) {
     banner();
     console.log(chalk.yellow('  Reconfiguring tota — press Enter to keep current value.'));
   } else {
@@ -760,6 +774,7 @@ async function configure(existingConfig?: TotaConfig): Promise<void> {
     console.log(chalk.yellow('  First run detected — let\'s set you up.'));
   }
 
+  if (!section || section === 'identity') {
   hr();
   console.log('');
   console.log(chalk.bold.white('  Identity'));
@@ -784,7 +799,9 @@ async function configure(existingConfig?: TotaConfig): Promise<void> {
   }
 
   config.identity.creator = config.identity.creator || 'manu14357';
+  } // end identity section
 
+  if (!section || section === 'llm') {
   hr();
   console.log('');
   console.log(chalk.bold.white('  LLM Providers'));
@@ -953,7 +970,9 @@ async function configure(existingConfig?: TotaConfig): Promise<void> {
     await chooseDefaultProvider(config);
     break;
   }
+  } // end llm section
 
+  if (!section || section === 'telegram') {
   hr();
   console.log('');
   console.log(chalk.bold.white('  Telegram (optional)'));
@@ -986,7 +1005,9 @@ async function configure(existingConfig?: TotaConfig): Promise<void> {
   }
 
   await completeInitialTelegramPairing(config);
+  } // end telegram section
 
+  if (!section || section === 'github') {
   hr();
   console.log('');
   console.log(chalk.bold.white('  GitHub Integration (optional)'));
@@ -1033,7 +1054,9 @@ async function configure(existingConfig?: TotaConfig): Promise<void> {
       }
     }
   }
+  } // end github section
 
+  if (!section || section === 'websearch') {
   hr();
   console.log('');
   console.log(chalk.bold.white('  Web Search (optional)'));
@@ -1087,7 +1110,9 @@ async function configure(existingConfig?: TotaConfig): Promise<void> {
       break;
     }
   }
+  } // end websearch section
 
+  if (!section || section === 'api') {
   hr();
   console.log('');
   console.log(chalk.bold.white('  REST API Channel (optional)'));
@@ -1153,7 +1178,9 @@ async function configure(existingConfig?: TotaConfig): Promise<void> {
       console.log(chalk.green(`  ✓ REST API channel enabled on port ${config.channels.api.port}${config.channels.api.apiKey ? ' with auth' : ' (no auth)'}.`));
     }
   }
+  } // end api section
 
+  if (!section || section === 'budget') {
   hr();
   console.log('');
   console.log(chalk.bold.white('  Token Budget'));
@@ -1169,20 +1196,28 @@ async function configure(existingConfig?: TotaConfig): Promise<void> {
       config.tokens.dailyBudget = budget;
     }
   }
+  } // end budget section
 
   hr();
   saveConfig(config);
 
   const home = getTotaHome();
   console.log('');
+  if (section) {
+    const label = SETUP_SECTIONS[section] ?? section;
+    console.log(chalk.green(`  ✓ ${label} updated in ${home}/tota.yaml`));
+  } else {
   console.log(chalk.green(`  ✓ Config saved to ${home}/tota.yaml`));
   console.log(chalk.green(`  ✓ Soul files seeded in ${home}/soul/`));
   console.log(chalk.green(`  ✓ Memory stored in ${home}/memory/`));
   console.log(chalk.green(`  ✓ Permissions seeded in ${home}/permissions.yaml`));
   console.log(chalk.green(`  ✓ Skills directory ready in ${home}/skills/`));
+  }
   console.log('');
+  if (!section) {
   console.log(chalk.cyan(`  ${config.identity.name} is ready. Run \`tota start\` to chat.`));
   console.log(chalk.dim('  github.com/manu14357/tota-agent'));
+  }
   console.log('');
 }
 
@@ -1581,25 +1616,41 @@ program
   });
 
 program
-  .command('setup')
-  .description('Re-run the setup wizard (reconfigure)')
-  .action(async () => {
-    if (isSetupComplete()) {
-      await configure(loadConfig());
-    } else {
-      await configure();
+  .command('setup [feature]')
+  .description(
+    'Re-run the setup wizard. Pass a feature to configure just that section.\n' +
+    '  Features: identity, llm, telegram, github, websearch, api, budget'
+  )
+  .action(async (feature?: string) => {
+    const validFeatures = Object.keys(SETUP_SECTIONS);
+    if (feature && !validFeatures.includes(feature)) {
+      console.log('');
+      console.log(chalk.red(`  Unknown feature: ${feature}`));
+      console.log(chalk.dim(`  Available: ${validFeatures.join(', ')}`));
+      console.log('');
+      process.exit(1);
     }
+    const config = isSetupComplete() ? loadConfig() : undefined;
+    await configure(config, feature);
   });
 
 program
-  .command('doctor')
-  .description('Reconfigure tota — change keys, name, settings (Enter to keep current)')
-  .action(async () => {
-    if (isSetupComplete()) {
-      await configure(loadConfig());
-    } else {
-      await configure();
+  .command('doctor [feature]')
+  .description(
+    'Reconfigure tota — change keys, name, settings (Enter to keep current).\n' +
+    '  Optionally pass a feature: identity, llm, telegram, github, websearch, api, budget'
+  )
+  .action(async (feature?: string) => {
+    const validFeatures = Object.keys(SETUP_SECTIONS);
+    if (feature && !validFeatures.includes(feature)) {
+      console.log('');
+      console.log(chalk.red(`  Unknown feature: ${feature}`));
+      console.log(chalk.dim(`  Available: ${validFeatures.join(', ')}`));
+      console.log('');
+      process.exit(1);
     }
+    const config = isSetupComplete() ? loadConfig() : undefined;
+    await configure(config, feature);
   });
 
 program
