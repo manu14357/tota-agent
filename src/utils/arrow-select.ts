@@ -104,6 +104,7 @@ export async function selectWithArrowKeys(
       if (canUseRawMode) {
         stdin.setRawMode(false);
       }
+      stdin.pause();
     };
 
     const onAbort = () => {

@@ -1693,6 +1693,7 @@ program
     }
     const config = isSetupComplete() ? loadConfig() : undefined;
     await configure(config, feature);
+    process.exit(0);
   });
 
 program
@@ -1712,6 +1713,7 @@ program
     }
     const config = isSetupComplete() ? loadConfig() : undefined;
     await configure(config, feature);
+    process.exit(0);
   });
 
 program
