@@ -48,7 +48,7 @@ Or configure just one feature without running the full wizard:
 tota setup websearch    # add a web search key
 tota setup telegram     # change your Telegram bot
 tota setup llm          # swap LLM provider
-tota setup browser      # install Chromium for browser automation
+tota setup browser      # install Chromium, Firefox, WebKit browser binaries
 tota setup computer     # enable computer-use & Android ADB tools
 tota setup api          # enable the REST API channel
 ```
@@ -72,7 +72,7 @@ Every AI agent can read files and run commands. Most do it silently. **tota asks
 | **Code sandbox** | Execute Python, JavaScript, Bash, TypeScript, Ruby, and Go in an isolated temp sandbox. |
 | **Document readers** | Read PDF, Excel (.xlsx/.csv), and Word (.docx) files — text, tables, metadata. |
 | **Advanced file finder** | Find files by glob, content keyword, type, date range, and size across deep directory trees. |
-| **Browser automation** | Playwright-powered Chromium browser — open pages, click, type, screenshot, extract, scroll. |
+| **Browser automation** | Playwright browser — Chromium, Firefox, or WebKit. Open pages, click, type, screenshot, extract, scroll. Switch engines mid-session. |
 | **Computer-use** | See your screen via vision AI, then click, type, scroll, drag, and press keys anywhere on the desktop. macOS, Linux, and Windows. |
 | **Android control** | ADB-powered Android device control — tap, swipe, type, key events, shell commands, file push/pull. No extra deps beyond `adb`. |
 | **Telegram file receiving** | Users can send documents, photos, audio, and video directly to tota via Telegram. |
@@ -193,7 +193,7 @@ These work on both CLI and Telegram and do not consume API tokens.
 | **Filesystem** | `read_file`, `write_file`, `create_file`, `edit_file`, `list_dir`, `delete_file`, `send_file`, `approve_scope` |
 | **Document readers** | `read_pdf`, `read_excel`, `write_excel`, `read_docx` — PDF, Excel, Word document support |
 | **File finder** | `find_files` — advanced search by glob, content keyword, type, date range, and size |
-| **Browser** | `browser_open`, `browser_click`, `browser_type`, `browser_screenshot`, `browser_extract`, `browser_scroll`, `browser_close` |
+| **Browser** | `browser_open`, `browser_click`, `browser_type`, `browser_key`, `browser_wait`, `browser_screenshot`, `browser_extract`, `browser_scroll`, `browser_close`, `browser_engine` |
 | **Computer-use** | `computer_screenshot`, `computer_see`, `computer_click`, `computer_move`, `computer_type`, `computer_key`, `computer_scroll`, `computer_drag`, `computer_screen_size` |
 | **Android (ADB)** | `adb_devices`, `adb_screenshot`, `adb_see`, `adb_tap`, `adb_swipe`, `adb_type`, `adb_key`, `adb_shell`, `adb_pull`, `adb_push` |
 | **Shell** | `run_command`, `cd`, `approve_command` |

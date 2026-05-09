@@ -4,27 +4,51 @@ import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
 
+// Browser engine selection — 'chromium' | 'firefox' | 'webkit'
+// Override with env: BROWSER_ENGINE=firefox tota
+type BrowserEngine = 'chromium' | 'firefox' | 'webkit';
+let _activeEngine: BrowserEngine = (process.env.BROWSER_ENGINE as BrowserEngine) || 'chromium';
+
 // Lazy browser instance — one shared instance per session
 let _browserPromise: Promise<any> | null = null;
 let _page: any | null = null;
 
 const SCREENSHOT_DIR = path.join(os.tmpdir(), 'tota-browser');
 
-// Visible browser by default. Set PLAYWRIGHT_HEADLESS=true in env to force headless (e.g. CI).
+// Visible browser by default. Set PLAYWRIGHT_HEADLESS=true or CI=true to force headless.
 const IS_HEADLESS = process.env.CI === 'true' || process.env.PLAYWRIGHT_HEADLESS === 'true';
+
+export function getBrowserEngine(): BrowserEngine {
+  return _activeEngine;
+}
+
+export async function setBrowserEngine(engine: BrowserEngine): Promise<void> {
+  await closeBrowser();
+  _activeEngine = engine;
+}
 
 async function getBrowser() {
   if (_browserPromise) return _browserPromise;
   _browserPromise = (async () => {
-    const { chromium } = await import('playwright').catch((e) => {
-      throw new Error(`playwright is not installed. Run: npm install playwright && npx playwright install chromium\n${e.message}`);
+    const pw = await import('playwright').catch((e) => {
+      throw new Error(
+        `playwright is not installed. Run: npm install playwright && npx playwright install chromium firefox webkit\n${e.message}`,
+      );
     });
-    const browser = await chromium.launch({
-      headless: IS_HEADLESS,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    });
+    const launcher = (pw as any)[_activeEngine];
+    if (!launcher || typeof launcher.launch !== 'function') {
+      throw new Error(`Unknown browser engine: ${_activeEngine}`);
+    }
+    const launchOptions: any = { headless: IS_HEADLESS };
+    if (_activeEngine === 'chromium') {
+      launchOptions.args = ['--no-sandbox', '--disable-setuid-sandbox'];
+    }
+    const browser = await launcher.launch(launchOptions);
     return browser;
-  })();
+  })().catch((err: any) => {
+    _browserPromise = null; // reset so next call can retry with fresh engine
+    throw err;
+  });
   return _browserPromise;
 }
 
@@ -443,6 +467,35 @@ export function createBrowserWaitTool() {
       } catch (err: any) {
         return `Timeout or error waiting: ${err.message}`;
       }
+    },
+  });
+}
+
+// ─── Tool: browser_engine ───────────────────────────────────────────────────
+
+export function createBrowserEngineTool() {
+  return tool({
+    description:
+      'Switch the browser engine used for all browser tools. ' +
+      'Choose between Chromium (default), Firefox, or WebKit (Safari-compatible). ' +
+      'Closes the current browser session and reopens with the selected engine on the next browser_open call.',
+    inputSchema: zodSchema(
+      z.object({
+        engine: z
+          .enum(['chromium', 'firefox', 'webkit'])
+          .describe(
+            'Browser engine to use:\n' +
+            '- "chromium" — Google Chrome-compatible. Best general-purpose choice. Default.\n' +
+            '- "firefox" — Mozilla Firefox engine. Use for Firefox-specific rendering or privacy-focused sites.\n' +
+            '- "webkit" — Apple WebKit (Safari engine). Use for iOS/macOS compatibility testing.',
+          ),
+      }),
+    ),
+    execute: async ({ engine }) => {
+      const prev = _activeEngine;
+      await closeBrowser();
+      _activeEngine = engine;
+      return `Browser engine switched: ${prev} → ${engine}. The next browser_open will launch a ${engine} browser window.`;
     },
   });
 }

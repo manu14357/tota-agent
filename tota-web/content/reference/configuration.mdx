@@ -41,23 +41,31 @@ When `WEB_SEARCH_PROVIDER=auto`, tota picks whichever key it finds first (Brave 
 
 ## Browser Automation
 
-Browser tools work out of the box — no keys needed. Install the Chromium binary once:
+Browser tools work out of the box — no API keys needed. Install browser binaries once:
 
 ```bash
-npx playwright install chromium
+npx playwright install chromium firefox webkit
 # or via the wizard:
 tota setup browser
 ```
 
+| Env Var | Description | Default |
+|---------|-------------|---------|
+| `BROWSER_ENGINE` | Default engine: `chromium`, `firefox`, or `webkit` | `chromium` |
+| `PLAYWRIGHT_HEADLESS` | Set to `true` to run without a visible window | `false` |
+
 | Tool | Description |
 |------|-------------|
-| `browser_open` | Open a URL in headless Chromium |
+| `browser_open` | Open a URL in the browser (visible window by default) |
 | `browser_click` | Click an element (selector or visible text) |
-| `browser_type` | Type text into an input field |
+| `browser_type` | Type text into an input field (SPA-safe) |
+| `browser_key` | Press a keyboard key (`Enter`, `Tab`, `Escape`, combos) |
+| `browser_wait` | Wait for a CSS selector or navigation |
 | `browser_screenshot` | Capture the current page |
 | `browser_extract` | Extract text / attributes via CSS selector |
 | `browser_scroll` | Scroll up, down, left, or right |
 | `browser_close` | Close the shared browser instance |
+| `browser_engine` | Switch engine to `chromium`, `firefox`, or `webkit` |
 
 ## Computer-Use (Desktop + Android)
 

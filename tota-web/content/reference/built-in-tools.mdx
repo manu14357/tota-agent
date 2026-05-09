@@ -31,17 +31,30 @@ All document tools use permission-gated filesystem access and dynamic imports �
 
 ## Browser Automation
 
+tota supports three browser engines via Playwright — **Chromium** (default), **Firefox**, and **WebKit** (Safari-compatible). The browser opens as a **visible window** on your desktop by default.
+
 | Tool | Description |
 |------|-------------|
-| `browser_open` | Open a URL in a headless Chromium browser; returns page title, URL, and visible text |
+| `browser_open` | Open a URL in the browser; returns page title, URL, and visible text |
 | `browser_click` | Click an element by CSS selector or visible text |
-| `browser_type` | Type text into an input field (optionally press Enter) |
+| `browser_type` | Type text into an input field (click-to-focus + fill; SPA-safe for Google, Gmail, etc.) |
+| `browser_key` | Press a keyboard key — `Enter`, `Tab`, `Escape`, `ArrowDown`, combos like `Control+a` |
+| `browser_wait` | Wait for a CSS selector to appear or for page navigation to complete |
 | `browser_screenshot` | Take a full-page or element screenshot and send it to the user |
 | `browser_extract` | Extract text or attribute values from elements matching a CSS selector |
 | `browser_scroll` | Scroll the page up, down, to the top, or to the bottom |
 | `browser_close` | Close the browser session and free resources |
+| `browser_engine` | Switch the active browser engine (`chromium` / `firefox` / `webkit`) |
 
-Browser tools use a shared lazy Chromium instance (Playwright). Install the browser once with `npx playwright install chromium`.
+Install browser binaries once:
+
+```bash
+npx playwright install chromium firefox webkit
+# or via the wizard:
+tota setup browser
+```
+
+Set `BROWSER_ENGINE=firefox` (or `webkit`) in `~/.tota/.env` to change the default engine. Set `PLAYWRIGHT_HEADLESS=true` to run without a visible window (CI/server environments).
 
 ## Computer-Use (Desktop Control)
 

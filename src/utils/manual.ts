@@ -41,13 +41,16 @@ export function getManual(): string {
     ['cancel_scheduled_task', 'Cancel a scheduled task', 'id'],
     ['budget_status', 'Check token budget', '—'],
     ['mcp_<server>_<tool>', 'MCP plugin tools (loaded from ~/.tota/tota.yaml mcp.servers)', 'varies per server'],
-    ['browser_open', 'Open a URL in a headless browser', 'url'],
+    ['browser_open', 'Open a URL in a browser (visible window by default)', 'url'],
     ['browser_click', 'Click an element on the current page', 'selector'],
-    ['browser_type', 'Type text into an input on the current page', 'selector, text'],
+    ['browser_type', 'Type text into an input on the current page (SPA-safe)', 'selector, text'],
+    ['browser_key', 'Press a keyboard key in the browser (Enter, Tab, Escape, …)', 'key, count?'],
+    ['browser_wait', 'Wait for a CSS selector or page navigation to complete', 'selector? or wait_for_navigation'],
     ['browser_screenshot', 'Take a screenshot of the current page', '—'],
     ['browser_extract', 'Extract text/HTML from the current page', 'selector?'],
     ['browser_scroll', 'Scroll the current page', 'direction, amount?'],
-    ['browser_close', 'Close the headless browser', '—'],
+    ['browser_close', 'Close the browser session', '—'],
+    ['browser_engine', 'Switch browser engine: chromium (default), firefox, or webkit', 'engine'],
     // Computer-use tools (enabled via COMPUTER_USE_ENABLED=true or capabilities.computer.enabled)
     ['computer_screenshot', 'Take a screenshot of the primary display (or a region)', 'region?, send_to_user?'],
     ['computer_see', 'Screenshot + vision AI analysis of the screen', 'question?, region?'],
@@ -94,7 +97,7 @@ export function getManual(): string {
     ['tota setup telegram', 'Configure Telegram only'],
     ['tota setup github', 'Configure GitHub integration only'],
     ['tota setup websearch', 'Configure Web Search key only'],
-    ['tota setup browser', 'Install Chromium browser binary (Playwright)'],
+    ['tota setup browser', 'Install Playwright browser binaries (Chromium, Firefox, WebKit)'],
     ['tota setup computer', 'Enable/disable computer-use & Android ADB tools'],
     ['tota setup api', 'Configure REST API channel only'],
     ['tota setup budget', 'Configure token budget only'],
@@ -244,15 +247,18 @@ export function getManual(): string {
   sections.push('');
 
   const browserInfo = [
-    'Playwright-powered Chromium — no API keys needed, works out of the box.',
-    'Install the browser binary once: npx playwright install chromium',
-    'Or run the wizard:          tota setup browser',
-    'Tools: browser_open, browser_click, browser_type, browser_screenshot, browser_extract, browser_scroll, browser_close',
+    'Playwright-powered browser automation — Chromium, Firefox, or WebKit (Safari). No API keys needed.',
+    'Install all browser binaries once: npx playwright install chromium firefox webkit',
+    'Or run the wizard:               tota setup browser',
+    'Default engine: Chromium. Switch with browser_engine e.g. "switch to Firefox".',
+    'Browser opens as a VISIBLE window by default. Set PLAYWRIGHT_HEADLESS=true to run headless.',
+    'Tools: browser_open, browser_click, browser_type, browser_key, browser_wait,',
+    '       browser_screenshot, browser_extract, browser_scroll, browser_close, browser_engine',
     'Examples:',
     '  "Open https://example.com and take a screenshot"',
-    '  "Go to https://github.com and click Sign in"',
+    '  "Switch to Firefox engine and open https://mozilla.org"',
+    '  "Log into GitHub with my credentials"',
     '  "Extract all links from the current page"',
-    '  "Type hello into the search box and press Enter"',
   ];
 
   for (const s of browserInfo) {

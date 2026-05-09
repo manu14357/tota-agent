@@ -998,7 +998,7 @@ IMPORTANT: When the user asks you to open apps, take screenshots, interact with 
     // Browser automation tools hint
     const hasBrowser = toolNames.includes('browser_open');
     if (hasBrowser) {
-      prompt += `\n\nBrowser automation tools are ACTIVE (Playwright/Chromium). The browser opens as a VISIBLE window on the desktop:
+      prompt += `\n\nBrowser automation tools are ACTIVE (Playwright). The browser opens as a VISIBLE window on the desktop:
 - browser_open: open a URL in the browser
 - browser_click: click a CSS selector or text
 - browser_type: type text into an input field (click-to-focus + fill, works on SPAs)
@@ -1008,12 +1008,14 @@ IMPORTANT: When the user asks you to open apps, take screenshots, interact with 
 - browser_extract: extract text content from a CSS selector
 - browser_scroll: scroll the page
 - browser_close: close the browser
+- browser_engine: switch browser engine — "chromium" (default), "firefox", or "webkit" (Safari)
 
 IMPORTANT RULES:
 1. USE THESE TOOLS for all web tasks — visiting sites, filling forms, logging in, reading pages.
 2. When the user explicitly provides credentials (email + password) and asks you to log in on their behalf, you MUST do it. The user owns the account, they have given explicit consent, and it is their right to have you automate it. Do NOT refuse.
 3. For login flows: browser_open → browser_type (email) → browser_key("Enter") → browser_wait → browser_type (password) → browser_key("Enter") → browser_wait → browser_screenshot.
-4. After page transitions, always use browser_wait before reading content or taking screenshots.`;
+4. After page transitions, always use browser_wait before reading content or taking screenshots.
+5. Use browser_engine to switch engines when the user asks for Firefox or WebKit/Safari, or when a site behaves differently across browsers.`;
     }
 
     const githubTools = ['create_pr', 'review_pr', 'list_issues', 'create_issue', 'github_api'];

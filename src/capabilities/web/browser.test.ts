@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { closeBrowser } from './browser.js';
+import { closeBrowser, getBrowserEngine, setBrowserEngine } from './browser.js';
 import {
   createBrowserOpenTool,
   createBrowserClickTool,
@@ -8,6 +8,9 @@ import {
   createBrowserExtractTool,
   createBrowserScrollTool,
   createBrowserCloseTool,
+  createBrowserKeyTool,
+  createBrowserWaitTool,
+  createBrowserEngineTool,
 } from './browser.js';
 
 // Helper to execute a tool (strips the Vercel AI SDK wrapper)
@@ -152,4 +155,131 @@ describe('browser tools', () => {
       expect(result).toMatch(/close|Browser/i);
     }, 30000);
   });
+});
+
+// ─── browser_engine ───────────────────────────────────────────────────────────
+
+describe('browser_engine tool', () => {
+  afterEach(async () => {
+    // Always restore chromium so later test suites are unaffected
+    await setBrowserEngine('chromium');
+    await closeBrowser();
+  });
+
+  it('defaults to chromium engine', () => {
+    expect(getBrowserEngine()).toBe('chromium');
+  });
+
+  it('switches to firefox and reports the change', async () => {
+    const engineTool = createBrowserEngineTool();
+    const result = await exec(engineTool, { engine: 'firefox' });
+    expect(result).toMatch(/firefox/i);
+    expect(getBrowserEngine()).toBe('firefox');
+  });
+
+  it('switches to webkit and reports the change', async () => {
+    const engineTool = createBrowserEngineTool();
+    const result = await exec(engineTool, { engine: 'webkit' });
+    expect(result).toMatch(/webkit/i);
+    expect(getBrowserEngine()).toBe('webkit');
+  });
+
+  it('switches back to chromium', async () => {
+    const engineTool = createBrowserEngineTool();
+    await exec(engineTool, { engine: 'firefox' });
+    const result = await exec(engineTool, { engine: 'chromium' });
+    expect(result).toMatch(/chromium/i);
+    expect(getBrowserEngine()).toBe('chromium');
+  });
+
+  it('opens a real page with Firefox engine (graceful if binary not installed)', async () => {
+    const engineTool = createBrowserEngineTool();
+    await exec(engineTool, { engine: 'firefox' });
+    const openTool = createBrowserOpenTool(undefined);
+    const result = await exec(openTool, { url: 'https://example.com' });
+    // Must return a string — either page content or a graceful install error
+    expect(typeof result).toBe('string');
+    expect(result.length).toBeGreaterThan(0);
+  }, 30000);
+
+  it('opens a real page with WebKit engine (graceful if binary not installed)', async () => {
+    const engineTool = createBrowserEngineTool();
+    await exec(engineTool, { engine: 'webkit' });
+    const openTool = createBrowserOpenTool(undefined);
+    const result = await exec(openTool, { url: 'https://example.com' });
+    expect(typeof result).toBe('string');
+    expect(result.length).toBeGreaterThan(0);
+  }, 30000);
+});
+
+// ─── browser_key ──────────────────────────────────────────────────────────────
+
+describe('browser_key tool', () => {
+  afterEach(async () => {
+    await closeBrowser();
+  });
+
+  it('presses Tab key without error', async () => {
+    const openTool = createBrowserOpenTool(undefined);
+    await exec(openTool, { url: 'https://example.com' });
+    const keyTool = createBrowserKeyTool();
+    const result = await exec(keyTool, { key: 'Tab' });
+    expect(result).toMatch(/tab/i);
+  }, 30000);
+
+  it('presses a key multiple times', async () => {
+    const openTool = createBrowserOpenTool(undefined);
+    await exec(openTool, { url: 'https://example.com' });
+    const keyTool = createBrowserKeyTool();
+    const result = await exec(keyTool, { key: 'Tab', count: 3 });
+    expect(result).toMatch(/× 3/);
+  }, 30000);
+
+  it('presses Escape key', async () => {
+    const openTool = createBrowserOpenTool(undefined);
+    await exec(openTool, { url: 'https://example.com' });
+    const keyTool = createBrowserKeyTool();
+    const result = await exec(keyTool, { key: 'Escape' });
+    expect(result).toMatch(/escape/i);
+  }, 30000);
+});
+
+// ─── browser_wait ─────────────────────────────────────────────────────────────
+
+describe('browser_wait tool', () => {
+  afterEach(async () => {
+    await closeBrowser();
+  });
+
+  it('waits for navigation to complete', async () => {
+    const openTool = createBrowserOpenTool(undefined);
+    await exec(openTool, { url: 'https://example.com' });
+    const waitTool = createBrowserWaitTool();
+    const result = await exec(waitTool, { wait_for_navigation: true, timeout_ms: 5000 });
+    expect(result).toMatch(/loaded|URL/i);
+  }, 30000);
+
+  it('waits for a known element to appear', async () => {
+    const openTool = createBrowserOpenTool(undefined);
+    await exec(openTool, { url: 'https://example.com' });
+    const waitTool = createBrowserWaitTool();
+    const result = await exec(waitTool, { selector: 'h1', timeout_ms: 5000 });
+    expect(result).toMatch(/found|h1/i);
+  }, 30000);
+
+  it('returns error message when selector not found within timeout', async () => {
+    const openTool = createBrowserOpenTool(undefined);
+    await exec(openTool, { url: 'https://example.com' });
+    const waitTool = createBrowserWaitTool();
+    const result = await exec(waitTool, { selector: '.nonexistent-xyz-element-abc', timeout_ms: 1000 });
+    expect(result).toMatch(/timeout|error/i);
+  }, 15000);
+
+  it('returns error when no selector and wait_for_navigation is false', async () => {
+    const openTool = createBrowserOpenTool(undefined);
+    await exec(openTool, { url: 'https://example.com' });
+    const waitTool = createBrowserWaitTool();
+    const result = await exec(waitTool, { timeout_ms: 1000 });
+    expect(result).toMatch(/error|selector/i);
+  }, 10000);
 });
