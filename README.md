@@ -8,7 +8,7 @@
 
 <p align="center">
   Remembers what matters. Asks before it acts. Runs 24/7 from CLI, Telegram, or REST API.<br>
-  50+ built-in tools · Web search · Vision · Code sandbox · Browser automation · Document readers · MCP plugins · Extensible skills · SQLite-backed Second Brain memory.
+  50+ built-in tools · Web search · Vision · Code sandbox · Browser automation · Computer-use · Android control · Document readers · MCP plugins · Extensible skills · SQLite-backed Second Brain memory.
 </p>
 
 <p align="center">
@@ -71,6 +71,8 @@ Every AI agent can read files and run commands. Most do it silently. **tota asks
 | **Document readers** | Read PDF, Excel (.xlsx/.csv), and Word (.docx) files — text, tables, metadata. |
 | **Advanced file finder** | Find files by glob, content keyword, type, date range, and size across deep directory trees. |
 | **Browser automation** | Playwright-powered Chromium browser — open pages, click, type, screenshot, extract, scroll. |
+| **Computer-use** | See your screen via vision AI, then click, type, scroll, drag, and press keys anywhere on the desktop. macOS, Linux, and Windows. |
+| **Android control** | ADB-powered Android device control — tap, swipe, type, key events, shell commands, file push/pull. No extra deps beyond `adb`. |
 | **Telegram file receiving** | Users can send documents, photos, audio, and video directly to tota via Telegram. |
 | **Task delegation** | Agent can spawn sub-tasks and delegate to itself for complex multi-step workflows. |
 | **MCP plugins** | Connect any MCP-compatible tool server over HTTP — tools appear instantly in the agent. |
@@ -190,6 +192,8 @@ These work on both CLI and Telegram and do not consume API tokens.
 | **Document readers** | `read_pdf`, `read_excel`, `write_excel`, `read_docx` — PDF, Excel, Word document support |
 | **File finder** | `find_files` — advanced search by glob, content keyword, type, date range, and size |
 | **Browser** | `browser_open`, `browser_click`, `browser_type`, `browser_screenshot`, `browser_extract`, `browser_scroll`, `browser_close` |
+| **Computer-use** | `computer_screenshot`, `computer_see`, `computer_click`, `computer_move`, `computer_type`, `computer_key`, `computer_scroll`, `computer_drag`, `computer_screen_size` |
+| **Android (ADB)** | `adb_devices`, `adb_screenshot`, `adb_see`, `adb_tap`, `adb_swipe`, `adb_type`, `adb_key`, `adb_shell`, `adb_pull`, `adb_push` |
 | **Shell** | `run_command`, `cd`, `approve_command` |
 | **Code sandbox** | `run_code` — execute Python / JS / Bash / TS / Ruby / Go in an isolated sandbox |
 | **Messaging** | `send_message` |
@@ -236,6 +240,58 @@ What's in this image? https://example.com/chart.jpg
 ```
 
 The `analyze_image` tool automatically detects MIME types from magic bytes, supports JPEG, PNG, GIF, and WebP, and works with any provider that supports vision.
+
+---
+
+## Computer-Use (Desktop Control)
+
+tota can see and control your desktop — click, type, scroll, drag, and press keys anywhere on screen, on macOS, Linux, and Windows.
+
+### Enable
+
+```bash
+# ~/.tota/.env
+COMPUTER_USE_ENABLED=true
+```
+
+Or set `capabilities.computer.enabled: true` in `~/.tota/tota.yaml`.
+
+### Desktop tools
+
+| Tool | What it does |
+|------|--------------|
+| `computer_screenshot` | Capture the full screen or a region, save to temp file |
+| `computer_see` | Screenshot + vision AI analysis in one step |
+| `computer_click` | Left, right, or double-click at (x, y) |
+| `computer_move` | Move cursor to (x, y) |
+| `computer_type` | Type text at the current keyboard focus |
+| `computer_key` | Press a key or combo (`cmd+c`, `ctrl+z`, `enter`, etc.) |
+| `computer_scroll` | Scroll up/down/left/right at (x, y) |
+| `computer_drag` | Click and drag between two points |
+| `computer_screen_size` | Get display resolution |
+
+Desktop mouse/keyboard control uses [`@nut-tree-fork/nut-js`](https://github.com/nut-tree/nut.js) (cross-platform native module). On Linux, install `libxtst-dev` first:
+
+```bash
+sudo apt install libxtst-dev
+```
+
+### Android tools (ADB)
+
+All Android tools work via `adb` in your PATH — no new Node.js deps needed.
+
+| Tool | What it does |
+|------|--------------|
+| `adb_devices` | List connected devices |
+| `adb_screenshot` | Capture Android screen |
+| `adb_see` | Android screenshot + vision AI analysis |
+| `adb_tap` | Tap at (x, y) |
+| `adb_swipe` | Swipe between two points |
+| `adb_type` | Type text into focused field |
+| `adb_key` | Send key event (HOME=3, BACK=4, ENTER=66…) |
+| `adb_shell` | Run any `adb shell` command |
+| `adb_pull` | Pull file from device |
+| `adb_push` | Push file to device |
 
 ---
 

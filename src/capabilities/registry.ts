@@ -49,6 +49,27 @@ import {
   createBrowserCloseTool,
 } from './web/browser.js';
 import { loadMCPTools } from './mcp/mcp-loader.js';
+import {
+  createComputerScreenshotTool,
+  createComputerSeeTool,
+  createComputerClickTool,
+  createComputerMoveTool,
+  createComputerTypeTool,
+  createComputerKeyTool,
+  createComputerScrollTool,
+  createComputerDragTool,
+  createComputerScreenSizeTool,
+  createAdbDevicesTool,
+  createAdbScreenshotTool,
+  createAdbSeeTool,
+  createAdbTapTool,
+  createAdbSwipeTool,
+  createAdbTypeTool,
+  createAdbKeyTool,
+  createAdbShellTool,
+  createAdbPullTool,
+  createAdbPushTool,
+} from './computer/index.js';
 import { isGitHubConfigured, setGitHubToken } from '../utils/github.js';
 import type { SkillLoader } from '../skills/loader.js';
 import type { Scheduler } from '../core/scheduler.js';
@@ -248,6 +269,31 @@ export class CapabilityRegistry {
     this.tools.browser_scroll = createBrowserScrollTool();
     this.tools.browser_close = createBrowserCloseTool();
     logger.info('Browser automation tools registered');
+
+    // Desktop computer-use tools
+    if (this.totaConfig?.capabilities?.computer?.enabled) {
+      const getVision = () => this.visionHandler ?? null;
+      this.tools.computer_screenshot = createComputerScreenshotTool(this.sendFileHandler);
+      this.tools.computer_see = createComputerSeeTool(getVision);
+      this.tools.computer_click = createComputerClickTool();
+      this.tools.computer_move = createComputerMoveTool();
+      this.tools.computer_type = createComputerTypeTool();
+      this.tools.computer_key = createComputerKeyTool();
+      this.tools.computer_scroll = createComputerScrollTool();
+      this.tools.computer_drag = createComputerDragTool();
+      this.tools.computer_screen_size = createComputerScreenSizeTool();
+      this.tools.adb_devices = createAdbDevicesTool();
+      this.tools.adb_screenshot = createAdbScreenshotTool(this.sendFileHandler);
+      this.tools.adb_see = createAdbSeeTool(getVision);
+      this.tools.adb_tap = createAdbTapTool();
+      this.tools.adb_swipe = createAdbSwipeTool();
+      this.tools.adb_type = createAdbTypeTool();
+      this.tools.adb_key = createAdbKeyTool();
+      this.tools.adb_shell = createAdbShellTool();
+      this.tools.adb_pull = createAdbPullTool();
+      this.tools.adb_push = createAdbPushTool();
+      logger.info('Computer-use tools registered (desktop + Android)');
+    }
 
     // Wrap all tools with output truncation
     this.tools = this.applyTruncation(this.tools);

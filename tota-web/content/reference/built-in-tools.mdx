@@ -2,7 +2,7 @@
 title: Built-in Tools
 ---
 
-tota ships with 50+ built-in tools, grouped into capability areas.
+tota ships with 70+ built-in tools, grouped into capability areas.
 
 ## Filesystem
 
@@ -42,6 +42,47 @@ All document tools use permission-gated filesystem access and dynamic imports �
 | `browser_close` | Close the browser session and free resources |
 
 Browser tools use a shared lazy Chromium instance (Playwright). Install the browser once with `npx playwright install chromium`.
+
+## Computer-Use (Desktop Control)
+
+Enable with `COMPUTER_USE_ENABLED=true` in `~/.tota/.env` (or `capabilities.computer.enabled: true` in `tota.yaml`).
+
+### Desktop
+
+| Tool | Description |
+|------|-------------|
+| `computer_screenshot` | Capture the full screen or a region; save to a temp file |
+| `computer_see` | Screenshot + immediate vision AI analysis — understand what's on screen before acting |
+| `computer_click` | Left, right, or double-click at pixel coordinates |
+| `computer_move` | Move the cursor to coordinates |
+| `computer_type` | Type text at the current keyboard focus |
+| `computer_key` | Press a key or key combo (`cmd+c`, `ctrl+z`, `enter`, `tab`, `escape`, arrow keys, etc.) |
+| `computer_scroll` | Scroll up, down, left, or right at a position |
+| `computer_drag` | Click and drag between two screen coordinates |
+| `computer_screen_size` | Get the primary display resolution |
+
+Mouse/keyboard control uses [`@nut-tree-fork/nut-js`](https://github.com/nut-tree/nut.js) (cross-platform native module). On Linux, install `libxtst-dev` first:
+
+```bash
+sudo apt install libxtst-dev
+```
+
+### Android (ADB)
+
+Android tools work via `adb` in your PATH — no additional Node.js packages needed.
+
+| Tool | Description |
+|------|-------------|
+| `adb_devices` | List connected Android devices |
+| `adb_screenshot` | Take a screenshot of an Android device |
+| `adb_see` | Android screenshot + vision AI analysis |
+| `adb_tap` | Tap at pixel coordinates on the device |
+| `adb_swipe` | Swipe between two coordinates (with optional duration) |
+| `adb_type` | Type text into the focused field on the device |
+| `adb_key` | Send an Android key event (3=HOME, 4=BACK, 26=POWER, 66=ENTER…) |
+| `adb_shell` | Run any `adb shell` command on the device |
+| `adb_pull` | Pull a file from the device to the local machine |
+| `adb_push` | Push a local file to the device |
 
 ## Shell
 

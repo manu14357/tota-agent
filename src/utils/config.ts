@@ -153,6 +153,12 @@ export interface TotaConfig {
   tokens: {
     dailyBudget: number;
   };
+  capabilities: {
+    computer: {
+      /** Enable desktop mouse/keyboard control and screen capture tools. Default: false. */
+      enabled: boolean;
+    };
+  };
 }
 
 function getEnv(key: string, fallback: string = ''): string {
@@ -302,6 +308,11 @@ export function getDefaultConfig(): TotaConfig {
     },
     tokens: {
       dailyBudget: getEnvNum('DAILY_TOKEN_BUDGET', 1_000_000),
+    },
+    capabilities: {
+      computer: {
+        enabled: getEnvBool('COMPUTER_USE_ENABLED', false),
+      },
     },
   };
 }

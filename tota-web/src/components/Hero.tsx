@@ -36,15 +36,17 @@ const terminalLines = [
   { prompt: true, text: 'tota' },
   { prompt: false, text: '  ✦ tota is listening...', dim: true },
   { prompt: false, text: '' },
-  { prompt: false, text: 'you  summarize the PDF I just sent and open its company website', user: true },
+  { prompt: false, text: 'you  look at my screen and submit the form that is open', user: true },
   { prompt: false, text: '' },
-  { prompt: false, text: '  ● read_pdf  report.pdf', tool: true },
-  { prompt: false, text: '  ● browser_open  https://acme.com', tool: true },
+  { prompt: false, text: '  ● computer_see  what is on screen?', tool: true },
+  { prompt: false, text: '  ● computer_click  x=640 y=420', tool: true },
+  { prompt: false, text: '  ● computer_type  "hello@acme.com"', tool: true },
+  { prompt: false, text: '  ● computer_key  tab', tool: true },
+  { prompt: false, text: '  ● computer_click  x=640 y=520  (Submit)', tool: true },
   { prompt: false, text: '' },
-  { prompt: false, text: '  PDF: 14 pages · Q1 revenue up 32%' },
-  { prompt: false, text: '  Site: "ACME Corp — Building the future"' },
+  { prompt: false, text: '  Form submitted successfully.' },
   { prompt: false, text: '' },
-  { prompt: false, text: '  ⚡ Take a screenshot? [y/N]', ask: true },
+  { prompt: false, text: '  ⚡ Take a screenshot to confirm? [y/N]', ask: true },
 ]
 
 export default function Hero() {
@@ -78,7 +80,7 @@ export default function Hero() {
             }}
           >
             <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#00A9FF' }} />
-            50+ built-in tools · 9 AI providers · Web search · Vision · PDF/Excel/DOCX · Browser automation · MCP plugins
+            70+ built-in tools · 9 AI providers · Web search · Vision · Browser · Computer-use · Android · MCP plugins
           </span>
         </div>
 
@@ -98,7 +100,7 @@ export default function Hero() {
         >
           Permission-hardened tools, token budgets, and multi-channel access.
           <br className="hidden sm:block" />
-          Remembers what matters. Asks before it acts. Runs 24/7 from CLI, Telegram, or REST API.
+          Sees your screen. Controls your desktop. Runs 24/7 from CLI, Telegram, or REST API.
         </p>
 
         {/* Install snippet */}

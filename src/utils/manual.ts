@@ -48,6 +48,26 @@ export function getManual(): string {
     ['browser_extract', 'Extract text/HTML from the current page', 'selector?'],
     ['browser_scroll', 'Scroll the current page', 'direction, amount?'],
     ['browser_close', 'Close the headless browser', '—'],
+    // Computer-use tools (enabled via COMPUTER_USE_ENABLED=true or capabilities.computer.enabled)
+    ['computer_screenshot', 'Take a screenshot of the primary display (or a region)', 'region?, send_to_user?'],
+    ['computer_see', 'Screenshot + vision AI analysis of the screen', 'question?, region?'],
+    ['computer_click', 'Click the mouse at screen coordinates', 'x, y, button? (left/right/double)'],
+    ['computer_move', 'Move the mouse cursor to coordinates', 'x, y'],
+    ['computer_type', 'Type text at the current keyboard focus', 'text, delay_ms?'],
+    ['computer_key', 'Press a key or key combo (e.g. cmd+c, enter)', 'keys'],
+    ['computer_scroll', 'Scroll mouse wheel at a position', 'x, y, direction, amount?'],
+    ['computer_drag', 'Click and drag between two positions', 'from_x, from_y, to_x, to_y'],
+    ['computer_screen_size', 'Get primary display resolution in pixels', '—'],
+    ['adb_devices', 'List connected Android devices', '—'],
+    ['adb_screenshot', 'Take a screenshot of an Android device', 'device?, send_to_user?'],
+    ['adb_see', 'Screenshot + vision AI for an Android device', 'question?, device?'],
+    ['adb_tap', 'Tap a coordinate on an Android screen', 'x, y, device?'],
+    ['adb_swipe', 'Swipe on an Android screen', 'from_x, from_y, to_x, to_y, duration_ms?, device?'],
+    ['adb_type', 'Type text on an Android device', 'text, device?'],
+    ['adb_key', 'Send an Android key event (3=HOME, 4=BACK, 66=ENTER…)', 'keycode, device?'],
+    ['adb_shell', 'Run adb shell command on Android device', 'command, device?'],
+    ['adb_pull', 'Pull a file from Android device', 'remote, local, device?'],
+    ['adb_push', 'Push a file to Android device', 'local, remote, device?'],
   ];
 
   for (const [name, desc, params] of tools) {
