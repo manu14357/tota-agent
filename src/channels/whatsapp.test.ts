@@ -22,9 +22,11 @@ vi.mock('@whiskeysockets/baileys', () => {
   return {
     default: vi.fn(() => mockSock),
     useMultiFileAuthState: vi.fn().mockResolvedValue({
-      state: {},
+      state: { creds: {}, keys: {} },
       saveCreds: vi.fn(),
     }),
+    fetchLatestBaileysVersion: vi.fn().mockResolvedValue({ version: [2, 3000, 1035194821], isLatest: true }),
+    makeCacheableSignalKeyStore: vi.fn((keys: unknown) => keys),
     DisconnectReason: { loggedOut: 401 },
     Browsers: { appropriate: vi.fn(() => ['Mac OS', 'Chrome', '25.3.0']), macOS: vi.fn(() => ['Mac OS', 'Chrome', '14.4.1']), ubuntu: vi.fn(() => ['Ubuntu', 'Chrome', '22.04.4']) },
     isJidUser: vi.fn((jid: string) => jid.endsWith('@s.whatsapp.net')),

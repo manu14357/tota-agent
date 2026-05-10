@@ -4,6 +4,8 @@ import { randomUUID } from 'node:crypto';
 import makeWASocket, {
   type WASocket,
   useMultiFileAuthState,
+  fetchLatestBaileysVersion,
+  makeCacheableSignalKeyStore,
   DisconnectReason,
   Browsers,
   isJidUser,
@@ -71,17 +73,26 @@ export class WhatsAppChannel extends BaseChannel {
 
   private async connect(authDir: string): Promise<void> {
     const { state, saveCreds } = await useMultiFileAuthState(authDir);
+    // Fetch the current WA Web version so WhatsApp doesn't reject the handshake
+    // with a <failure> node (the bundled default version quickly becomes stale).
+    const { version } = await fetchLatestBaileysVersion();
+    const baileysLogger = logger.child({ module: 'baileys' }) as any;
 
     const sock = makeWASocket({
-      auth: state,
+      version,
+      auth: {
+        creds: state.creds,
+        // Use a cached key store for faster signal key lookups
+        keys: makeCacheableSignalKeyStore(state.keys, baileysLogger),
+      },
       browser: Browsers.appropriate('Chrome'),
-      // Suppress Baileys' internal pino logger from flooding stdout
-      logger: logger.child({ module: 'baileys' }) as any,
+      logger: baileysLogger,
+      syncFullHistory: false,
       connectTimeoutMs: 60_000,
       keepAliveIntervalMs: 30_000,
       retryRequestDelayMs: 2_000,
       maxMsgRetryCount: 3,
-      markOnlineOnConnect: true,
+      markOnlineOnConnect: false,
     });
 
     this.sock = sock;
