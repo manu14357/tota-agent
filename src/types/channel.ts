@@ -52,3 +52,28 @@ export interface TelegramChannelConfig extends ChannelConfig {
 export interface CLIChannelConfig extends ChannelConfig {
   type: 'cli';
 }
+
+export interface WhatsAppPendingRequest {
+  phone: string;
+  requestedAt: string;
+  pairingCode?: string;
+}
+
+export interface WhatsAppApprovedUser {
+  phone: string;
+  name?: string;
+  approvedAt: string;
+  isAdmin?: boolean;
+}
+
+export interface WhatsAppChannelConfig extends ChannelConfig {
+  type: 'whatsapp';
+  /** Absolute path where Baileys auth state is stored (default: ~/.tota/whatsapp-auth) */
+  authDir?: string;
+  /** E.164 phone numbers allowed to DM the agent, e.g. ["+15551234567"]. '*' = allow all. */
+  allowFrom: string[];
+  /** Allow messages from WhatsApp groups where the agent is a member */
+  allowGroups?: boolean;
+  approved: WhatsAppApprovedUser[];
+  pending: WhatsAppPendingRequest[];
+}

@@ -116,6 +116,7 @@ export function getManual(): string {
     ['tota setup', 'Re-run the full setup wizard'],
     ['tota setup llm', 'Configure LLM providers only'],
     ['tota setup telegram', 'Configure Telegram only'],
+    ['tota setup whatsapp', 'Configure WhatsApp channel'],
     ['tota setup github', 'Configure GitHub integration only'],
     ['tota setup websearch', 'Configure Web Search key only'],
     ['tota setup browser', 'Install Playwright browser binaries (Chromium, Firefox, WebKit)'],
@@ -134,6 +135,15 @@ export function getManual(): string {
     ['tota telegram promote <id>', 'Promote a Telegram member to admin'],
     ['tota telegram demote <id>', 'Demote a Telegram admin to member'],
     ['tota telegram unpair', 'Reset all Telegram access'],
+    ['tota whatsapp status', 'Show WhatsApp linked state and access list'],
+    ['tota whatsapp setup', 'Run the WhatsApp setup wizard'],
+    ['tota whatsapp link', 'Show QR code to link your WhatsApp device'],
+    ['tota whatsapp allow <phone>', 'Add a phone to the allowed list'],
+    ['tota whatsapp disallow <phone>', 'Remove a phone from the allowed list'],
+    ['tota whatsapp approve <phone>', 'Approve a pending WhatsApp access request'],
+    ['tota whatsapp reject <phone>', 'Reject a pending WhatsApp access request'],
+    ['tota whatsapp remove <phone>', 'Remove a number from WhatsApp access'],
+    ['tota whatsapp pending', 'List pending WhatsApp access requests'],
     ['tota help', 'Show this manual'],
     ['tota service install', 'Install as system service (auto-start)'],
     ['tota service uninstall', 'Uninstall system service'],
@@ -353,6 +363,33 @@ export function getManual(): string {
   }
 
   sections.push('');
+  sections.push(chalk.bold.white('  WhatsApp Channel'));
+  sections.push('');
+
+  const waInfo = [
+    'Use tota from WhatsApp — no Meta Business API or phone number required.',
+    'Based on WhatsApp Web (Baileys). Scan a QR code from WhatsApp → Linked Devices.',
+    'Enable during setup or with environment variables:',
+    '  WHATSAPP_ENABLED=true          — enable the channel',
+    '  WHATSAPP_AUTH_DIR=<path>        — where to store session auth (default: ~/.tota/whatsapp-auth)',
+    '  WHATSAPP_ALLOW_FROM=+1555…,+44… — comma-separated allowed phone numbers (E.164)',
+    '  WHATSAPP_ALLOW_GROUPS=true      — allow group messages (disabled by default)',
+    'Quick start:',
+    '  1. Run: tota setup whatsapp',
+    '  2. Run: tota whatsapp link   (scan the QR code from WhatsApp)',
+    '  3. Run: tota start',
+    'Manage access:',
+    '  tota whatsapp allow +15551234567    — pre-allow a number',
+    '  tota whatsapp pending               — view access requests',
+    '  tota whatsapp approve +15551234567  — approve a request',
+    '  tota whatsapp remove +15551234567   — revoke access',
+  ];
+
+  for (const s of waInfo) {
+    sections.push(`  ${chalk.dim('•')} ${s}`);
+  }
+
+  sections.push('');
   sections.push(chalk.bold.white('  MCP Plugins'));
   sections.push('');
 
@@ -377,6 +414,7 @@ export function getManual(): string {
   const configInfo = [
     ['~/.tota/tota.yaml', 'Main config (providers, channels, budget, MCP servers)'],
     ['~/.tota/permissions.yaml', 'Capabilities and approval rules'],
+    ['~/.tota/whatsapp-auth/', 'WhatsApp session credentials (generated on link)'],
     ['~/.tota/soul/*.md', 'Agent personality (soul, persona, taste, heartbeat)'],
     ['~/.tota/skills/', 'Installed skills'],
     ['~/.tota/schedules.yaml', 'Scheduled tasks'],

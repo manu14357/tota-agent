@@ -1,0 +1,91 @@
+---
+title: WhatsApp
+---
+
+Use tota from WhatsApp — no Meta Business API, no dedicated phone number purchase needed. tota connects via WhatsApp Web (Baileys) and links to your existing WhatsApp account using a QR code.
+
+## Setup
+
+1. Run `tota setup whatsapp` and follow the prompts:
+   - Enable the channel
+   - Choose an auth directory (default: `~/.tota/whatsapp-auth`)
+   - Optionally pre-allow phone numbers
+2. Run `tota whatsapp link` to display the QR code
+3. Open WhatsApp on your phone → **Linked Devices** → **Link a Device**
+4. Scan the QR code
+5. Run `tota start` — tota is now reachable on WhatsApp
+
+The QR code is only needed once. Auth credentials are saved to disk and reused automatically.
+
+## Access model
+
+tota uses a phone-number allowlist for WhatsApp. Messages from unknown numbers are queued as access requests.
+
+| State | Behavior |
+|-------|----------|
+| **Allowed** | Phone is in `allowFrom` — messages are processed immediately |
+| **Approved** | Approved via CLI after sending a message — same as allowed |
+| **Pending** | Message received from unknown number — queued, user notified |
+| **Rejected** | Explicitly rejected via CLI — no reply sent |
+
+Manage access from the CLI:
+
+```bash
+tota whatsapp status               # show linked state and access list
+tota whatsapp allow +15551234567   # pre-allow a phone number
+tota whatsapp disallow +1555…      # remove a phone from the list
+tota whatsapp pending              # list pending access requests
+tota whatsapp approve +15551234567 # approve a pending request
+tota whatsapp reject +15551234567  # reject a pending request
+tota whatsapp remove +15551234567  # revoke an approved number
+```
+
+<Callout type="info">
+  Phone numbers must be in E.164 format: `+` followed by the country code and number, no spaces or dashes. Example: `+15551234567` or `+447911123456`.
+</Callout>
+
+## Group messages
+
+Group messages are disabled by default. Enable them:
+
+```bash
+tota setup whatsapp   # set "Allow group messages" to yes
+```
+
+Or set `WHATSAPP_ALLOW_GROUPS=true` in `~/.tota/.env`.
+
+<Callout type="warning">
+  When group messages are enabled, tota responds to **all** messages in groups where the linked number is a member. Use the `allowFrom` list to limit which group JIDs or numbers can trigger the agent.
+</Callout>
+
+## Environment variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `WHATSAPP_ENABLED` | `false` | Enable the WhatsApp channel |
+| `WHATSAPP_AUTH_DIR` | `~/.tota/whatsapp-auth` | Directory to store WhatsApp session credentials |
+| `WHATSAPP_ALLOW_FROM` | _(empty)_ | Comma-separated allowed phone numbers in E.164 format |
+| `WHATSAPP_ALLOW_GROUPS` | `false` | Allow group message handling |
+
+You can also set these in `~/.tota/tota.yaml` under `channels.whatsapp`.
+
+## Features
+
+- **No extra API keys** — connects via WhatsApp Web, not the Business API
+- **Streaming** — responses stream in real time as WhatsApp messages
+- **File support** — send images and documents; tota reads and responds to them
+- **Access requests** — unknown contacts can request access; you approve from CLI
+- **Persistent sessions** — auth credentials saved to disk, QR scan only needed once
+- **Auto-reconnect** — reconnects automatically on network drops (except on logout)
+- **Full in-chat commands** — all `/commands` work in WhatsApp just like the CLI
+
+## Troubleshooting
+
+**QR code appears but scanning fails**
+WhatsApp QR codes expire after about 60 seconds. Run `tota whatsapp link` again to get a fresh code.
+
+**Auth session expires / logged out**
+This happens if WhatsApp logs out the linked device. Delete `~/.tota/whatsapp-auth/` and run `tota whatsapp link` again.
+
+**Messages not received**
+Make sure `WHATSAPP_ENABLED=true` and the auth directory exists with valid credentials. Run `tota status` to check the channel state.

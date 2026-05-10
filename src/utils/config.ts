@@ -91,6 +91,19 @@ export interface MCPServerConfig {
   enabled: boolean;
 }
 
+export interface WhatsAppPendingRequest {
+  phone: string;
+  requestedAt: string;
+  pairingCode?: string;
+}
+
+export interface WhatsAppApprovedUser {
+  phone: string;
+  name?: string;
+  approvedAt: string;
+  isAdmin?: boolean;
+}
+
 export interface TotaConfig {
   identity: {
     name: string;
@@ -127,6 +140,17 @@ export interface TotaConfig {
       enabled: boolean;
       port: number;
       apiKey: string;
+    };
+    whatsapp: {
+      enabled: boolean;
+      /** Absolute path to store Baileys multi-file auth state (default: ~/.tota/whatsapp-auth) */
+      authDir: string;
+      /** E.164 phone numbers allowed to DM the agent. Use ['*'] to allow anyone. */
+      allowFrom: string[];
+      /** Allow group messages where the agent is a participant */
+      allowGroups: boolean;
+      approved: WhatsAppApprovedUser[];
+      pending: WhatsAppPendingRequest[];
     };
   };
   loopGuard: LoopGuardConfig;
@@ -291,6 +315,17 @@ export function getDefaultConfig(): TotaConfig {
         enabled: getEnvBool('API_CHANNEL_ENABLED', false),
         port: getEnvNum('API_CHANNEL_PORT', 3001),
         apiKey: getEnv('API_CHANNEL_KEY', ''),
+      },
+      whatsapp: {
+        enabled: getEnvBool('WHATSAPP_ENABLED', false),
+        authDir: getEnv('WHATSAPP_AUTH_DIR', join(getTotaHome(), 'whatsapp-auth')),
+        allowFrom: getEnv('WHATSAPP_ALLOW_FROM', '')
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean),
+        allowGroups: getEnvBool('WHATSAPP_ALLOW_GROUPS', false),
+        approved: [],
+        pending: [],
       },
     },
     loopGuard: {

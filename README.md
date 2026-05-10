@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  Remembers what matters. Asks before it acts. Runs 24/7 from CLI, Telegram, or REST API.<br>
+  Remembers what matters. Asks before it acts. Runs 24/7 from CLI, Telegram, WhatsApp, or REST API.<br>
   50+ built-in tools · Web search · Vision · Code sandbox · Browser automation · Computer-use · Android control · Document readers · MCP plugins · Extensible skills · SQLite-backed Second Brain memory.
 </p>
 
@@ -85,6 +85,7 @@ Every AI agent can read files and run commands. Most do it silently. **tota asks
 | **Google Calendar** | List, create, and delete events; check free/busy availability — full OAuth2 flow built in. |
 | **MCP plugins** | Connect any MCP-compatible tool server over HTTP — tools appear instantly in the agent. |
 | **REST API channel** | Control tota programmatically over HTTP with optional bearer-token auth. |
+| **WhatsApp channel** | Use tota from WhatsApp — no Meta Business API needed. Scan a QR code, manage access per phone number. |
 | **Extensible** | Install community skills with one command. Schedule skills as recurring tasks. |
 
 ---
@@ -149,6 +150,14 @@ tota service uninstall
 | `tota telegram promote <id>` | Promote member to admin |
 | `tota telegram demote <id>` | Demote admin to member |
 | `tota telegram reset` | Clear all Telegram access |
+| `tota whatsapp status` | Show WhatsApp status and access list |
+| `tota whatsapp setup` | Run WhatsApp setup wizard |
+| `tota whatsapp link` | Show QR code to link your WhatsApp device |
+| `tota whatsapp allow <phone>` | Add a phone to the allowed list |
+| `tota whatsapp approve <phone>` | Approve a pending access request |
+| `tota whatsapp reject <phone>` | Reject a pending access request |
+| `tota whatsapp remove <phone>` | Remove a number from access |
+| `tota whatsapp pending` | List pending WhatsApp requests |
 | `tota service install` | Install system service |
 | `tota service uninstall` | Uninstall system service |
 | `tota service status` | Show service status |
@@ -163,6 +172,7 @@ Configure a single section without touching everything else. The agent keeps run
 | `identity` | Your name and agent name |
 | `llm` | LLM providers and models |
 | `telegram` | Telegram bot token and pairing |
+| `whatsapp` | WhatsApp channel (QR link, allowed numbers, auth directory) |
 | `github` | GitHub username, PAT, default repo |
 | `websearch` | Web search provider key (Brave / Serper / Tavily) |
 | `browser` | Install Chromium, Firefox, WebKit binaries |
@@ -448,6 +458,42 @@ tota uses an organization access model with admins and members.
 5. Members: chat with tota
 
 Private chats only. Group messages are always ignored.
+
+---
+
+## WhatsApp
+
+Use tota from WhatsApp — no Meta Business API, no phone number purchase needed. Uses WhatsApp Web (Baileys).
+
+### Quick setup
+
+```bash
+tota setup whatsapp        # enable + configure auth dir and allowed numbers
+tota whatsapp link         # show QR code — scan from WhatsApp → Linked Devices
+tota start                 # go live
+```
+
+### Access control
+
+Messages from unlisted numbers automatically generate a pending access request.
+
+```bash
+tota whatsapp allow +15551234567    # pre-allow a number
+tota whatsapp pending               # view pending requests
+tota whatsapp approve +15551234567  # approve a request
+tota whatsapp reject +15551234567   # reject a request
+tota whatsapp remove +15551234567   # revoke access
+tota whatsapp status                # show full access list
+```
+
+### Environment variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `WHATSAPP_ENABLED` | `false` | Enable the WhatsApp channel |
+| `WHATSAPP_AUTH_DIR` | `~/.tota/whatsapp-auth` | Where to store session auth files |
+| `WHATSAPP_ALLOW_FROM` | _(empty)_ | Comma-separated allowed phone numbers (E.164) |
+| `WHATSAPP_ALLOW_GROUPS` | `false` | Enable group message support |
 
 ---
 

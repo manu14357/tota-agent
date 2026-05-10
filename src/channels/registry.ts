@@ -3,6 +3,7 @@ import type { ChannelMessage, ChannelType } from '../types/channel.js';
 import { CLIChannel } from './cli.js';
 import { TelegramChannel } from './telegram.js';
 import { APIChannel } from './api.js';
+import { WhatsAppChannel } from './whatsapp.js';
 import type { TotaConfig } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
 
@@ -18,6 +19,10 @@ export class ChannelRegistry {
 
     if (config.channels.api?.enabled) {
       this.register('api', new APIChannel(config.channels.api.port, config.channels.api.apiKey));
+    }
+
+    if (config.channels.whatsapp?.enabled) {
+      this.register('whatsapp', new WhatsAppChannel(config));
     }
   }
 

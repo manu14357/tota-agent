@@ -38,6 +38,7 @@ import { Scheduler } from './core/scheduler.js';
 import { ChannelRegistry } from './channels/registry.js';
 import { CLIChannel } from './channels/cli.js';
 import { TelegramChannel } from './channels/telegram.js';
+import { WhatsAppChannel } from './channels/whatsapp.js';
 import { TokenBudget } from './utils/tokens.js';
 import { CapabilityRegistry } from './capabilities/registry.js';
 import { SkillLoader } from './skills/loader.js';
@@ -753,6 +754,7 @@ export const SETUP_SECTIONS: Record<string, string> = {
   identity: 'Identity & Name',
   llm: 'LLM Providers',
   telegram: 'Telegram',
+  whatsapp: 'WhatsApp',
   github: 'GitHub Integration',
   websearch: 'Web Search',
   browser: 'Browser Automation',
@@ -1012,6 +1014,74 @@ async function configure(existingConfig?: TotaConfig, section?: string): Promise
 
   await completeInitialTelegramPairing(config);
   } // end telegram section
+
+  if (!section || section === 'whatsapp') {
+  hr();
+  console.log('');
+  console.log(chalk.bold.white('  WhatsApp (optional)'));
+  if (isReconfig) {
+    console.log(chalk.dim('  Enter "none" to disable, or leave empty to keep current value.'));
+  } else {
+    console.log(chalk.dim('  Connect tota to your WhatsApp — no business account or API key needed.'));
+    console.log(chalk.dim('  Uses WhatsApp Web (Baileys). A QR code will appear when you start tota.'));
+    console.log(chalk.dim('  Scan it from WhatsApp → Linked Devices → Link a Device.'));
+    console.log('');
+    console.log(chalk.dim('  After enabling, run `tota start` and scan the QR code to link.'));
+    console.log(chalk.dim('  Then add your phone with: tota whatsapp allow +<phone>'));
+  }
+  console.log('');
+
+  const waEnabled = config.channels.whatsapp?.enabled ?? false;
+  const waOptions = [
+    { value: 'skip', label: isReconfig ? (waEnabled ? 'Keep enabled' : 'Keep disabled / skip') : 'Skip — don\'t enable WhatsApp' },
+    { value: 'enable', label: 'Enable WhatsApp channel' },
+    ...(isReconfig && waEnabled ? [{ value: 'disable', label: 'Disable WhatsApp channel' }] : []),
+  ];
+
+  if (isReconfig && waEnabled) {
+    const allowFrom = config.channels.whatsapp?.allowFrom ?? [];
+    const authDir = config.channels.whatsapp?.authDir ?? '';
+    console.log(chalk.dim(`  Current: enabled · auth: ${authDir}`));
+    if (allowFrom.length > 0) {
+      console.log(chalk.dim(`  Allowed numbers: ${allowFrom.join(', ')}`));
+    } else {
+      console.log(chalk.dim('  Allowed numbers: none set (use pairing requests)'));
+    }
+    console.log('');
+  }
+
+  const waChoice = await selectWithArrowKeys('WhatsApp Channel', waOptions);
+
+  if (waChoice === 'disable') {
+    config.channels.whatsapp.enabled = false;
+    console.log(chalk.dim('  WhatsApp channel disabled.'));
+  } else if (waChoice === 'enable') {
+    config.channels.whatsapp.enabled = true;
+
+    const defaultAuthDir = config.channels.whatsapp?.authDir || join(homedir(), '.tota', 'whatsapp-auth');
+    const authDirInput = await ask(chalk.white(`  Auth directory [${defaultAuthDir}]: `));
+    config.channels.whatsapp.authDir = authDirInput || defaultAuthDir;
+
+    console.log('');
+    console.log(chalk.dim('  Allow specific phone numbers (E.164 format, comma-separated).'));
+    console.log(chalk.dim('  Example: +15551234567,+447911123456'));
+    console.log(chalk.dim('  Leave empty — anyone can send a pairing/access request instead.'));
+    const allowFromInput = await ask(chalk.white('  Allowed numbers (comma-separated, or Enter to skip): '));
+    if (allowFromInput.trim()) {
+      config.channels.whatsapp.allowFrom = allowFromInput
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+    }
+
+    const allowGroupsInput = await ask(chalk.white('  Allow group messages? (y/N): '));
+    config.channels.whatsapp.allowGroups = allowGroupsInput.toLowerCase().startsWith('y');
+
+    console.log('');
+    console.log(chalk.green(`  ✓ WhatsApp enabled. Auth stored at: ${config.channels.whatsapp.authDir}`));
+    console.log(chalk.dim('  Run `tota start` and scan the QR code that appears to link your WhatsApp.'));
+  }
+  } // end whatsapp section
 
   if (!section || section === 'github') {
   hr();
@@ -1895,6 +1965,10 @@ program
     console.log(`  Provider: ${chalk.white(getProviderLabel(config.providers.default))}`);
     console.log(`  Telegram: ${config.channels.telegram.enabled ? chalk.green('enabled') : chalk.dim('disabled')}`);
     console.log(`  Telegram Access: ${chalk.white(getTelegramAccessSummary(config))}`);
+    const waEnabled = config.channels.whatsapp?.enabled ?? false;
+    const waApproved = config.channels.whatsapp?.approved?.length ?? 0;
+    const waPending = config.channels.whatsapp?.pending?.length ?? 0;
+    console.log(`  WhatsApp: ${waEnabled ? chalk.green('enabled') : chalk.dim('disabled')}${waEnabled ? chalk.dim(` · ${waApproved} approved · ${waPending} pending`) : ''}`);
     console.log(`  Skills:   ${skills.length > 0 ? chalk.green(skills.map(s => s.name).join(', ')) : chalk.dim('none')}`);
     console.log(`  Budget:   ${chalk.white(config.tokens.dailyBudget.toLocaleString())} tokens/day`);
     console.log(`  Setup:    ${isSetupComplete() ? chalk.green('complete') : chalk.red('not done')}`);
@@ -2108,6 +2182,268 @@ telegramCmd
       console.log(chalk.dim('  The first request must be approved from the CLI with `tota telegram approve <pairing-code>`.'));
     }
     console.log('');
+  });
+
+const whatsappCmd = program
+  .command('whatsapp')
+  .description('Manage WhatsApp channel — link, approve numbers, view access');
+
+whatsappCmd
+  .command('status')
+  .description('Show WhatsApp status: linked state, approved and pending numbers')
+  .action(() => {
+    const config = loadConfig();
+    const wa = config.channels.whatsapp;
+    console.log('');
+    if (!wa?.enabled) {
+      console.log(chalk.dim('  WhatsApp is disabled. Run `tota setup whatsapp` to enable.'));
+      console.log('');
+      return;
+    }
+    console.log(chalk.bold.white('  WhatsApp'));
+    console.log(`  Status:  ${chalk.green('enabled')}`);
+    console.log(`  Auth:    ${chalk.dim(wa.authDir || '~/.tota/whatsapp-auth')}`);
+    console.log(`  Groups:  ${wa.allowGroups ? chalk.green('allowed') : chalk.dim('disabled')}`);
+    const approved = wa.approved ?? [];
+    const pending = wa.pending ?? [];
+    if (approved.length === 0) {
+      console.log(chalk.dim('  Approved: none'));
+    } else {
+      console.log(chalk.bold('  Approved:'));
+      for (const u of approved) {
+        const admin = u.isAdmin ? chalk.cyan(' [admin]') : '';
+        const name = u.name ? ` (${u.name})` : '';
+        console.log(`    ${chalk.green(u.phone)}${name}${admin}`);
+      }
+    }
+    if (pending.length === 0) {
+      console.log(chalk.dim('  Pending:  none'));
+    } else {
+      console.log(chalk.yellow('  Pending:'));
+      for (const p of pending) {
+        console.log(`    ${chalk.yellow(p.phone)}  requested: ${p.requestedAt}`);
+      }
+    }
+    console.log('');
+  });
+
+whatsappCmd
+  .command('allow <phone>')
+  .description('Add a phone number to the allowed list (E.164 format, e.g. +15551234567)')
+  .action((phone: string) => {
+    const config = loadConfig();
+    const wa = config.channels.whatsapp;
+    if (!wa?.enabled) {
+      console.log('');
+      console.log(chalk.red('  WhatsApp is not enabled. Run `tota setup whatsapp` first.'));
+      console.log('');
+      process.exit(1);
+    }
+    const normalized = phone.startsWith('+') ? phone : `+${phone}`;
+    if (!wa.allowFrom) wa.allowFrom = [];
+    if (wa.allowFrom.includes(normalized)) {
+      console.log('');
+      console.log(chalk.dim(`  ${normalized} is already in the allowed list.`));
+      console.log('');
+      return;
+    }
+    wa.allowFrom.push(normalized);
+    saveConfig(config);
+    console.log('');
+    console.log(chalk.green(`  ✓ ${normalized} added to allowed numbers.`));
+    restartDaemonIfRunning('Restarting the background daemon to apply the change...');
+    console.log('');
+  });
+
+whatsappCmd
+  .command('disallow <phone>')
+  .description('Remove a phone number from the allowed list')
+  .action((phone: string) => {
+    const config = loadConfig();
+    const wa = config.channels.whatsapp;
+    if (!wa?.allowFrom) {
+      console.log('');
+      console.log(chalk.dim('  No allowed list configured.'));
+      console.log('');
+      return;
+    }
+    const normalized = phone.startsWith('+') ? phone : `+${phone}`;
+    const before = wa.allowFrom.length;
+    wa.allowFrom = wa.allowFrom.filter((p) => p !== normalized);
+    if (wa.allowFrom.length === before) {
+      console.log('');
+      console.log(chalk.red(`  ${normalized} was not in the allowed list.`));
+      console.log('');
+      return;
+    }
+    saveConfig(config);
+    console.log('');
+    console.log(chalk.green(`  ✓ ${normalized} removed from allowed numbers.`));
+    restartDaemonIfRunning('Restarting the background daemon to apply the change...');
+    console.log('');
+  });
+
+whatsappCmd
+  .command('approve <phone>')
+  .description('Approve a pending WhatsApp access request')
+  .action((phone: string) => {
+    const config = loadConfig();
+    const wa = config.channels.whatsapp;
+    if (!wa) {
+      console.log('');
+      console.log(chalk.red('  WhatsApp is not configured.'));
+      console.log('');
+      process.exit(1);
+    }
+    const normalized = phone.startsWith('+') ? phone : `+${phone}`;
+    const pending = wa.pending ?? [];
+    const idx = pending.findIndex((p) => p.phone === normalized);
+    if (idx === -1) {
+      console.log('');
+      console.log(chalk.red(`  No pending request found for ${normalized}.`));
+      const pendingPhones = pending.map((p) => p.phone).join(', ');
+      if (pendingPhones) {
+        console.log(chalk.dim(`  Pending requests: ${pendingPhones}`));
+      }
+      console.log('');
+      return;
+    }
+    const [removed] = pending.splice(idx, 1);
+    if (!wa.approved) wa.approved = [];
+    wa.approved.push({ phone: removed.phone, approvedAt: new Date().toISOString() });
+    if (!wa.allowFrom) wa.allowFrom = [];
+    if (!wa.allowFrom.includes(removed.phone)) {
+      wa.allowFrom.push(removed.phone);
+    }
+    saveConfig(config);
+    console.log('');
+    console.log(chalk.green(`  ✓ ${normalized} approved.`));
+    restartDaemonIfRunning('Restarting the background daemon to apply the change...');
+    console.log('');
+  });
+
+whatsappCmd
+  .command('reject <phone>')
+  .description('Reject and remove a pending WhatsApp access request')
+  .action((phone: string) => {
+    const config = loadConfig();
+    const wa = config.channels.whatsapp;
+    if (!wa) {
+      console.log('');
+      console.log(chalk.red('  WhatsApp is not configured.'));
+      console.log('');
+      process.exit(1);
+    }
+    const normalized = phone.startsWith('+') ? phone : `+${phone}`;
+    const before = (wa.pending ?? []).length;
+    wa.pending = (wa.pending ?? []).filter((p) => p.phone !== normalized);
+    if (wa.pending.length === before) {
+      console.log('');
+      console.log(chalk.red(`  No pending request found for ${normalized}.`));
+      console.log('');
+      return;
+    }
+    saveConfig(config);
+    console.log('');
+    console.log(chalk.green(`  ✓ Rejected access request from ${normalized}.`));
+    console.log('');
+  });
+
+whatsappCmd
+  .command('remove <phone>')
+  .description('Remove a number from the approved list and block future messages')
+  .action((phone: string) => {
+    const config = loadConfig();
+    const wa = config.channels.whatsapp;
+    if (!wa) {
+      console.log('');
+      console.log(chalk.red('  WhatsApp is not configured.'));
+      console.log('');
+      process.exit(1);
+    }
+    const normalized = phone.startsWith('+') ? phone : `+${phone}`;
+    const beforeApproved = (wa.approved ?? []).length;
+    wa.approved = (wa.approved ?? []).filter((u) => u.phone !== normalized);
+    wa.allowFrom = (wa.allowFrom ?? []).filter((p) => p !== normalized);
+    if ((wa.approved ?? []).length === beforeApproved) {
+      console.log('');
+      console.log(chalk.red(`  ${normalized} was not in the approved list.`));
+      console.log('');
+      return;
+    }
+    saveConfig(config);
+    console.log('');
+    console.log(chalk.green(`  ✓ ${normalized} removed from WhatsApp access.`));
+    restartDaemonIfRunning('Restarting the background daemon to apply the change...');
+    console.log('');
+  });
+
+whatsappCmd
+  .command('pending')
+  .description('List pending WhatsApp access requests')
+  .action(() => {
+    const config = loadConfig();
+    const pending = config.channels.whatsapp?.pending ?? [];
+    console.log('');
+    if (pending.length === 0) {
+      console.log(chalk.dim('  No pending WhatsApp access requests.'));
+    } else {
+      console.log(chalk.bold.white('  Pending WhatsApp requests:'));
+      for (const p of pending) {
+        console.log(`    ${chalk.yellow(p.phone)}  (requested: ${p.requestedAt})`);
+      }
+      console.log('');
+      console.log(chalk.dim('  Approve: tota whatsapp approve <phone>'));
+      console.log(chalk.dim('  Reject:  tota whatsapp reject <phone>'));
+    }
+    console.log('');
+  });
+
+whatsappCmd
+  .command('setup')
+  .description('Run the WhatsApp setup wizard (same as `tota setup whatsapp`)')
+  .action(async () => {
+    const config = isSetupComplete() ? loadConfig() : undefined;
+    await configure(config, 'whatsapp');
+    process.exit(0);
+  });
+
+whatsappCmd
+  .command('link')
+  .description('Start a temporary WhatsApp session to scan the QR code and link your device')
+  .action(async () => {
+    const config = loadConfig();
+    const wa = config.channels.whatsapp;
+    if (!wa?.enabled) {
+      console.log('');
+      console.log(chalk.red('  WhatsApp is not enabled. Run `tota setup whatsapp` first.'));
+      console.log('');
+      process.exit(1);
+    }
+    console.log('');
+    console.log(chalk.bold.white('  WhatsApp Linking'));
+    console.log(chalk.dim('  Starting a temporary session to show the QR code…'));
+    console.log(chalk.dim('  Open WhatsApp → Linked Devices → Link a Device, then scan.'));
+    console.log('');
+    const channel = new WhatsAppChannel(config);
+    await channel.start();
+    // Wait until connected (up to 120s)
+    let waited = 0;
+    while (!channel.isReady() && waited < 120000) {
+      await new Promise((r) => setTimeout(r, 1000));
+      waited += 1000;
+    }
+    if (channel.isReady()) {
+      console.log('');
+      console.log(chalk.green('  ✓ WhatsApp linked successfully!'));
+      console.log(chalk.dim('  You can now run `tota start` to go live.'));
+    } else {
+      console.log('');
+      console.log(chalk.yellow('  Timed out waiting for QR scan. Try `tota whatsapp link` again.'));
+    }
+    await channel.stop();
+    console.log('');
+    process.exit(0);
   });
 
 const serviceCmd = program

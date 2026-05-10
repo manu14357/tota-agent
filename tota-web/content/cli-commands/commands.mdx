@@ -23,6 +23,32 @@ title: Full Command Reference
 | `tota service status` | Show system service status |
 | `tota --verbose` | Start with debug logging on stderr |
 
+## Telegram Access Management
+
+| Command | Description |
+|---------|-------------|
+| `tota telegram list` | List approved users and pending requests |
+| `tota telegram approve <code\|id>` | Approve a pairing code or pending request |
+| `tota telegram reject <id>` | Reject a pending request |
+| `tota telegram remove <id>` | Remove an approved user |
+| `tota telegram promote <id>` | Promote member to admin |
+| `tota telegram demote <id>` | Demote admin to member |
+| `tota telegram unpair` | Reset all Telegram access |
+
+## WhatsApp Access Management
+
+| Command | Description |
+|---------|-------------|
+| `tota whatsapp status` | Show linked state, approved and pending numbers |
+| `tota whatsapp setup` | Run the WhatsApp setup wizard |
+| `tota whatsapp link` | Display QR code to link your WhatsApp device |
+| `tota whatsapp allow <phone>` | Add a phone to the allowed list (E.164 format) |
+| `tota whatsapp disallow <phone>` | Remove a phone from the allowed list |
+| `tota whatsapp pending` | List pending access requests |
+| `tota whatsapp approve <phone>` | Approve a pending access request |
+| `tota whatsapp reject <phone>` | Reject a pending access request |
+| `tota whatsapp remove <phone>` | Remove a number from access |
+
 ## `tota setup <feature>` — Configure a Single Section
 
 You don’t have to run the full wizard just to change one thing. Pass a feature name to update only that section. The agent keeps running — open a new terminal tab or split your terminal.
@@ -32,6 +58,7 @@ You don’t have to run the full wizard just to change one thing. Pass a feature
 | `identity` | Your name and agent name |
 | `llm` | LLM providers and models |
 | `telegram` | Telegram bot token and pairing |
+| `whatsapp` | WhatsApp channel (QR link, allowed numbers, auth directory) |
 | `github` | GitHub username, PAT, default repo |
 | `websearch` | Web search provider key (Brave / Serper / Tavily) |
 | `browser` | Install Chromium browser binary (Playwright) |
@@ -46,6 +73,7 @@ You don’t have to run the full wizard just to change one thing. Pass a feature
 tota setup websearch    # add or change your web search key
 tota setup llm          # swap or add a provider
 tota setup telegram     # update your Telegram bot token
+tota setup whatsapp     # enable / configure WhatsApp channel
 tota setup browser      # install Chromium for browser automation
 tota setup computer     # enable / disable computer-use & Android ADB
 tota setup calendar     # configure Google Calendar credentials
