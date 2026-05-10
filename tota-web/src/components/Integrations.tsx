@@ -22,7 +22,7 @@ const whatsappFeatures = [
   { icon: '🔄', label: 'Auto-reconnect', desc: 'Reconnects on network drops; persists auth between restarts' },
 ]
 
-
+const mcpFeatures = [
   { icon: '🔌', label: 'Any MCP server', desc: 'JSON-RPC tools/list + tools/call over HTTP' },
   { icon: '🏷️', label: 'Auto-prefixed tools', desc: 'mcp_<server>_<tool> — no naming conflicts' },
   { icon: '🔑', label: 'Bearer auth', desc: 'Per-server apiKey forwarded automatically' },
