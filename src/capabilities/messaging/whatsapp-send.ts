@@ -8,7 +8,8 @@ export function createWhatsAppSendTool(
     description:
       'Send a WhatsApp message to a phone number. Use this when the user asks to send a message ' +
       'via WhatsApp to someone. The phone number should be in E.164 format (e.g. +15551234567 or ' +
-      '+9989263047). The WhatsApp channel must be linked and connected for this to work.',
+      '+919989263047). Only numbers in the owner\'s approved list can receive messages — ' +
+      'if the number is not approved, add it first with `tota whatsapp allow <phone>`.',
     inputSchema: zodSchema(z.object({
       phone: z.string().describe('Recipient phone number in E.164 format, e.g. +15551234567'),
       message: z.string().describe('The text message to send'),

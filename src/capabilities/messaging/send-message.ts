@@ -6,8 +6,11 @@ export function createSendMessageTool(
 ) {
   return tool({
     description:
-      'Send a message to the approved Telegram recipients. Use this ONLY for Telegram messages. ' +
-      'For WhatsApp messages use the whatsapp_send tool instead.',
+      'Send a proactive message back to the user through whatever channel they are on. ' +
+      'If the user is chatting via WhatsApp this sends to their WhatsApp. ' +
+      'If the user is chatting via Telegram this sends to their Telegram. ' +
+      'Use this for follow-up notifications, task results, or reminders. ' +
+      'To send a WhatsApp message to a DIFFERENT phone number use whatsapp_send instead.',
     inputSchema: zodSchema(z.object({
       content: z.string().describe('The message content to send to the approved Telegram recipients'),
     })),

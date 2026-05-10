@@ -158,6 +158,8 @@ tota service uninstall
 | `tota whatsapp reject <phone>` | Reject a pending access request |
 | `tota whatsapp remove <phone>` | Remove a number from access |
 | `tota whatsapp pending` | List pending WhatsApp requests |
+| `tota whatsapp disallow <phone>` | Remove a phone from the allowed list |
+| `tota whatsapp revoke` | Delete session auth and clear access lists (re-link required) |
 | `tota service install` | Install system service |
 | `tota service uninstall` | Uninstall system service |
 | `tota service status` | Show service status |
@@ -482,9 +484,18 @@ tota whatsapp allow +15551234567    # pre-allow a number
 tota whatsapp pending               # view pending requests
 tota whatsapp approve +15551234567  # approve a request
 tota whatsapp reject +15551234567   # reject a request
-tota whatsapp remove +15551234567   # revoke access
+tota whatsapp remove +15551234567   # revoke access for a number
+tota whatsapp disallow +15551234567 # remove from allowed list
+tota whatsapp revoke                # nuke session auth + clear all lists (re-link required)
 tota whatsapp status                # show full access list
 ```
+
+### Agent outbound messages
+
+The agent can send messages back through WhatsApp:
+
+- **`send_message`** — sends back to whoever the agent is currently talking to (WhatsApp or Telegram automatically)
+- **`whatsapp_send`** — sends to a specific phone number (must be in your approved list)
 
 ### Environment variables
 

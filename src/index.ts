@@ -1674,20 +1674,31 @@ async function runAgent(isDaemon: boolean = false): Promise<void> {
   });
 
   capabilities.setSendMessageHandler(async (content: string) => {
-    const telegram = channels.get('telegram');
+    // Route to whichever channel the current conversation is on.
+    // If the agent is talking to someone via WhatsApp, proactive send_message
+    // calls should go back to that same WhatsApp session — not Telegram.
+    const { channelType, channelId } = capabilities.getChannelContext();
 
-    if (!config.channels.telegram.enabled || !telegram) {
-      throw new Error('Telegram is not configured. Add a bot token in setup or run `tota doctor`.');
+    if (channelType === 'whatsapp') {
+      const wa = channels.get('whatsapp') as WhatsAppChannel | undefined;
+      if (wa?.isReady()) {
+        await wa.send(content, channelId || undefined);
+        return;
+      }
     }
 
+    // Default: Telegram proactive notification
+    const telegram = channels.get('telegram');
+    if (!config.channels.telegram.enabled || !telegram) {
+      throw new Error('No active channel to send to. Configure Telegram (`tota doctor`) or use whatsapp_send for WhatsApp.');
+    }
     if (getTelegramApprovedUsers(config).length === 0) {
       throw new Error('Telegram has no approved users. Ask someone to send /start, then approve the request from tota.');
     }
-
     await telegram.send(content);
   });
 
-  // Wire WhatsApp outbound send tool — lets the agent send messages to any phone number
+  // Wire WhatsApp outbound send tool — restricted to approved numbers to prevent prompt-injection abuse
   capabilities.setWhatsAppSendHandler(async (phone: string, content: string) => {
     const wa = channels.get('whatsapp') as WhatsAppChannel | undefined;
     if (!wa || !config.channels.whatsapp?.enabled) {
@@ -1696,6 +1707,22 @@ async function runAgent(isDaemon: boolean = false): Promise<void> {
     if (!wa.isReady()) {
       throw new Error('WhatsApp is not connected. Run `tota whatsapp link` to re-link your account.');
     }
+
+    // Security: only send to numbers in the owner's allowFrom / approved list.
+    // This prevents a prompt-injection attack from making the agent spam arbitrary numbers.
+    const waConf = config.channels.whatsapp;
+    const normalized = `+${phone.replace(/\D/g, '')}`;
+    const isAllowed =
+      (waConf.allowFrom ?? []).includes('*') ||
+      (waConf.allowFrom ?? []).includes(normalized) ||
+      (waConf.approved ?? []).some((u: { phone: string }) => u.phone === normalized);
+    if (!isAllowed) {
+      throw new Error(
+        `Outbound blocked: ${normalized} is not in your WhatsApp approved list. ` +
+        `Run \`tota whatsapp allow ${normalized}\` to add them first.`,
+      );
+    }
+
     await wa.send(content, phone);
   });
 

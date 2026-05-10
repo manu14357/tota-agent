@@ -19,8 +19,20 @@ export function getManual(): string {
     ['edit_file', 'Replace specific text in a file', 'path, old_string, new_string'],
     ['list_dir', 'List directory contents', 'path'],
     ['delete_file', 'Delete a file', 'path'],
-    ['send_message', 'Send a message to approved Telegram users', 'content'],
+    ['find_files', 'Find files matching a glob pattern', 'pattern, path?'],
+    ['send_file', 'Send a local file to the user via the active channel', 'path'],
+    ['approve_scope', 'Permanently approve a file/directory scope', 'path'],
+    ['read_pdf', 'Extract text from a PDF file', 'path'],
+    ['read_excel', 'Read an Excel/XLSX file as text', 'path, sheet?'],
+    ['write_excel', 'Write data to an Excel/XLSX file', 'path, data, sheet?'],
+    ['read_docx', 'Extract text from a Word .docx file', 'path'],
+    ['send_message', 'Send a message to the user on their current channel (WhatsApp or Telegram)', 'content'],
+    ['whatsapp_send', 'Send a WhatsApp message to a specific phone number (must be on approved list)', 'phone, message'],
+    ['notify', 'Send a desktop notification (macOS/Linux/Windows)', 'title, message, sound?'],
+    ['clipboard_read', 'Read the current clipboard contents', '—'],
+    ['clipboard_write', 'Write text to the clipboard', 'text'],
     ['run_command', 'Execute a shell command', 'command'],
+    ['cd', 'Change the working directory', 'path'],
     ['run_code', 'Execute code in a sandbox (Python/JS/Bash/TS/Ruby/Go)', 'language, code, timeout?, stdin?'],
     ['approve_command', 'Permanently approve a command type', 'command (e.g. "curl")'],
     ['fetch_url', 'Fetch a URL and return content', 'url, format? (text/markdown)'],
@@ -77,10 +89,7 @@ export function getManual(): string {
     ['secret_list', 'List all secret names (values not shown)', '—'],
     ['secret_delete', 'Delete a secret from the vault', 'name'],
     // Desktop notifications
-    ['notify', 'Send a desktop notification (macOS/Linux/Windows)', 'title, message, sound?'],
-    // Clipboard
-    ['clipboard_read', 'Read the current clipboard contents', '—'],
-    ['clipboard_write', 'Write text to the clipboard', 'text'],
+    // (notify, clipboard_read, clipboard_write listed above)
     // Voice TTS/STT
     ['text_to_speech', 'Convert text to speech MP3 (OpenAI/ElevenLabs/Google)', 'text, voice?, provider?, send?'],
     ['transcribe_audio', 'Transcribe audio file to text (OpenAI Whisper / Groq)', 'path, language?, provider?'],
@@ -144,6 +153,7 @@ export function getManual(): string {
     ['tota whatsapp reject <phone>', 'Reject a pending WhatsApp access request'],
     ['tota whatsapp remove <phone>', 'Remove a number from WhatsApp access'],
     ['tota whatsapp pending', 'List pending WhatsApp access requests'],
+    ['tota whatsapp revoke', 'Delete WhatsApp session auth and clear access lists'],
     ['tota help', 'Show this manual'],
     ['tota service install', 'Install as system service (auto-start)'],
     ['tota service uninstall', 'Uninstall system service'],
@@ -383,6 +393,10 @@ export function getManual(): string {
     '  tota whatsapp pending               — view access requests',
     '  tota whatsapp approve +15551234567  — approve a request',
     '  tota whatsapp remove +15551234567   — revoke access',
+    '  tota whatsapp revoke                — delete session auth and re-link from scratch',
+    'Agent tools:',
+    '  send_message                        — sends back to the user on whichever channel they are on',
+    '  whatsapp_send <phone> <message>     — send to a specific phone (must be on approved list)',
   ];
 
   for (const s of waInfo) {

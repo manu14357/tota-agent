@@ -34,6 +34,8 @@ export class WhatsAppChannel extends BaseChannel {
   private lastSenderJid: string | null = null;
   private typingTimer: NodeJS.Timeout | null = null;
   private pendingAskResolvers = new Map<string, (answer: boolean) => void>();
+  /** Prevents the "session expired" console line from printing on every QR refresh. */
+  private sessionExpiredPrinted = false;
 
   /** Called with the raw QR string whenever a new QR code is received. */
   public qrCallback: ((qr: string) => void) | null = null;
@@ -75,7 +77,19 @@ export class WhatsAppChannel extends BaseChannel {
     // Fetch the current WA Web version so WhatsApp doesn't reject the handshake
     // with a <failure> node (the bundled default version quickly becomes stale).
     const { version } = await fetchLatestBaileysVersion();
-    const baileysLogger = logger.child({ module: 'baileys' }) as any;
+    // Use a minimal Baileys logger that only surfaces real errors — Baileys emits
+    // Signal protocol INFO messages (e.g. "Closing open session in favor of incoming
+    // prekey bundle") on every multi-device reconnect which are expected and harmless.
+    const baileysLogger = {
+      level: 'silent',
+      trace: () => {},
+      debug: () => {},
+      info:  () => {},
+      warn:  () => {},
+      error: (obj: unknown, msg?: string) => logger.error({ module: 'baileys', obj }, msg),
+      fatal: (obj: unknown, msg?: string) => logger.error({ module: 'baileys', obj }, msg),
+      child: function() { return this; },
+    } as any;
 
     const sock = makeWASocket({
       version,
@@ -116,16 +130,20 @@ export class WhatsAppChannel extends BaseChannel {
         if (this.qrCallback) {
           this.qrCallback(qr);
         } else {
-          // In daemon mode there's no qrCallback — print a plain warning so the
-          // user knows to re-run `tota whatsapp link` rather than seeing a broken
-          // ASCII QR dumped into the logs.
-          logger.warn('WhatsApp session requires re-authentication. Run `tota whatsapp link` to re-link.');
-          console.log('\n[WhatsApp] Session expired — run `tota whatsapp link` to re-link your account.\n');
+          // In daemon mode there's no qrCallback — print once then suppress repeats.
+          // Baileys will keep retrying and emitting new QR codes until the connection
+          // is re-established, but we only need to tell the user once.
+          if (!this.sessionExpiredPrinted) {
+            this.sessionExpiredPrinted = true;
+            logger.warn('WhatsApp session requires re-authentication. Run `tota whatsapp link` to re-link.');
+            console.log('\n[WhatsApp] Session expired — run `tota whatsapp link` to re-link your account.\n');
+          }
         }
       }
 
       if (connection === 'open') {
         this.ready = true;
+        this.sessionExpiredPrinted = false; // reset for future disconnects
         logger.info('WhatsApp channel connected');
       }
 
