@@ -1663,6 +1663,8 @@ async function runAgent(isDaemon: boolean = false): Promise<void> {
         await wa.sendFile(filePath, channelId || undefined);
         return;
       }
+      // WhatsApp socket unavailable — do not silently reroute to another channel
+      throw new Error('WhatsApp is not connected. File could not be sent.');
     }
 
     if (channelType === 'telegram' && telegram) {
@@ -1670,11 +1672,7 @@ async function runAgent(isDaemon: boolean = false): Promise<void> {
       return;
     }
 
-    if (config.channels.telegram.enabled && telegram && getTelegramApprovedUsers(config).length > 0) {
-      await telegram.sendFile(filePath);
-      return;
-    }
-
+    // CLI / internal / scheduled tasks without an active channel
     const cli = channels.get('cli');
     if (cli) {
       await cli.sendFile(filePath);
@@ -1787,6 +1785,10 @@ async function runAgent(isDaemon: boolean = false): Promise<void> {
 
   capabilities.permissions.onAsk(async (prompt: string) => {
     const channelType = capabilities.permissions.getCurrentChannelType();
+    const { channelId } = capabilities.getChannelContext();
+    if (channelType === 'whatsapp' && waChannel) {
+      return waChannel.askPermission(prompt, channelId || undefined);
+    }
     if (channelType === 'telegram' && tgChannel) {
       return tgChannel.askPermission(prompt);
     }
@@ -1798,12 +1800,11 @@ async function runAgent(isDaemon: boolean = false): Promise<void> {
 
   if (tgChannel) {
     tgChannel.setOnPermissionMode((mode, chatId) => {
+      capabilities.permissions.setChannelMode(String(chatId), mode);
       if (mode === 'allow-all') {
-        capabilities.permissions.setAutoApproveAll(true);
         capabilities.permissions.addTempScope('/', true, true);
         logger.info({ chatId }, 'Telegram: Allow All mode set for session');
       } else {
-        capabilities.permissions.setAutoApproveAll(false);
         logger.info({ chatId }, 'Telegram: Ask Me mode set for session');
       }
     });
@@ -1812,12 +1813,11 @@ async function runAgent(isDaemon: boolean = false): Promise<void> {
   const waChannel = channels.get('whatsapp') as WhatsAppChannel | undefined;
   if (waChannel) {
     waChannel.setOnPermissionMode((mode, jid) => {
+      capabilities.permissions.setChannelMode(jid, mode);
       if (mode === 'allow-all') {
-        capabilities.permissions.setAutoApproveAll(true);
         capabilities.permissions.addTempScope('/', true, true);
         logger.info({ jid }, 'WhatsApp: Allow All mode set for session');
       } else {
-        capabilities.permissions.setAutoApproveAll(false);
         logger.info({ jid }, 'WhatsApp: Ask Me mode set for session');
       }
     });

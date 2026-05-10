@@ -35,6 +35,7 @@ export class WhatsAppChannel extends BaseChannel {
   private typingTimer: NodeJS.Timeout | null = null;
   private pendingAskResolvers = new Map<string, (answer: boolean) => void>();
   private pendingPermModeResolvers = new Map<string, (mode: PermissionMode) => void>();
+  private pendingPermAskResolvers = new Map<string, (answer: string) => void>();
   private permissionModes = new Map<string, PermissionMode>();
   private onPermissionMode?: (mode: PermissionMode, jid: string) => void;
   /** Prevents the "session expired" console line from printing on every QR refresh. */
@@ -256,6 +257,21 @@ export class WhatsAppChannel extends BaseChannel {
       // Not a permission answer — fall through; resolver stays open until timeout
     }
 
+    // Handle yes/always/no replies for askPermission (per-operation approval)
+    if (this.pendingPermAskResolvers.has(jid)) {
+      const PERM_ASK_ANSWERS = new Set(['yes', 'y', 'always', 'no', 'n', 'deny']);
+      if (PERM_ASK_ANSWERS.has(lowered)) {
+        const resolve = this.pendingPermAskResolvers.get(jid)!;
+        this.pendingPermAskResolvers.delete(jid);
+        const answer = (lowered === 'always') ? 'always'
+          : (lowered === 'yes' || lowered === 'y') ? 'yes'
+          : 'no';
+        resolve(answer);
+        return;
+      }
+      // Not a recognised answer — fall through; resolver stays open
+    }
+
     // Handle yes/no replies for askToContinue — only intercept recognised answers
     if (this.pendingAskResolvers.has(jid)) {
       const ASK_ANSWERS = new Set(['yes', 'y', 'no', 'n', '1', '0', 'stop', 'continue']);
@@ -270,15 +286,14 @@ export class WhatsAppChannel extends BaseChannel {
 
     this.lastSenderJid = jid;
 
-    // On first message from this JID, ask permission mode concurrently (don't block emit)
+    // On first message from this JID, await permission mode before emitting to
+    // the agent. This ensures the agent knows the user's chosen mode before it
+    // starts executing any tools. Subsequent messages skip this (mode already set).
     if (!this.permissionModes.has(jid) && this.onPermissionMode) {
-      this.permissionModes.set(jid, 'ask-me'); // default while waiting for reply
-      this.askPermissionMode(jid).then((mode) => {
-        this.permissionModes.set(jid, mode);
-        if (this.onPermissionMode) {
-          this.onPermissionMode(mode, jid);
-        }
-      }).catch(() => {});
+      this.permissionModes.set(jid, 'ask-me'); // safe default during the wait
+      const mode = await this.askPermissionMode(jid).catch(() => 'ask-me' as PermissionMode);
+      this.permissionModes.set(jid, mode);
+      this.onPermissionMode(mode, jid);
     }
 
     const channelMsg: ChannelMessage = {
@@ -453,6 +468,27 @@ export class WhatsAppChannel extends BaseChannel {
       this.pendingPermModeResolvers.set(jid, (mode) => {
         clearTimeout(timer);
         resolve(mode);
+      });
+    });
+  }
+
+  async askPermission(prompt: string, targetId?: string): Promise<string> {
+    const jid = this.resolveJid(targetId);
+    if (!jid || !this.sock) return 'no';
+
+    await this.sock.sendMessage(jid, {
+      text: `🔒 *Permission Required*\n${prompt}\n\nReply *yes* to allow once, *always* to always allow, or *no* to deny.`,
+    });
+
+    return new Promise<string>((resolve) => {
+      const timer = setTimeout(() => {
+        this.pendingPermAskResolvers.delete(jid);
+        resolve('no');
+      }, 120_000);
+
+      this.pendingPermAskResolvers.set(jid, (answer) => {
+        clearTimeout(timer);
+        resolve(answer);
       });
     });
   }

@@ -152,6 +152,9 @@ export class PermissionManager {
   private autoApproveAll = false;
   private elevatedCommands: Set<string> = new Set();
   private currentChannelType: string = 'cli';
+  private currentChannelId: string = 'cli';
+  /** Per-channel permission modes — keyed by channelId (JID for WA, chatId for TG) */
+  private channelModes = new Map<string, 'allow-all' | 'ask-me'>();
 
   private tempScopes: FileScope[] = [];
 
@@ -166,6 +169,29 @@ export class PermissionManager {
 
   getCurrentChannelType(): string {
     return this.currentChannelType;
+  }
+
+  setCurrentChannelId(id: string): void {
+    this.currentChannelId = id;
+  }
+
+  getCurrentChannelId(): string {
+    return this.currentChannelId;
+  }
+
+  /** Set the permission mode for a specific channel session (overrides global autoApproveAll). */
+  setChannelMode(channelId: string, mode: 'allow-all' | 'ask-me'): void {
+    this.channelModes.set(channelId, mode);
+  }
+
+  getChannelMode(channelId: string): 'allow-all' | 'ask-me' {
+    return this.channelModes.get(channelId) ?? 'ask-me';
+  }
+
+  /** True if the current channel OR the global flag says approve-all. */
+  private isEffectiveAutoApprove(): boolean {
+    if (this.autoApproveAll) return true;
+    return this.channelModes.get(this.currentChannelId) === 'allow-all';
   }
 
   onAsk(handler: (prompt: string) => Promise<string>): void {
@@ -244,7 +270,7 @@ export class PermissionManager {
   }
 
   async checkFsAccess(path: string, mode: 'read' | 'write'): Promise<{ allowed: boolean; reason?: string }> {
-    if (this.autoApproveAll) {
+    if (this.isEffectiveAutoApprove()) {
       return { allowed: true };
     }
     if (mode === 'read' && this.elevatedCommands.has('fs_read')) {
@@ -275,7 +301,7 @@ export class PermissionManager {
       return { allowed: false, reason: `Permission denied: ${mode} access to ${path}` };
     }
 
-    if (!this.autoApproveAll && this.askHandler && this.currentChannelType !== 'internal') {
+    if (!this.isEffectiveAutoApprove() && this.askHandler && this.currentChannelType !== 'internal') {
       return this.requestScopeExternal(path, mode);
     }
 
@@ -283,7 +309,7 @@ export class PermissionManager {
   }
 
   async checkShellCommand(command: string): Promise<{ allowed: boolean; reason?: string; needsApproval: boolean }> {
-    if (this.autoApproveAll) {
+    if (this.isEffectiveAutoApprove()) {
       logger.info({ cmd: command.trim() }, 'Shell command auto-approved (auto-approve-all mode)');
       return { allowed: true, needsApproval: false };
     }
