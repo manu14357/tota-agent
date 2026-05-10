@@ -1045,6 +1045,60 @@ Always specify owner and repo parameters on GitHub tools. The user's GitHub user
 
       prompt += githubHint;
     }
+
+    // Secrets vault
+    if (toolNames.includes('secret_store')) {
+      prompt += `\n\nSecrets Vault is ACTIVE. Store and retrieve sensitive values (API keys, passwords, tokens) using the OS keychain or encrypted local vault:
+- secret_store(name, value): Store a secret securely — ALWAYS use this instead of writing secrets to files
+- secret_get(name): Retrieve a stored secret by name
+- secret_list(): List all secret names (values never shown)
+- secret_delete(name): Remove a secret from the vault
+Use this whenever you handle credentials, API keys, or any sensitive data.`;
+    }
+
+    // Desktop notifications
+    if (toolNames.includes('notify')) {
+      prompt += `\n\nDesktop Notifications are ACTIVE. Send native OS notifications to the user's screen:
+- notify(title, message, sound?): Send a desktop notification (macOS/Linux/Windows)
+Use this to alert the user when long tasks complete, timers fire, or important events happen.`;
+    }
+
+    // Clipboard
+    if (toolNames.includes('clipboard_read')) {
+      prompt += `\n\nClipboard tools are ACTIVE:
+- clipboard_read(): Read the current clipboard contents
+- clipboard_write(text): Write text to the clipboard for easy pasting
+Use these to move data between tota and other applications.`;
+    }
+
+    // Voice TTS/STT
+    if (toolNames.includes('text_to_speech')) {
+      prompt += `\n\nVoice tools are ACTIVE (requires OPENAI_API_KEY):
+- text_to_speech(text, voice?, send?): Convert text to speech MP3. Voices: alloy (neutral), echo (male), fable (British), onyx (deep), nova (female), shimmer (soft). Default: alloy.
+- transcribe_audio(path, language?): Transcribe an audio file to text using OpenAI Whisper.
+When the user sends a Telegram voice message, it is automatically transcribed and delivered as text — just respond naturally to what they said. Use text_to_speech to reply with audio when the conversation context calls for it.`;
+    }
+
+    // Google Calendar
+    if (toolNames.includes('list_events')) {
+      prompt += `\n\nGoogle Calendar tools are ACTIVE:
+- calendar_auth(code): Complete OAuth2 authorization (one-time setup)
+- list_events(calendar_id?, from?, to?, max_results?): List upcoming events
+- create_event(title, start, end, description?, attendees?, location?, calendar_id?): Create a calendar event (times in ISO 8601)
+- check_availability(emails[], from, to): Check free/busy status for people
+- delete_event(event_id, calendar_id?): Delete an event
+If calendar_auth is needed, the tools will return authorization URL instructions. Use list_events or create_event and follow the auth steps if prompted.`;
+    }
+
+    // Multi-agent crew
+    if (toolNames.includes('spawn_agent')) {
+      prompt += `\n\nMulti-Agent Crew is ACTIVE. Spawn specialized sub-agents with custom roles and tool restrictions:
+- spawn_agent(role, task, allowed_tools?): Create a specialized agent to handle a focused sub-task
+Example roles: "You are a security researcher..." / "You are a senior Python developer..." / "You are a data analyst..."
+Use allowed_tools to restrict what tools the sub-agent can use (e.g. ["read_file","run_code"] for a coder agent).
+Results flow back to you. Chain multiple spawn_agent calls to build multi-step pipelines.`;
+    }
+
     return prompt;
   }
 
@@ -2067,5 +2121,31 @@ Always specify owner and repo parameters on GitHub tools. The user's GitHub user
     });
 
     return result.text || '[Sub-task completed with no text output]';
+  }
+
+  async runCrewTask(role: string, task: string, allowedTools?: string[]): Promise<string> {
+    const provider = this.providers.getDefault();
+    if (!provider) throw new Error('No provider available for crew task');
+
+    const { generateText } = await import('ai');
+    const { stepCountIs } = await import('ai');
+
+    const basePrompt = this.buildSystemPrompt();
+    const crewSystemPrompt = `${role}\n\n---\nYou are operating as part of a multi-agent crew. Complete your assigned task and return the result.\n\n${basePrompt}`;
+
+    const allTools = this.capabilities.getTools();
+    const tools = allowedTools?.length
+      ? Object.fromEntries(Object.entries(allTools).filter(([k]) => allowedTools.includes(k)))
+      : allTools;
+
+    const result = await generateText({
+      model: provider.getModelInstance(),
+      system: crewSystemPrompt,
+      messages: [{ role: 'user', content: task }],
+      tools,
+      stopWhen: stepCountIs(Math.min(this.config.loopGuard?.maxSteps ?? MAX_STEPS, 20)),
+    });
+
+    return result.text || '[Crew agent completed with no text output]';
   }
 }

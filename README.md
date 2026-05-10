@@ -77,6 +77,12 @@ Every AI agent can read files and run commands. Most do it silently. **tota asks
 | **Android control** | ADB-powered Android device control — tap, swipe, type, key events, shell commands, file push/pull. No extra deps beyond `adb`. |
 | **Telegram file receiving** | Users can send documents, photos, audio, and video directly to tota via Telegram. |
 | **Task delegation** | Agent can spawn sub-tasks and delegate to itself for complex multi-step workflows. |
+| **Multi-agent crew** | Spawn specialized sub-agents (researcher, coder, reviewer) and coordinate their output. |
+| **Secrets vault** | Store and retrieve secrets using the OS keychain (macOS Keychain, GNOME Keyring, Windows Credential Manager) with AES-256-GCM encrypted file fallback. |
+| **Desktop notifications** | Send native desktop notifications from macOS, Linux, or Windows — great for long-running tasks. |
+| **Clipboard** | Read from and write to the system clipboard. |
+| **Voice TTS/STT** | Text-to-speech via OpenAI TTS-1 and speech-to-text via Whisper. Telegram voice messages are auto-transcribed. |
+| **Google Calendar** | List, create, and delete events; check free/busy availability — full OAuth2 flow built in. |
 | **MCP plugins** | Connect any MCP-compatible tool server over HTTP — tools appear instantly in the agent. |
 | **REST API channel** | Control tota programmatically over HTTP with optional bearer-token auth. |
 | **Extensible** | Install community skills with one command. Schedule skills as recurring tasks. |
@@ -203,6 +209,12 @@ These work on both CLI and Telegram and do not consume API tokens.
 | **Web** | `fetch_url`, `web_search` — search via Brave, Serper, or Tavily |
 | **Vision** | `analyze_image` — analyze local images or image URLs |
 | **Delegation** | `delegate_task` — spawn a focused sub-agent for a sub-task |
+| **Multi-agent crew** | `spawn_agent` — spawn a specialized sub-agent (researcher, coder, reviewer) with scoped tools |
+| **Secrets vault** | `secret_store`, `secret_get`, `secret_list`, `secret_delete` — OS keychain + encrypted file fallback |
+| **Desktop notifications** | `notify` — send a native desktop notification (macOS, Linux, Windows) |
+| **Clipboard** | `clipboard_read`, `clipboard_write` — read from and write to the system clipboard |
+| **Voice** | `text_to_speech` (OpenAI TTS-1), `transcribe_audio` (Whisper) — auto-transcription for Telegram voice messages |
+| **Google Calendar** | `calendar_auth`, `list_events`, `create_event`, `check_availability`, `delete_event` — full OAuth2 flow |
 | **Skills** | `install_skill`, `list_skills`, `use_skill` |
 | **Scheduler** | `schedule_task`, `list_scheduled_tasks`, `cancel_scheduled_task` |
 | **System** | `budget_status` |

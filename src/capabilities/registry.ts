@@ -19,6 +19,12 @@ import { createScheduleTaskTool } from './scheduler/schedule-task.js';
 import { createListTasksTool } from './scheduler/list-tasks.js';
 import { createCancelTaskTool } from './scheduler/cancel-task.js';
 import { createBudgetStatusTool } from './system/budget-status.js';
+import { createSecretStoreTool, createSecretGetTool, createSecretListTool, createSecretDeleteTool } from './system/secrets.js';
+import { createNotifyTool } from './system/notify.js';
+import { createClipboardReadTool, createClipboardWriteTool } from './system/clipboard.js';
+import { createSpawnAgentTool, type CrewHandler } from './system/crew.js';
+import { createTextToSpeechTool, createTranscribeAudioTool } from './messaging/voice.js';
+import { createCalendarAuthTool, createListEventsTool, createCreateEventTool, createCheckAvailabilityTool, createDeleteEventTool } from './messaging/calendar.js';
 import { createGitStatusTool } from './git/git-status.js';
 import { createGitDiffTool } from './git/git-diff.js';
 import { createGitLogTool } from './git/git-log.js';
@@ -108,6 +114,7 @@ export class CapabilityRegistry {
   private chatCommandContext?: ChatCommandContext;
   private currentCwd = process.cwd();
   private totaConfig?: TotaConfig;
+  private crewHandler?: CrewHandler;
 
   constructor(skillLoader?: SkillLoader, scheduler?: Scheduler, tokenBudget?: TokenBudget) {
     this.permissions = new PermissionManager();
@@ -126,6 +133,14 @@ export class CapabilityRegistry {
 
   setDelegateHandler(handler: DelegateHandler): void {
     this.delegateHandler = handler;
+  }
+
+  setCrewHandler(handler: CrewHandler): void {
+    this.crewHandler = handler;
+  }
+
+  getCrewHandler(): CrewHandler | undefined {
+    return this.crewHandler;
   }
 
   setChatCommandContext(ctx: ChatCommandContext): void {
@@ -218,6 +233,39 @@ export class CapabilityRegistry {
       this.tools.budget_status = createBudgetStatusTool(this.tokenBudget);
       logger.info('Budget tool registered');
     }
+
+    // Secrets vault
+    this.tools.secret_store = createSecretStoreTool();
+    this.tools.secret_get = createSecretGetTool();
+    this.tools.secret_list = createSecretListTool();
+    this.tools.secret_delete = createSecretDeleteTool();
+    logger.info('Secrets vault tools registered');
+
+    // Desktop notifications
+    this.tools.notify = createNotifyTool();
+    logger.info('Desktop notification tool registered');
+
+    // Clipboard
+    this.tools.clipboard_read = createClipboardReadTool();
+    this.tools.clipboard_write = createClipboardWriteTool();
+    logger.info('Clipboard tools registered');
+
+    // Voice TTS + STT
+    this.tools.text_to_speech = createTextToSpeechTool(() => this.totaConfig, this.sendFileHandler);
+    this.tools.transcribe_audio = createTranscribeAudioTool(() => this.totaConfig);
+    logger.info('Voice TTS/STT tools registered');
+
+    // Google Calendar
+    this.tools.calendar_auth = createCalendarAuthTool(() => this.totaConfig);
+    this.tools.list_events = createListEventsTool(() => this.totaConfig);
+    this.tools.create_event = createCreateEventTool(() => this.totaConfig);
+    this.tools.check_availability = createCheckAvailabilityTool(() => this.totaConfig);
+    this.tools.delete_event = createDeleteEventTool(() => this.totaConfig);
+    logger.info('Google Calendar tools registered');
+
+    // Multi-agent crew
+    this.tools.spawn_agent = createSpawnAgentTool(() => this.crewHandler ?? null);
+    logger.info('Crew/multi-agent tool registered');
 
     if (manifest.capabilities.git?.enabled) {
       this.tools.git_status = createGitStatusTool(() => this.getCwd());

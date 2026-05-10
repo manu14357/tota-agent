@@ -14,6 +14,12 @@ import {
   GitBranch,
   Server,
   Puzzle,
+  KeyRound,
+  Bell,
+  Clipboard,
+  Mic,
+  CalendarDays,
+  Users,
 } from 'lucide-react'
 
 const features = [
@@ -133,6 +139,60 @@ const features = [
     accent: 'text-rose-400',
     bg: 'rgba(244,63,94,0.1)',
     borderColor: 'rgba(244,63,94,0.2)',
+  },
+  {
+    icon: KeyRound,
+    title: 'Secrets Vault',
+    description:
+      'Store API keys and tokens in the OS keychain (macOS Keychain, GNOME Keyring, Windows Credential Manager) with AES-256-GCM encrypted file fallback.',
+    accent: 'text-yellow-400',
+    bg: 'rgba(234,179,8,0.1)',
+    borderColor: 'rgba(234,179,8,0.2)',
+  },
+  {
+    icon: Bell,
+    title: 'Desktop Notifications',
+    description:
+      'Send native desktop notifications from macOS, Linux, or Windows. Perfect for long-running tasks — get pinged when the job is done.',
+    accent: 'text-orange-300',
+    bg: 'rgba(253,186,116,0.08)',
+    borderColor: 'rgba(253,186,116,0.18)',
+  },
+  {
+    icon: Clipboard,
+    title: 'Clipboard',
+    description:
+      'Read from and write to the system clipboard. Copy results, paste context, and pipe data in both directions without leaving the conversation.',
+    accent: 'text-teal-300',
+    bg: 'rgba(94,234,212,0.08)',
+    borderColor: 'rgba(94,234,212,0.18)',
+  },
+  {
+    icon: Mic,
+    title: 'Voice TTS / STT',
+    description:
+      'Text-to-speech via OpenAI TTS-1 and speech-to-text via Whisper. Telegram voice messages are auto-transcribed before reaching the agent.',
+    accent: 'text-violet-300',
+    bg: 'rgba(196,181,253,0.08)',
+    borderColor: 'rgba(196,181,253,0.18)',
+  },
+  {
+    icon: CalendarDays,
+    title: 'Google Calendar',
+    description:
+      'List, create, and delete events. Check free/busy availability. Full OAuth2 flow built in — no external server needed, just paste the auth code.',
+    accent: 'text-blue-400',
+    bg: 'rgba(96,165,250,0.08)',
+    borderColor: 'rgba(96,165,250,0.18)',
+  },
+  {
+    icon: Users,
+    title: 'Multi-Agent Crew',
+    description:
+      'Spawn specialized sub-agents (researcher, coder, reviewer) with scoped tool access and independent context. Coordinate complex workflows in parallel.',
+    accent: 'text-fuchsia-300',
+    bg: 'rgba(240,171,252,0.08)',
+    borderColor: 'rgba(240,171,252,0.18)',
   },
 ]
 

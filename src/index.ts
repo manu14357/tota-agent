@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { homedir } from 'node:os';
 import { Command } from 'commander';
 import readline from 'node:readline';
 import chalk from 'chalk';
@@ -758,6 +759,9 @@ export const SETUP_SECTIONS: Record<string, string> = {
   computer: 'Computer-Use & Android',
   api: 'REST API Channel',
   budget: 'Token Budget',
+  calendar: 'Google Calendar',
+  voice: 'Voice TTS/STT',
+  vault: 'Secrets Vault',
 };
 
 async function configure(existingConfig?: TotaConfig, section?: string): Promise<void> {
@@ -1261,6 +1265,137 @@ async function configure(existingConfig?: TotaConfig, section?: string): Promise
   }
   } // end computer section
 
+  // ── Google Calendar setup (only when explicitly requested) ─────────────────
+  if (section === 'calendar') {
+  hr();
+  console.log('');
+  console.log(chalk.bold.white('  Google Calendar'));
+  console.log(chalk.dim('  Lets tota read, create, and check your Google Calendar events.'));
+  console.log('');
+  console.log(chalk.bold('  Step 1 — Create a Google Cloud project:'));
+  console.log(chalk.dim('  1. Go to https://console.cloud.google.com/'));
+  console.log(chalk.dim('  2. Create a project → Enable "Google Calendar API"'));
+  console.log(chalk.dim('  3. Go to APIs & Services → Credentials → + Create Credentials → OAuth client ID'));
+  console.log(chalk.dim('  4. Application type: Desktop app. Download the credentials JSON.'));
+  console.log('');
+  const existingClientId = (config as any).calendar?.clientId || process.env.GOOGLE_CALENDAR_CLIENT_ID || '';
+  const existingSecret  = (config as any).calendar?.clientSecret || process.env.GOOGLE_CALENDAR_CLIENT_SECRET || '';
+  const clientIdPrompt  = existingClientId ? `  Client ID [${existingClientId.slice(0, 20)}...]: ` : '  Client ID: ';
+  const clientSecretPrompt = existingSecret ? `  Client Secret [${existingSecret.slice(0, 8)}...]: ` : '  Client Secret: ';
+
+  const clientId = await ask(chalk.white(clientIdPrompt));
+  const clientSecret = await ask(chalk.white(clientSecretPrompt));
+
+  const finalClientId     = clientId     || existingClientId;
+  const finalClientSecret = clientSecret || existingSecret;
+
+  if (finalClientId && finalClientSecret) {
+    appendToEnv('GOOGLE_CALENDAR_CLIENT_ID', finalClientId);
+    appendToEnv('GOOGLE_CALENDAR_CLIENT_SECRET', finalClientSecret);
+    if (!config.calendar) config.calendar = {};
+    config.calendar.clientId = finalClientId;
+    config.calendar.clientSecret = finalClientSecret;
+    console.log('');
+    console.log(chalk.green('  ✓ Credentials saved to ~/.tota/.env'));
+    console.log('');
+    console.log(chalk.bold('  Step 2 — Authorize tota to access your calendar:'));
+    console.log(chalk.dim('  Ask tota: "authorize my Google Calendar" and follow the link it sends.'));
+    console.log(chalk.dim('  Or use the calendar_auth tool with the OAuth code from Google.'));
+  } else {
+    console.log(chalk.yellow('  Skipped — enter credentials later or set GOOGLE_CALENDAR_CLIENT_ID / GOOGLE_CALENDAR_CLIENT_SECRET in ~/.tota/.env'));
+  }
+  } // end calendar section
+
+  // ── Voice TTS/STT setup (only when explicitly requested) ───────────────────
+  if (section === 'voice') {
+  hr();
+  console.log('');
+  console.log(chalk.bold.white('  Voice — TTS & STT'));
+  console.log(chalk.dim('  Configure text-to-speech and speech-to-text providers.'));
+  console.log('');
+  console.log(chalk.bold('  TTS Provider (Text-to-Speech):'));
+  const ttsOptions = [
+    { value: 'skip',       label: 'Skip / keep current TTS provider' },
+    { value: 'openai',     label: 'OpenAI TTS — voices: alloy, echo, fable, onyx, nova, shimmer  [needs OPENAI_API_KEY]' },
+    { value: 'elevenlabs', label: 'ElevenLabs — ultra-realistic voices  [needs ELEVENLABS_API_KEY]' },
+    { value: 'google',     label: 'Google Cloud TTS — natural voices  [needs GOOGLE_TTS_API_KEY]' },
+  ];
+  const ttsChoice = await selectWithArrowKeys('TTS Provider', ttsOptions);
+  if (ttsChoice !== 'skip') {
+    if (!config.voice) config.voice = {};
+    config.voice.ttsProvider = ttsChoice as any;
+    if (ttsChoice === 'elevenlabs') {
+      const existing = (config.voice as any).elevenLabsApiKey || process.env.ELEVENLABS_API_KEY || '';
+      const key = await ask(chalk.white(`  ElevenLabs API key${existing ? ' [keep current]' : ''}: `));
+      if (key) { (config.voice as any).elevenLabsApiKey = key; appendToEnv('ELEVENLABS_API_KEY', key); }
+      const vid = await ask(chalk.white('  Voice ID [21m00Tcm4TlvDq8ikWAM = Rachel, Enter to keep]: '));
+      if (vid) (config.voice as any).elevenLabsVoiceId = vid;
+    } else if (ttsChoice === 'google') {
+      const existing = (config.voice as any).googleTtsApiKey || process.env.GOOGLE_TTS_API_KEY || '';
+      const key = await ask(chalk.white(`  Google TTS API key${existing ? ' [keep current]' : ''}: `));
+      if (key) { (config.voice as any).googleTtsApiKey = key; appendToEnv('GOOGLE_TTS_API_KEY', key); }
+    } else if (ttsChoice === 'openai') {
+      const voiceOptions = [
+        { value: 'alloy',   label: 'alloy — neutral, balanced' },
+        { value: 'echo',    label: 'echo — male' },
+        { value: 'fable',   label: 'fable — British accent' },
+        { value: 'onyx',    label: 'onyx — deep, authoritative' },
+        { value: 'nova',    label: 'nova — female' },
+        { value: 'shimmer', label: 'shimmer — soft, gentle' },
+      ];
+      const voiceChoice = await selectWithArrowKeys('Default Voice', voiceOptions);
+      (config.voice as any).defaultVoice = voiceChoice;
+    }
+    console.log(chalk.green(`  ✓ TTS provider set to: ${ttsChoice}`));
+  }
+  console.log('');
+  console.log(chalk.bold('  STT Provider (Speech-to-Text / Transcription):'));
+  const sttOptions = [
+    { value: 'skip',  label: 'Skip / keep current STT provider' },
+    { value: 'openai', label: 'OpenAI Whisper (whisper-1)  [needs OPENAI_API_KEY]' },
+    { value: 'groq',   label: 'Groq Whisper (whisper-large-v3 — faster & cheaper)  [needs GROQ_API_KEY]' },
+  ];
+  const sttChoice = await selectWithArrowKeys('STT Provider', sttOptions);
+  if (sttChoice !== 'skip') {
+    if (!config.voice) config.voice = {};
+    config.voice.sttProvider = sttChoice as any;
+    if (sttChoice === 'groq') {
+      const existing = (config.voice as any).groqApiKey || process.env.GROQ_API_KEY || '';
+      const key = await ask(chalk.white(`  Groq API key${existing ? ' [keep current]' : ''}: `));
+      if (key) { (config.voice as any).groqApiKey = key; appendToEnv('GROQ_API_KEY', key); }
+    }
+    console.log(chalk.green(`  ✓ STT provider set to: ${sttChoice}`));
+  }
+  } // end voice section
+
+  // ── Secrets Vault info (only when explicitly requested) ────────────────────
+  if (section === 'vault') {
+  hr();
+  console.log('');
+  console.log(chalk.bold.white('  Secrets Vault'));
+  console.log(chalk.dim('  tota stores secrets securely using the OS keychain or an encrypted local vault.'));
+  console.log('');
+  let keytarAvailable = false;
+  try {
+    await import('keytar');
+    keytarAvailable = true;
+  } catch {
+    keytarAvailable = false;
+  }
+  const vaultPath = join(homedir(), '.tota', 'vault.enc.json');
+  const { existsSync: efs } = await import('node:fs');
+  const vaultExists = efs(vaultPath);
+  console.log(`  Backend:    ${keytarAvailable ? chalk.green('OS Keychain (macOS Keychain / GNOME Keyring / Windows Credential Manager)') : chalk.yellow('Encrypted file vault (AES-256-GCM)')}`);
+  if (!keytarAvailable) {
+    console.log(`  Vault file: ${chalk.dim(vaultPath)}${vaultExists ? chalk.green(' (exists)') : chalk.dim(' (empty)')}`);
+    console.log(chalk.dim('  To enable OS keychain: npm install -g keytar (requires native build tools)'));
+  }
+  console.log('');
+  console.log(chalk.dim('  Store a secret:  ask tota → "store my API key X as MY_KEY"'));
+  console.log(chalk.dim('  Retrieve:        ask tota → "what is MY_KEY?"'));
+  console.log(chalk.dim('  Or use tools:    secret_store, secret_get, secret_list, secret_delete'));
+  } // end vault section
+
   hr();
   saveConfig(config);
 
@@ -1488,6 +1623,9 @@ async function runAgent(isDaemon: boolean = false): Promise<void> {
 
   // Wire actual delegate handler now that agent exists
   delegateHandlerRef = (task: string) => agent.runSubTask(task);
+
+  // Wire crew handler
+  capabilities.setCrewHandler((role, task, allowedTools) => agent.runCrewTask(role, task, allowedTools));
 
   await agent.birth();
   await agent.wake();

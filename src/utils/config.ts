@@ -159,6 +159,28 @@ export interface TotaConfig {
       enabled: boolean;
     };
   };
+  calendar?: {
+    /** Google Calendar OAuth2 client ID (from Google Cloud Console) */
+    clientId?: string;
+    /** Google Calendar OAuth2 client secret */
+    clientSecret?: string;
+  };
+  voice?: {
+    /** TTS provider: openai (default) | elevenlabs | google */
+    ttsProvider?: 'openai' | 'elevenlabs' | 'google';
+    /** STT provider: openai (default, whisper-1) | groq (whisper-large-v3, faster) */
+    sttProvider?: 'openai' | 'groq';
+    /** Default TTS voice for OpenAI: alloy | echo | fable | onyx | nova | shimmer */
+    defaultVoice?: string;
+    /** ElevenLabs API key (alternative: ELEVENLABS_API_KEY env var) */
+    elevenLabsApiKey?: string;
+    /** ElevenLabs voice ID (default: Rachel — 21m00Tcm4TlvDq8ikWAM) */
+    elevenLabsVoiceId?: string;
+    /** Google Cloud TTS API key (alternative: GOOGLE_TTS_API_KEY env var) */
+    googleTtsApiKey?: string;
+    /** Groq API key for fast Whisper STT (alternative: GROQ_API_KEY env var) */
+    groqApiKey?: string;
+  };
 }
 
 function getEnv(key: string, fallback: string = ''): string {

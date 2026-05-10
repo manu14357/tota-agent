@@ -25,6 +25,7 @@ import {
 import { logger } from '../utils/logger.js';
 import { mdToTelegram } from '../utils/markdown.js';
 import { formatToolStep, formatToolResult } from '../utils/tool-label.js';
+import { transcribeAudioFile } from '../capabilities/messaging/voice.js';
 
 const MAX_MESSAGE_LENGTH = 4096;
 const ACCESS_ACTION_PREFIX = 'tg_access';
@@ -272,12 +273,74 @@ export class TelegramChannel extends BaseChannel {
 
     bot.on('message:voice', async (ctx) => {
       const voice = ctx.message.voice;
-      await handleInboundFile(ctx, {
-        fileId: voice.file_id,
-        filename: `voice-${Date.now()}.ogg`,
-        caption: ctx.message.caption,
-        mimeType: voice.mime_type ?? 'audio/ogg',
-      });
+      const chatId: number = ctx.chat?.id;
+      const userId: number | undefined = ctx.from?.id;
+      if (!chatId || !userId) return;
+
+      if (ctx.chat?.type !== 'private') return;
+      const approvedUser = findTelegramApprovedUser(this.config, userId);
+      if (!approvedUser) return;
+
+      const token = this.config.channels.telegram.botToken;
+      if (!token) return;
+
+      // Download the voice file first
+      const filename = `voice-${Date.now()}.ogg`;
+      const uploadDir = path.join(os.homedir(), '.tota', 'tmp', 'uploads', String(userId));
+      fs.mkdirSync(uploadDir, { recursive: true });
+      const localPath = path.join(uploadDir, filename);
+
+      try {
+        const tgFile = await this.bot!.api.getFile(voice.file_id);
+        if (!tgFile.file_path) {
+          await this.sendDirectMessage(chatId, 'Could not retrieve voice message from Telegram.');
+          return;
+        }
+        const downloadUrl = `https://api.telegram.org/file/bot${token}/${tgFile.file_path}`;
+        await downloadFile(downloadUrl, localPath);
+
+        // Auto-transcribe if any STT API key is available
+        const openaiKey = this.config.providers?.openai?.apiKey || process.env.OPENAI_API_KEY || '';
+        const groqKey = (this.config as any)?.voice?.groqApiKey || process.env.GROQ_API_KEY || '';
+        const sttProvider = (this.config as any)?.voice?.sttProvider;
+        const hasKey = !!(openaiKey || groqKey);
+        let content: string;
+
+        if (hasKey) {
+          try {
+            const transcript = await transcribeAudioFile(localPath, { openaiKey, groqKey, sttProvider });
+            logger.info({ chatId, userId, chars: transcript.length }, 'Voice message auto-transcribed');
+            content = `[Voice message transcribed]\nTranscript: "${transcript}"\nAudio file: ${localPath}\n\nRespond to what the user said in the transcript. The full audio is available at the path above if needed.`;
+          } catch (transcribeErr: any) {
+            logger.warn({ err: transcribeErr.message, chatId }, 'Voice transcription failed — falling back to file delivery');
+            content = `[User sent a voice message]\nFile saved to: ${localPath}\nTranscription failed: ${transcribeErr.message}\nYou can still use transcribe_audio tool with the file path above.`;
+          }
+        } else {
+          content = `[User sent a voice message]\nFile saved to: ${localPath}\nFilename: ${filename}\nType: audio/ogg\n\nNo STT API key set — use the transcribe_audio tool with the file path above to transcribe it.`;
+        }
+
+        const msg: ChannelMessage = {
+          id: ctx.message.message_id.toString(),
+          channelId: `telegram:${chatId}`,
+          channelType: 'telegram',
+          senderId: userId.toString(),
+          senderName: ctx.from?.first_name,
+          content,
+          timestamp: ctx.message.date * 1000,
+          metadata: {
+            chatId,
+            messageId: ctx.message.message_id,
+            attachments: [{ path: localPath, filename, mimeType: 'audio/ogg' }],
+          },
+        };
+
+        this.lastActiveChatId = chatId;
+        if (!this.permissionModes.has(chatId)) this.permissionModes.set(chatId, 'ask-me');
+        this.emit(msg);
+      } catch (err: any) {
+        logger.error({ err: err.message, chatId }, 'Failed to handle voice message');
+        await this.sendDirectMessage(chatId, `Failed to receive voice message: ${err.message}`);
+      }
     });
 
     bot.on('message:sticker', async (ctx) => {

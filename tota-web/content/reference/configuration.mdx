@@ -16,7 +16,12 @@ All configuration and data is stored in `~/.tota/`.
 | `~/.tota/skills/` | Installed custom skill directories |
 | `~/.tota/tasks.json` | Persisted scheduled tasks |
 
-Nothing is stored in your project directory. You can delete `~/.tota/` to start completely fresh.
+| `~/.tota/vault.enc.json` | AES-256-GCM encrypted secrets vault (fallback when keychain unavailable) |
+| `~/.tota/calendar-token.json` | Google Calendar OAuth2 tokens (refresh token persisted) |
+| `~/.tota/tmp/voice/` | TTS audio output files (`tts-<timestamp>.mp3`) |
+| `~/.tota/tmp/uploads/` | Incoming Telegram file uploads (voice, photos, documents) |
+
+Nothing is stored in your project directory.
 
 ## Web Search
 
@@ -38,6 +43,43 @@ When `WEB_SEARCH_PROVIDER=auto`, tota picks whichever key it finds first (Brave 
 | `API_CHANNEL_ENABLED` | Enable the HTTP API channel | `false` |
 | `API_CHANNEL_PORT` | Port to listen on | `3001` |
 | `API_CHANNEL_KEY` | Optional bearer token for auth | — |
+
+## Google Calendar
+
+| Env Var | Description | Default |
+|---------|-------------|---------|
+| `GOOGLE_CALENDAR_CLIENT_ID` | OAuth2 client ID from Google Cloud Console | — |
+| `GOOGLE_CALENDAR_CLIENT_SECRET` | OAuth2 client secret | — |
+
+Or in `~/.tota/tota.yaml`:
+
+```yaml
+calendar:
+  clientId: your-client-id
+  clientSecret: your-client-secret
+```
+
+**Setup guide:**
+1. Go to [Google Cloud Console](https://console.cloud.google.com) → APIs & Services → Credentials.
+2. Create an OAuth 2.0 Client ID (application type: **Desktop app**).
+3. Add the client ID and secret to `~/.tota/.env` or `tota.yaml`.
+4. Run `calendar_auth` in tota — it prints an auth URL. Visit it, approve access, paste the code back.
+5. Tokens are saved to `~/.tota/calendar-token.json` and auto-refreshed.
+
+## Voice (TTS / STT)
+
+| Env Var | Description | Default |
+|---------|-------------|---------|
+| `OPENAI_API_KEY` | Used for TTS-1 and Whisper STT | — |
+
+Or in `~/.tota/tota.yaml`:
+
+```yaml
+voice:
+  defaultVoice: nova    # alloy | echo | fable | onyx | nova | shimmer
+```
+
+When `OPENAI_API_KEY` is set, Telegram voice messages are **automatically transcribed** using Whisper before being passed to the agent.
 
 ## Browser Automation
 

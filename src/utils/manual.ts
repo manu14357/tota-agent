@@ -71,6 +71,27 @@ export function getManual(): string {
     ['adb_shell', 'Run adb shell command on Android device', 'command, device?'],
     ['adb_pull', 'Pull a file from Android device', 'remote, local, device?'],
     ['adb_push', 'Push a file to Android device', 'local, remote, device?'],
+    // Secrets vault
+    ['secret_store', 'Store a secret in OS keychain / encrypted vault', 'name, value'],
+    ['secret_get', 'Retrieve a stored secret by name', 'name'],
+    ['secret_list', 'List all secret names (values not shown)', '—'],
+    ['secret_delete', 'Delete a secret from the vault', 'name'],
+    // Desktop notifications
+    ['notify', 'Send a desktop notification (macOS/Linux/Windows)', 'title, message, sound?'],
+    // Clipboard
+    ['clipboard_read', 'Read the current clipboard contents', '—'],
+    ['clipboard_write', 'Write text to the clipboard', 'text'],
+    // Voice TTS/STT
+    ['text_to_speech', 'Convert text to speech MP3 (OpenAI/ElevenLabs/Google)', 'text, voice?, provider?, send?'],
+    ['transcribe_audio', 'Transcribe audio file to text (OpenAI Whisper / Groq)', 'path, language?, provider?'],
+    // Google Calendar
+    ['calendar_auth', 'Complete Google Calendar OAuth2 authorization', 'code'],
+    ['list_events', 'List upcoming Google Calendar events', 'calendar_id?, from?, to?, max_results?'],
+    ['create_event', 'Create a Google Calendar event', 'title, start, end, description?, attendees?, location?'],
+    ['check_availability', 'Check free/busy status for people', 'emails[], from, to'],
+    ['delete_event', 'Delete a Google Calendar event', 'event_id, calendar_id?'],
+    // Multi-agent crew
+    ['spawn_agent', 'Spawn a specialized sub-agent with a custom role', 'role, task, allowed_tools?'],
   ];
 
   for (const [name, desc, params] of tools) {
@@ -102,6 +123,9 @@ export function getManual(): string {
     ['tota setup api', 'Configure REST API channel only'],
     ['tota setup budget', 'Configure token budget only'],
     ['tota setup identity', 'Configure name and owner only'],
+    ['tota setup calendar', 'Configure Google Calendar OAuth2 credentials'],
+    ['tota setup voice', 'Configure TTS/STT providers (OpenAI/ElevenLabs/Google/Groq)'],
+    ['tota setup vault', 'Show secrets vault backend and usage info'],
     ['tota status', 'Show config and daemon status'],
     ['tota telegram list', 'Show Telegram admins, members, and pending requests'],
     ['tota telegram approve <code|id>', 'Approve the first Telegram pairing code or a later Telegram request'],
