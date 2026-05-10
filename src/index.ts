@@ -2447,9 +2447,11 @@ whatsappCmd
       });
     };
 
-    // Capture connection errors so they show up in the terminal
-    channel.disconnectCallback = (reason, _shouldReconnect) => {
-      if (!channel.isReady() && !qrDisplayed) {
+    // Only abort on fatal disconnects (e.g. logged out / banned).
+    // Transient failures like "Connection Failure" are retried by Baileys internally —
+    // we must NOT break the wait loop on those or the QR never gets a chance to appear.
+    channel.disconnectCallback = (reason, shouldReconnect) => {
+      if (!shouldReconnect && !channel.isReady()) {
         linkError = reason;
       }
     };

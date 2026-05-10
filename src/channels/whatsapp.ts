@@ -5,6 +5,7 @@ import makeWASocket, {
   type WASocket,
   useMultiFileAuthState,
   DisconnectReason,
+  Browsers,
   isJidUser,
   isJidGroup,
   jidNormalizedUser,
@@ -73,9 +74,9 @@ export class WhatsAppChannel extends BaseChannel {
 
     const sock = makeWASocket({
       auth: state,
+      browser: Browsers.appropriate('Chrome'),
       // Suppress Baileys' internal pino logger from flooding stdout
       logger: logger.child({ module: 'baileys' }) as any,
-      printQRInTerminal: false,
       connectTimeoutMs: 60_000,
       keepAliveIntervalMs: 30_000,
       retryRequestDelayMs: 2_000,

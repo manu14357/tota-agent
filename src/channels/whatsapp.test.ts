@@ -26,6 +26,7 @@ vi.mock('@whiskeysockets/baileys', () => {
       saveCreds: vi.fn(),
     }),
     DisconnectReason: { loggedOut: 401 },
+    Browsers: { appropriate: vi.fn(() => ['Mac OS', 'Chrome', '25.3.0']), macOS: vi.fn(() => ['Mac OS', 'Chrome', '14.4.1']), ubuntu: vi.fn(() => ['Ubuntu', 'Chrome', '22.04.4']) },
     isJidUser: vi.fn((jid: string) => jid.endsWith('@s.whatsapp.net')),
     isJidGroup: vi.fn((jid: string) => jid.endsWith('@g.us')),
     jidNormalizedUser: vi.fn((jid: string) => jid),
