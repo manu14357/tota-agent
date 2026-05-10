@@ -42,6 +42,10 @@ export class WhatsAppChannel extends BaseChannel {
   private sessionExpiredPrinted = false;
   /** True once a connection.update 'open' has been received at least once. */
   private hasEverConnected = false;
+  /** Number of consecutive reconnect attempts (reset on successful open). */
+  private reconnectAttempts = 0;
+  /** Max consecutive reconnect attempts before giving up. */
+  private static readonly MAX_RECONNECT_ATTEMPTS = 10;
 
   /** Called with the raw QR string whenever a new QR code is received. */
   public qrCallback: ((qr: string) => void) | null = null;
@@ -156,6 +160,7 @@ export class WhatsAppChannel extends BaseChannel {
       if (connection === 'open') {
         this.ready = true;
         this.hasEverConnected = true;
+        this.reconnectAttempts = 0; // reset backoff on successful connect
         this.sessionExpiredPrinted = false; // reset so future genuine logouts are reported
         logger.info('WhatsApp channel connected');
       }
@@ -164,28 +169,55 @@ export class WhatsAppChannel extends BaseChannel {
         this.ready = false;
         const boom = lastDisconnect?.error as Boom | undefined;
         const code = boom?.output?.statusCode;
-        const shouldReconnect = code !== DisconnectReason.loggedOut;
         logger.warn({ code }, 'WhatsApp connection closed');
 
-        if (this.disconnectCallback) {
-          const reason = boom?.message ?? `status ${code ?? 'unknown'}`;
-          this.disconnectCallback(reason, shouldReconnect);
+        // ── Conflict: another WhatsApp Web session replaced this one ──────────
+        // Reconnecting immediately will just get kicked again in a tight loop.
+        // Stop and tell the user to close the other session.
+        if (code === DisconnectReason.connectionReplaced) {
+          const msg = '[WhatsApp] Disconnected: another WhatsApp Web session (browser/app) replaced this one.\nClose all other WhatsApp Web tabs or desktop sessions, then run `tota restart`.';
+          logger.error('WhatsApp session replaced by another device — stopping reconnect. Close other WhatsApp Web sessions and run `tota restart`.');
+          console.log(`\n${msg}\n`);
+          if (this.disconnectCallback) this.disconnectCallback('connectionReplaced', false);
+          return;
         }
 
-        if (shouldReconnect) {
-          logger.info('WhatsApp reconnecting…');
-          this.connect(authDir).catch((err) =>
-            logger.error({ err }, 'WhatsApp reconnect failed'),
-          );
-        } else {
-          // Explicit logout — session is gone, tell the user once.
+        // ── Logged out: credentials revoked ───────────────────────────────────
+        if (code === DisconnectReason.loggedOut) {
           if (!this.sessionExpiredPrinted) {
             this.sessionExpiredPrinted = true;
             logger.warn('WhatsApp session logged out. Run `tota whatsapp link` to re-link.');
             console.log('\n[WhatsApp] Session expired — run `tota whatsapp link` to re-link your account.\n');
           }
           logger.warn('WhatsApp logged out — delete auth folder and restart to re-link');
+          if (this.disconnectCallback) this.disconnectCallback('loggedOut', false);
+          return;
         }
+
+        // ── Restart required: Baileys asks us to reconnect immediately ─────────
+        if (code === DisconnectReason.restartRequired) {
+          logger.info('WhatsApp restart required — reconnecting now…');
+          this.connect(authDir).catch((err) => logger.error({ err }, 'WhatsApp reconnect failed'));
+          return;
+        }
+
+        // ── Other disconnect: exponential backoff with max attempts ───────────
+        if (this.disconnectCallback) {
+          this.disconnectCallback(boom?.message ?? `status ${code ?? 'unknown'}`, true);
+        }
+
+        this.reconnectAttempts += 1;
+        if (this.reconnectAttempts > WhatsAppChannel.MAX_RECONNECT_ATTEMPTS) {
+          logger.error({ attempts: this.reconnectAttempts }, 'WhatsApp max reconnect attempts reached — giving up. Run `tota restart` to try again.');
+          console.log('\n[WhatsApp] Too many failed reconnect attempts. Run `tota restart` to try again.\n');
+          return;
+        }
+
+        const delayMs = Math.min(2_000 * Math.pow(2, this.reconnectAttempts - 1), 60_000);
+        logger.info({ attempt: this.reconnectAttempts, delayMs }, 'WhatsApp reconnecting…');
+        setTimeout(() => {
+          this.connect(authDir).catch((err) => logger.error({ err }, 'WhatsApp reconnect failed'));
+        }, delayMs);
       }
     });
 
