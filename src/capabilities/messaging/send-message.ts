@@ -6,7 +6,8 @@ export function createSendMessageTool(
 ) {
   return tool({
     description:
-      'Send a message through the configured outbound channel. For Telegram this sends to the approved Telegram recipients. Use this only when the user explicitly asks you to send something to Telegram or asks for scheduled results to be sent there.',
+      'Send a message to the approved Telegram recipients. Use this ONLY for Telegram messages. ' +
+      'For WhatsApp messages use the whatsapp_send tool instead.',
     inputSchema: zodSchema(z.object({
       content: z.string().describe('The message content to send to the approved Telegram recipients'),
     })),

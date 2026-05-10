@@ -8,6 +8,7 @@ import { createDeleteFileTool } from './filesystem/delete-file.js';
 import { createEditFileTool } from './filesystem/edit-file.js';
 import { createSendFileTool } from './filesystem/send-file.js';
 import { createSendMessageTool } from './messaging/send-message.js';
+import { createWhatsAppSendTool } from './messaging/whatsapp-send.js';
 import { createApproveScopeTool } from './filesystem/approve-scope.js';
 import { createRunCommandTool } from './shell/run-command.js';
 import { createCdTool } from './shell/cd.js';
@@ -107,6 +108,7 @@ export class CapabilityRegistry {
   private tokenBudget?: TokenBudget;
   private sendFileHandler?: (filePath: string) => Promise<void>;
   private sendMessageHandler?: (content: string) => Promise<void>;
+  private whatsAppSendHandler?: (phone: string, content: string) => Promise<void>;
   private visionHandler?: VisionHandler;
   private delegateHandler?: DelegateHandler;
   private currentChannelId = 'cli';
@@ -176,6 +178,10 @@ export class CapabilityRegistry {
     this.sendMessageHandler = handler;
   }
 
+  setWhatsAppSendHandler(handler: (phone: string, content: string) => Promise<void>): void {
+    this.whatsAppSendHandler = handler;
+  }
+
   registerAll(): void {
     const manifest = this.permissions.getManifest();
 
@@ -206,6 +212,11 @@ export class CapabilityRegistry {
     if (this.sendMessageHandler) {
       this.tools.send_message = createSendMessageTool(this.sendMessageHandler);
       logger.info('Messaging tool registered');
+    }
+
+    if (this.whatsAppSendHandler) {
+      this.tools.whatsapp_send = createWhatsAppSendTool(this.whatsAppSendHandler);
+      logger.info('WhatsApp send tool registered');
     }
 
     if (manifest.capabilities.shell.enabled) {

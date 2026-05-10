@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, rmSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { homedir } from 'node:os';
@@ -1686,6 +1686,19 @@ async function runAgent(isDaemon: boolean = false): Promise<void> {
 
     await telegram.send(content);
   });
+
+  // Wire WhatsApp outbound send tool — lets the agent send messages to any phone number
+  capabilities.setWhatsAppSendHandler(async (phone: string, content: string) => {
+    const wa = channels.get('whatsapp') as WhatsAppChannel | undefined;
+    if (!wa || !config.channels.whatsapp?.enabled) {
+      throw new Error('WhatsApp is not configured or not enabled. Run `tota setup whatsapp` to enable it.');
+    }
+    if (!wa.isReady()) {
+      throw new Error('WhatsApp is not connected. Run `tota whatsapp link` to re-link your account.');
+    }
+    await wa.send(content, phone);
+  });
+
   if (process.env.GITHUB_TOKEN) {
     setGitHubToken(process.env.GITHUB_TOKEN);
   }
@@ -2489,15 +2502,82 @@ whatsappCmd
       console.log('');
       console.log(chalk.green('  ✓ WhatsApp linked successfully!'));
       console.log(chalk.dim('  You can now run `tota start` to go live.'));
-      // Wait for any pending creds writes to flush to disk before closing the socket.
-      // Without this delay, process.exit(0) can race the saveCreds callback and
-      // leave an incomplete auth state that forces a re-scan on next start.
+      // Wait for pending saveCreds writes to flush to disk.
+      // Exit WITHOUT channel.stop(): calling sock.end() signals WA to close the session
+      // which causes WA to issue a new QR on the next start. An abrupt process exit
+      // mimics closing a browser tab — WA keeps the session alive on its side.
       await new Promise((r) => setTimeout(r, 3000));
-    } else if (!linkError) {
+      console.log('');
+      process.exit(0);
+    }
+    // Error / timeout path — clean up the socket since we didn't fully link
+    if (!linkError) {
       console.log('');
       console.log(chalk.yellow('  Timed out waiting for QR scan. Try `tota whatsapp link` again.'));
     }
     await channel.stop();
+    console.log('');
+    process.exit(1);
+  });
+
+whatsappCmd
+  .command('revoke')
+  .description('Revoke the WhatsApp session — deletes saved auth and disconnects the linked device')
+  .action(async () => {
+    const config = loadConfig();
+    const wa = config.channels.whatsapp;
+    if (!wa?.enabled) {
+      console.log('');
+      console.log(chalk.red('  WhatsApp is not enabled. Run `tota setup whatsapp` first.'));
+      console.log('');
+      process.exit(1);
+    }
+
+    const authDir = wa.authDir || join(homedir(), '.tota', 'whatsapp-auth');
+
+    console.log('');
+    console.log(chalk.bold.white('  WhatsApp Revoke'));
+    console.log('');
+    console.log(chalk.yellow('  This will:'));
+    console.log(chalk.yellow('    • Delete saved session auth files'));
+    console.log(chalk.yellow('    • Clear approved and pending numbers'));
+    console.log(chalk.yellow('    • The linked device entry will disappear from your phone'));
+    console.log('');
+
+    const confirm = await ask(chalk.white('  Type "revoke" to confirm, or Enter to cancel: '));
+    if (confirm.trim().toLowerCase() !== 'revoke') {
+      console.log('');
+      console.log(chalk.dim('  Cancelled.'));
+      console.log('');
+      process.exit(0);
+    }
+
+    // Delete auth files
+    if (existsSync(authDir)) {
+      try {
+        rmSync(authDir, { recursive: true, force: true });
+        console.log('');
+        console.log(chalk.green(`  ✓ Auth files deleted (${authDir})`));
+      } catch (err: any) {
+        console.log(chalk.red(`  Failed to delete auth files: ${err.message}`));
+        console.log(chalk.dim(`  Delete manually: rm -rf "${authDir}"`));
+      }
+    } else {
+      console.log('');
+      console.log(chalk.dim('  Auth directory did not exist — nothing to delete.'));
+    }
+
+    // Clear access lists
+    wa.approved = [];
+    wa.pending = [];
+    if (wa.allowFrom) wa.allowFrom = wa.allowFrom.filter((p) => p === '*');
+    saveConfig(config);
+    console.log(chalk.green('  ✓ Approved/pending numbers cleared'));
+
+    restartDaemonIfRunning('Restarting the background daemon to apply the change...');
+
+    console.log('');
+    console.log(chalk.dim('  Run `tota whatsapp link` to link a new device.'));
     console.log('');
     process.exit(0);
   });
