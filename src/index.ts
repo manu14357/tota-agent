@@ -1314,6 +1314,24 @@ async function configure(existingConfig?: TotaConfig, section?: string): Promise
   console.log(chalk.dim('  Configure text-to-speech and speech-to-text providers.'));
   console.log('');
   console.log(chalk.bold('  TTS Provider (Text-to-Speech):'));
+  let openaiApiKey = config.providers?.openai?.apiKey || process.env.OPENAI_API_KEY || '';
+  let openaiKeyPrompted = false;
+  const ensureOpenAIKey = async (): Promise<boolean> => {
+    if (openaiKeyPrompted) return !!openaiApiKey;
+    openaiKeyPrompted = true;
+    const keyPrompt = `  OpenAI API key${openaiApiKey ? ' [keep current]' : ''}: `;
+    const key = await ask(chalk.white(keyPrompt));
+    const finalKey = key || openaiApiKey;
+    if (!finalKey) {
+      console.log(chalk.yellow('  Skipped — set OPENAI_API_KEY in ~/.tota/.env later.'));
+      return false;
+    }
+    config.providers.openai.apiKey = finalKey;
+    config.providers.openai.enabled = true;
+    appendToEnv('OPENAI_API_KEY', finalKey);
+    openaiApiKey = finalKey;
+    return true;
+  };
   const ttsOptions = [
     { value: 'skip',       label: 'Skip / keep current TTS provider' },
     { value: 'openai',     label: 'OpenAI TTS — voices: alloy, echo, fable, onyx, nova, shimmer  [needs OPENAI_API_KEY]' },
@@ -1335,6 +1353,7 @@ async function configure(existingConfig?: TotaConfig, section?: string): Promise
       const key = await ask(chalk.white(`  Google TTS API key${existing ? ' [keep current]' : ''}: `));
       if (key) { (config.voice as any).googleTtsApiKey = key; appendToEnv('GOOGLE_TTS_API_KEY', key); }
     } else if (ttsChoice === 'openai') {
+      await ensureOpenAIKey();
       const voiceOptions = [
         { value: 'alloy',   label: 'alloy — neutral, balanced' },
         { value: 'echo',    label: 'echo — male' },
@@ -1363,6 +1382,8 @@ async function configure(existingConfig?: TotaConfig, section?: string): Promise
       const existing = (config.voice as any).groqApiKey || process.env.GROQ_API_KEY || '';
       const key = await ask(chalk.white(`  Groq API key${existing ? ' [keep current]' : ''}: `));
       if (key) { (config.voice as any).groqApiKey = key; appendToEnv('GROQ_API_KEY', key); }
+    } else if (sttChoice === 'openai') {
+      await ensureOpenAIKey();
     }
     console.log(chalk.green(`  ✓ STT provider set to: ${sttChoice}`));
   }
