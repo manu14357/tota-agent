@@ -34,6 +34,9 @@ export class WhatsAppChannel extends BaseChannel {
   private lastSenderJid: string | null = null;
   private typingTimer: NodeJS.Timeout | null = null;
   private pendingAskResolvers = new Map<string, (answer: boolean) => void>();
+  private pendingPermModeResolvers = new Map<string, (mode: PermissionMode) => void>();
+  private permissionModes = new Map<string, PermissionMode>();
+  private onPermissionMode?: (mode: PermissionMode, jid: string) => void;
   /** Prevents the "session expired" console line from printing on every QR refresh. */
   private sessionExpiredPrinted = false;
   /** True once a connection.update 'open' has been received at least once. */
@@ -233,8 +236,20 @@ export class WhatsAppChannel extends BaseChannel {
     const content = this.extractText(msg);
     if (!content) return;
 
-    // Handle yes/no replies for askToContinue
+    // Handle permission mode replies (must check before askToContinue)
     const lowered = content.trim().toLowerCase();
+    if (this.pendingPermModeResolvers.has(jid)) {
+      const resolve = this.pendingPermModeResolvers.get(jid)!;
+      this.pendingPermModeResolvers.delete(jid);
+      const mode: PermissionMode = (lowered === '2' || lowered === 'allow all' || lowered === 'allow-all')
+        ? 'allow-all'
+        : 'ask-me';
+      this.permissionModes.set(jid, mode);
+      resolve(mode);
+      return;
+    }
+
+    // Handle yes/no replies for askToContinue
     if (this.pendingAskResolvers.has(jid)) {
       const resolve = this.pendingAskResolvers.get(jid)!;
       this.pendingAskResolvers.delete(jid);
@@ -243,6 +258,17 @@ export class WhatsAppChannel extends BaseChannel {
     }
 
     this.lastSenderJid = jid;
+
+    // On first message from this JID, ask permission mode concurrently (don't block emit)
+    if (!this.permissionModes.has(jid) && this.onPermissionMode) {
+      this.permissionModes.set(jid, 'ask-me'); // default while waiting for reply
+      this.askPermissionMode(jid).then((mode) => {
+        this.permissionModes.set(jid, mode);
+        if (this.onPermissionMode) {
+          this.onPermissionMode(mode, jid);
+        }
+      }).catch(() => {});
+    }
 
     const channelMsg: ChannelMessage = {
       id: randomUUID(),
@@ -391,6 +417,31 @@ export class WhatsAppChannel extends BaseChannel {
       this.pendingAskResolvers.set(jid, (answer) => {
         clearTimeout(timer);
         resolve(answer);
+      });
+    });
+  }
+
+  setOnPermissionMode(handler: (mode: PermissionMode, jid: string) => void): void {
+    this.onPermissionMode = handler;
+  }
+
+  async askPermissionMode(targetId?: string): Promise<PermissionMode> {
+    const jid = this.resolveJid(targetId);
+    if (!jid || !this.sock) return 'ask-me';
+
+    await this.sock.sendMessage(jid, {
+      text: '🔐 *Permission Mode*\nHow should I handle risky actions this session?\n\nReply *1* — 🔒 Ask Me (confirm before file writes, commands, scope changes)\nReply *2* — ✅ Allow All (auto-approve everything, faster)\n\nDefault is Ask Me (120s timeout).',
+    });
+
+    return new Promise<PermissionMode>((resolve) => {
+      const timer = setTimeout(() => {
+        this.pendingPermModeResolvers.delete(jid);
+        resolve('ask-me');
+      }, 120_000);
+
+      this.pendingPermModeResolvers.set(jid, (mode) => {
+        clearTimeout(timer);
+        resolve(mode);
       });
     });
   }

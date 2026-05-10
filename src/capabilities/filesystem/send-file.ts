@@ -11,7 +11,7 @@ export function createSendFileTool(
 ) {
   return tool({
     description:
-      'Send a file to the user. On Telegram the file is uploaded as an attachment to the relevant approved recipients. On CLI the file path and size are displayed. The path must be within an allowed read scope.',
+      'Send a file to the user via the active channel. On WhatsApp and Telegram the file is uploaded as an attachment. On CLI the file path and size are displayed. The path must be within an allowed read scope.',
     inputSchema: zodSchema(z.object({
       path: z.string().describe('Absolute or relative path to the file to send'),
     })),

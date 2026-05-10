@@ -1371,6 +1371,18 @@ Results flow back to you. Chain multiple spawn_agent calls to build multi-step p
         }
         return true;
       }
+      if (channelType === 'whatsapp' && channel.askPermissionMode) {
+        const mode = await channel.askPermissionMode(channelId);
+        if (mode === 'allow-all') {
+          this.capabilities.permissions.setAutoApproveAll(true);
+          this.capabilities.permissions.addTempScope('/', true, true);
+          await channel.send('✅ Allow All mode active for this session. All actions auto-approved. Resets on restart.', channelId);
+        } else {
+          this.capabilities.permissions.setAutoApproveAll(false);
+          await channel.send('🔒 Ask Me mode active. I will ask before risky actions.', channelId);
+        }
+        return true;
+      }
       await channel.send('Use /permissions in CLI to switch permission mode. On Telegram, use the /permissions button or command.', channelId);
       return true;
     }

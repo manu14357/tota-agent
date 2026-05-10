@@ -1657,6 +1657,14 @@ async function runAgent(isDaemon: boolean = false): Promise<void> {
     const { channelId, channelType } = capabilities.getChannelContext();
     const telegram = channels.get('telegram');
 
+    if (channelType === 'whatsapp') {
+      const wa = channels.get('whatsapp') as WhatsAppChannel | undefined;
+      if (wa?.isReady()) {
+        await wa.sendFile(filePath, channelId || undefined);
+        return;
+      }
+    }
+
     if (channelType === 'telegram' && telegram) {
       await telegram.sendFile(filePath, channelId);
       return;
@@ -1797,6 +1805,20 @@ async function runAgent(isDaemon: boolean = false): Promise<void> {
       } else {
         capabilities.permissions.setAutoApproveAll(false);
         logger.info({ chatId }, 'Telegram: Ask Me mode set for session');
+      }
+    });
+  }
+
+  const waChannel = channels.get('whatsapp') as WhatsAppChannel | undefined;
+  if (waChannel) {
+    waChannel.setOnPermissionMode((mode, jid) => {
+      if (mode === 'allow-all') {
+        capabilities.permissions.setAutoApproveAll(true);
+        capabilities.permissions.addTempScope('/', true, true);
+        logger.info({ jid }, 'WhatsApp: Allow All mode set for session');
+      } else {
+        capabilities.permissions.setAutoApproveAll(false);
+        logger.info({ jid }, 'WhatsApp: Ask Me mode set for session');
       }
     });
   }

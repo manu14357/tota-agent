@@ -11,7 +11,7 @@ export interface Channel {
   stream(content: AsyncIterable<string>, targetId?: string): Promise<string>;
   typing(targetId?: string): Promise<void>;
   askToContinue(question: string, targetId?: string): Promise<boolean>;
-  askPermissionMode?(): Promise<PermissionMode>;
+  askPermissionMode?(targetId?: string): Promise<PermissionMode>;
   isReady(): boolean;
   onMessage(handler: (msg: ChannelMessage) => void): void;
 }
