@@ -428,7 +428,7 @@ export class Agent {
         return;
       }
 
-      const systemPrompt = this.buildSystemPrompt();
+      const systemPrompt = this.buildSystemPrompt(msg.channelType);
       const recentMemory = this.shortTerm.getRecent(msg.channelId, 10);
 
       const messages: any[] = [];
@@ -949,7 +949,7 @@ export class Agent {
     }
   }
 
-  private buildSystemPrompt(): string {
+  private buildSystemPrompt(channelType?: string): string {
     let prompt = this.identity.getSystemPrompt(this.config.identity);
     const skillContext = this.capabilities.getSkillContext();
     if (skillContext) {
@@ -1097,6 +1097,17 @@ If calendar_auth is needed, the tools will return authorization URL instructions
 Example roles: "You are a security researcher..." / "You are a senior Python developer..." / "You are a data analyst..."
 Use allowed_tools to restrict what tools the sub-agent can use (e.g. ["read_file","run_code"] for a coder agent).
 Results flow back to you. Chain multiple spawn_agent calls to build multi-step pipelines.`;
+    }
+
+    // WhatsApp channel awareness
+    if (channelType === 'whatsapp' || toolNames.includes('whatsapp_send')) {
+      prompt += `\n\nWhatsApp channel is ACTIVE and BIDIRECTIONAL:
+- You receive incoming WhatsApp messages from the user in real time — the message you are replying to RIGHT NOW came in via WhatsApp.
+- The full conversation history with this contact is available in your context above.
+- Use send_message to reply in this same WhatsApp thread.
+- Use whatsapp_send(phone, message) ONLY when you need to message a DIFFERENT phone number.
+- You can read everything the user sent you — you have full access to the conversation. Never claim you cannot read or see their messages.
+- Do NOT say you have "only outbound access" — that is wrong. You read every incoming message and the whole chat history is your context.`;
     }
 
     return prompt;
