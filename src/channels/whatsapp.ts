@@ -236,25 +236,36 @@ export class WhatsAppChannel extends BaseChannel {
     const content = this.extractText(msg);
     if (!content) return;
 
-    // Handle permission mode replies (must check before askToContinue)
     const lowered = content.trim().toLowerCase();
+
+    // Handle permission mode replies — only intercept recognised answers.
+    // Commands (/budget, /start, …) and task messages fall through so they
+    // still reach the agent while the permission prompt stays open.
     if (this.pendingPermModeResolvers.has(jid)) {
-      const resolve = this.pendingPermModeResolvers.get(jid)!;
-      this.pendingPermModeResolvers.delete(jid);
-      const mode: PermissionMode = (lowered === '2' || lowered === 'allow all' || lowered === 'allow-all')
-        ? 'allow-all'
-        : 'ask-me';
-      this.permissionModes.set(jid, mode);
-      resolve(mode);
-      return;
+      const PERM_ANSWERS = new Set(['1', '2', 'ask', 'all', 'ask me', 'allow all', 'ask-me', 'allow-all']);
+      if (PERM_ANSWERS.has(lowered)) {
+        const resolve = this.pendingPermModeResolvers.get(jid)!;
+        this.pendingPermModeResolvers.delete(jid);
+        const mode: PermissionMode = (lowered === '2' || lowered === 'all' || lowered === 'allow all' || lowered === 'allow-all')
+          ? 'allow-all'
+          : 'ask-me';
+        this.permissionModes.set(jid, mode);
+        resolve(mode);
+        return;
+      }
+      // Not a permission answer — fall through; resolver stays open until timeout
     }
 
-    // Handle yes/no replies for askToContinue
+    // Handle yes/no replies for askToContinue — only intercept recognised answers
     if (this.pendingAskResolvers.has(jid)) {
-      const resolve = this.pendingAskResolvers.get(jid)!;
-      this.pendingAskResolvers.delete(jid);
-      resolve(lowered === 'yes' || lowered === 'y' || lowered === '1');
-      return;
+      const ASK_ANSWERS = new Set(['yes', 'y', 'no', 'n', '1', '0', 'stop', 'continue']);
+      if (ASK_ANSWERS.has(lowered)) {
+        const resolve = this.pendingAskResolvers.get(jid)!;
+        this.pendingAskResolvers.delete(jid);
+        resolve(lowered === 'yes' || lowered === 'y' || lowered === '1' || lowered === 'continue');
+        return;
+      }
+      // Not a recognised answer — fall through; resolver stays open
     }
 
     this.lastSenderJid = jid;
