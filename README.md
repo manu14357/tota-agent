@@ -185,7 +185,7 @@ Configure a single section without touching everything else. The agent keeps run
 | `websearch` | Web search provider key (Brave / Serper / Tavily) |
 | `browser` | Install Chromium, Firefox, WebKit binaries |
 | `computer` | Enable computer-use & Android ADB tools |
-| `calendar` | Google Calendar OAuth2 credentials |
+| `calendar` | Google Calendar OAuth2 credentials — **add `http://localhost:8765/oauth2callback` to Authorized redirect URIs in Google Cloud Console first** |
 | `voice` | TTS/STT providers (OpenAI / ElevenLabs / Google / Groq) |
 | `vault` | Show secrets vault backend and usage info |
 | `api` | REST API channel (port, auth key) |
@@ -237,7 +237,7 @@ These work on both CLI and Telegram and do not consume API tokens.
 | **Desktop notifications** | `notify` — send a native desktop notification (macOS, Linux, Windows) |
 | **Clipboard** | `clipboard_read`, `clipboard_write` — read from and write to the system clipboard |
 | **Voice** | `text_to_speech` (OpenAI TTS-1 / ElevenLabs / Google Cloud TTS), `transcribe_audio` (OpenAI Whisper / Groq Whisper) — Telegram voice messages auto-transcribed; `provider` param overrides default per call |
-| **Google Calendar** | `calendar_auth`, `list_events`, `create_event`, `check_availability`, `delete_event` — full OAuth2 flow |
+| **Google Calendar** | `calendar_auth`, `list_events`, `create_event`, `check_availability`, `delete_event` — auto browser-based OAuth2 (tota opens the consent screen for you; one-time [redirect URI setup](#google-calendar-setup) required) |
 | **Skills** | `install_skill`, `list_skills`, `use_skill` |
 | **Scheduler** | `schedule_task`, `list_scheduled_tasks`, `cancel_scheduled_task` |
 | **System** | `budget_status` |
@@ -400,6 +400,26 @@ mcp:
 ```
 
 Any MCP server speaking the JSON-RPC `tools/list` + `tools/call` protocol over HTTP is supported.
+
+---
+
+## Google Calendar Setup
+
+<a id="google-calendar-setup"></a>
+
+tota uses a local OAuth2 redirect (no code copy-paste, no "browser not safe" warning).
+
+**One-time setup in Google Cloud Console:**
+1. Go to [console.cloud.google.com](https://console.cloud.google.com) → APIs & Services → Credentials.
+2. Create (or open) your **Desktop app** OAuth 2.0 Client ID.
+3. Under **Authorized redirect URIs**, add:
+   ```
+   http://localhost:8765/oauth2callback
+   ```
+4. Run `tota setup calendar` and enter your Client ID and Secret.
+
+**After that — fully automatic:**  
+Just ask tota about your calendar. It opens your browser to Google's consent screen → you click **Allow** → done. Tokens saved to `~/.tota/calendar-token.json` and auto-refreshed forever.
 
 ---
 

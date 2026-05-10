@@ -1356,6 +1356,9 @@ async function configure(existingConfig?: TotaConfig, section?: string): Promise
   console.log(chalk.dim('  2. Create a project → Enable "Google Calendar API"'));
   console.log(chalk.dim('  3. Go to APIs & Services → Credentials → + Create Credentials → OAuth client ID'));
   console.log(chalk.dim('  4. Application type: Desktop app. Download the credentials JSON.'));
+  console.log(chalk.dim('  5. Edit the Client ID → Authorized redirect URIs → Add:'));
+  console.log(chalk.cyan('       http://localhost:8765/oauth2callback'));
+  console.log(chalk.dim('     (required — without this Google shows a "not safe" error)'));
   console.log('');
   const existingClientId = (config as any).calendar?.clientId || process.env.GOOGLE_CALENDAR_CLIENT_ID || '';
   const existingSecret  = (config as any).calendar?.clientSecret || process.env.GOOGLE_CALENDAR_CLIENT_SECRET || '';
@@ -1377,9 +1380,10 @@ async function configure(existingConfig?: TotaConfig, section?: string): Promise
     console.log('');
     console.log(chalk.green('  ✓ Credentials saved to ~/.tota/.env'));
     console.log('');
-    console.log(chalk.bold('  Step 2 — Authorize tota to access your calendar:'));
-    console.log(chalk.dim('  Ask tota: "authorize my Google Calendar" and follow the link it sends.'));
-    console.log(chalk.dim('  Or use the calendar_auth tool with the OAuth code from Google.'));
+    console.log(chalk.bold('  Step 2 — Authorize tota:'));
+    console.log(chalk.dim('  Just ask tota about your calendar (e.g. "what\'s on my calendar today?")'));
+    console.log(chalk.dim('  Tota opens your browser automatically → click Allow → done.'));
+    console.log(chalk.dim('  (Headless/server? Use the calendar_auth tool to paste the code manually.)'));
   } else {
     console.log(chalk.yellow('  Skipped — enter credentials later or set GOOGLE_CALENDAR_CLIENT_ID / GOOGLE_CALENDAR_CLIENT_SECRET in ~/.tota/.env'));
   }

@@ -20,7 +20,14 @@ calendar:
 **Setup guide:**
 1. Go to [Google Cloud Console](https://console.cloud.google.com) → APIs & Services → Credentials.
 2. Create an OAuth 2.0 Client ID (application type: **Desktop app**).
-3. Add the client ID and secret to `~/.tota/.env` or `tota.yaml`.
-4. Run `tota setup calendar` in your terminal — the wizard saves credentials and shows the auth URL.
-5. Visit the URL, approve access, and paste the code into the `calendar_auth` tool.
-6. Tokens are saved to `~/.tota/calendar-token.json` and auto-refreshed.
+3. **Add the following to "Authorized redirect URIs" for that Client ID:**
+   ```
+   http://localhost:8765/oauth2callback
+   ```
+   *(Without this, Google shows a "browser not safe" / "not supported" error.)*
+4. Add the client ID and secret to `~/.tota/.env` or `tota.yaml`.
+5. Run `tota setup calendar` in your terminal — the wizard saves your credentials.
+6. The next time you ask tota about your calendar, it automatically opens your browser to the Google consent screen. Click **Allow** — that's it. No code copying needed.
+7. Tokens are saved to `~/.tota/calendar-token.json` and auto-refreshed.
+
+> **Already set up?** If you created the OAuth app before adding the redirect URI, go back to Credentials → edit the Client ID → add `http://localhost:8765/oauth2callback` → Save.

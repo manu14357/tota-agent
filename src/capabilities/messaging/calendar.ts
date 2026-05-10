@@ -148,6 +148,13 @@ function runAuthFlow(oAuth2Client: OAuth2Client): Promise<void> {
     prompt: 'consent',
   });
 
+  // In vitest, skip the real browser/server flow so tests don't hang.
+  if (process.env.VITEST) {
+    return Promise.reject(new Error(
+      `Authorization required. Open this URL in a browser to authorize Google Calendar:\n${authUrl}`,
+    ));
+  }
+
   openBrowser(authUrl);
   logger.info({ port: REDIRECT_PORT }, 'Opened browser for Google Calendar authorization — waiting for callback…');
 

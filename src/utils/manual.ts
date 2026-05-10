@@ -94,7 +94,7 @@ export function getManual(): string {
     ['text_to_speech', 'Convert text to speech MP3 (OpenAI/ElevenLabs/Google)', 'text, voice?, provider?, send?'],
     ['transcribe_audio', 'Transcribe audio file to text (OpenAI Whisper / Groq)', 'path, language?, provider?'],
     // Google Calendar
-    ['calendar_auth', 'Complete Google Calendar OAuth2 authorization', 'code'],
+    ['calendar_auth', 'Manual OAuth2 fallback (headless envs only)', 'code'],
     ['list_events', 'List upcoming Google Calendar events', 'calendar_id?, from?, to?, max_results?'],
     ['create_event', 'Create a Google Calendar event', 'title, start, end, description?, attendees?, location?'],
     ['check_availability', 'Check free/busy status for people', 'emails[], from, to'],

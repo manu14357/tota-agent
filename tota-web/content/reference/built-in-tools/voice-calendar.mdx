@@ -50,15 +50,16 @@ Requires a Google Cloud OAuth2 app. Set `GOOGLE_CALENDAR_CLIENT_ID` and `GOOGLE_
 
 | Tool | Description |
 |------|-------------|
-| `calendar_auth` | Complete OAuth2 authorization with a code from Google |
+| `calendar_auth` | Manual OAuth2 fallback — only needed in headless environments |
 | `list_events` | List upcoming calendar events |
 | `create_event` | Create a calendar event |
 | `check_availability` | Check free/busy availability for a time range |
 | `delete_event` | Delete an event by ID |
 
-First-time setup:
-```
-Authorize Google Calendar
-> calendar_auth
-# Tota prints an auth URL — visit it, copy the code, and paste it back.
-```
+First-time setup (one-time, automatic):
+1. In [Google Cloud Console](https://console.cloud.google.com) → Credentials → your OAuth Client ID, add this to **Authorized redirect URIs**:
+   ```
+   http://localhost:8765/oauth2callback
+   ```
+2. Run `tota setup calendar` and enter your Client ID and Secret.
+3. The first time you use a calendar tool, tota opens your browser automatically → click **Allow** → done. No code copying.

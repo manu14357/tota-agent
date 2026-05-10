@@ -49,8 +49,10 @@ describe('list_events tool', () => {
     expect(result).toMatch(/not configured|authorization required|client_id/i);
   });
 
-  it('returns auth instructions when token file is missing (no token.json)', async () => {
-    // Provide credentials but no saved token
+  it('triggers auth flow and returns URL when token file is missing (no token.json)', async () => {
+    // Provide credentials but no saved token — new behaviour: triggers browser
+    // auth flow, which in the vitest environment immediately rejects with an
+    // error message containing the auth URL (no real browser / server spawned).
     const tool = createListEventsTool(withCredentials());
     const result = await execute(tool, {});
     expect(result).toMatch(/auth|url|browser|configure/i);
