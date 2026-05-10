@@ -16,7 +16,6 @@ import makeWASocket, {
   type WAMessage,
 } from '@whiskeysockets/baileys';
 import type { Boom } from '@hapi/boom';
-import qrcode from 'qrcode-terminal';
 import type { ChannelMessage } from '../types/channel.js';
 import { BaseChannel, type PermissionMode } from './base.js';
 import type { TotaConfig, WhatsAppApprovedUser, WhatsAppPendingRequest } from '../utils/config.js';
@@ -97,6 +96,15 @@ export class WhatsAppChannel extends BaseChannel {
 
     this.sock = sock;
 
+    // Prevent WebSocket-level errors from becoming unhandled rejections that
+    // crash the process (Baileys' uploadPreKeys / query calls can time out and
+    // bubble up through the raw ws emitter if not caught here).
+    if (sock.ws && typeof (sock.ws as any).on === 'function') {
+      (sock.ws as any).on('error', (err: Error) => {
+        logger.error({ err }, 'WhatsApp WebSocket error');
+      });
+    }
+
     // Persist creds on every update
     sock.ev.on('creds.update', saveCreds);
 
@@ -108,9 +116,11 @@ export class WhatsAppChannel extends BaseChannel {
         if (this.qrCallback) {
           this.qrCallback(qr);
         } else {
-          console.log('\n[WhatsApp] Scan this QR code to link your WhatsApp account:\n');
-          qrcode.generate(qr, { small: true });
-          console.log();
+          // In daemon mode there's no qrCallback — print a plain warning so the
+          // user knows to re-run `tota whatsapp link` rather than seeing a broken
+          // ASCII QR dumped into the logs.
+          logger.warn('WhatsApp session requires re-authentication. Run `tota whatsapp link` to re-link.');
+          console.log('\n[WhatsApp] Session expired — run `tota whatsapp link` to re-link your account.\n');
         }
       }
 

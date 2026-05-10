@@ -54,6 +54,15 @@ import { startUpdateCheck, printUpdateNotice, enforceUpToDate } from './utils/up
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkgVersion = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8')).version;
 
+// Prevent Baileys internal async errors (e.g. pre-key upload timeouts) from
+// crashing the whole process with an unhandled rejection.
+process.on('unhandledRejection', (reason: unknown) => {
+  const msg = reason instanceof Error ? reason.message : String(reason);
+  // Silently ignore known Baileys timeout/close errors that are not actionable
+  if (msg === 'Timed Out' || msg === 'Connection Closed' || msg === 'Connection Terminated') return;
+  logger.error({ reason }, 'Unhandled promise rejection');
+});
+
 function getTerminalWidth(): number {
   return process.stdout.columns || 80;
 }
@@ -2437,7 +2446,7 @@ whatsappCmd
       // Dynamic import so the ESM/CJS interop is resolved at call time
       import('qrcode-terminal').then((m) => {
         const qrcodeTerminal = (m as any).default ?? m;
-        qrcodeTerminal.generate(qr, { small: false });
+        qrcodeTerminal.generate(qr, { small: true });
         console.log();
         console.log(chalk.dim('  Waiting for you to scan…'));
       }).catch(() => {
@@ -2480,6 +2489,10 @@ whatsappCmd
       console.log('');
       console.log(chalk.green('  ✓ WhatsApp linked successfully!'));
       console.log(chalk.dim('  You can now run `tota start` to go live.'));
+      // Wait for any pending creds writes to flush to disk before closing the socket.
+      // Without this delay, process.exit(0) can race the saveCreds callback and
+      // leave an incomplete auth state that forces a re-scan on next start.
+      await new Promise((r) => setTimeout(r, 3000));
     } else if (!linkError) {
       console.log('');
       console.log(chalk.yellow('  Timed out waiting for QR scan. Try `tota whatsapp link` again.'));
