@@ -71,7 +71,7 @@ export function ensureDaemonRunning(): { pid: number; fresh: boolean } {
   const child = spawn(process.execPath, [scriptPath, 'start', '--daemon'], {
     detached: true,
     stdio: ['ignore', outFd, outFd],
-    env: { ...process.env },
+    env: { ...process.env, LOG_LEVEL: process.env.LOG_LEVEL ?? 'info' },
     windowsHide: isWin,
   });
 
@@ -153,16 +153,91 @@ export function restartDaemon(): void {
   startBackground();
 }
 
-export function showLogs(): void {
+function formatLogLine(line: string): string {
+  if (!line.trim()) return '';
+  try {
+    const obj = JSON.parse(line) as Record<string, unknown>;
+    const time = obj['time'] ? new Date(obj['time'] as number).toLocaleString() : '?';
+    const levelNum = typeof obj['level'] === 'number' ? (obj['level'] as number) : 30;
+    let levelStr: string;
+    if (levelNum >= 60) levelStr = chalk.bgRed.white('FATAL');
+    else if (levelNum >= 50) levelStr = chalk.red('ERROR');
+    else if (levelNum >= 40) levelStr = chalk.yellow(' WARN');
+    else if (levelNum >= 30) levelStr = chalk.cyan(' INFO');
+    else if (levelNum >= 20) levelStr = chalk.dim('DEBUG');
+    else levelStr = chalk.dim('TRACE');
+
+    let msg = String(obj['msg'] ?? '');
+    const skip = new Set(['level', 'time', 'pid', 'hostname', 'name', 'msg', 'v']);
+    const extra = Object.entries(obj)
+      .filter(([k]) => !skip.has(k))
+      .map(([k, v]) => `${k}=${typeof v === 'string' ? v : JSON.stringify(v)}`)
+      .join('  ');
+    if (extra) msg += chalk.dim(`  ${extra}`);
+    return `${chalk.dim(`[${time}]`)} ${levelStr}  ${msg}`;
+  } catch {
+    return chalk.dim(line);
+  }
+}
+
+export interface ShowLogsOptions {
+  follow?: boolean;
+  clear?: boolean;
+  lines?: number;
+}
+
+export function showLogs(options: ShowLogsOptions = {}): void {
   const logFile = logPath();
+
+  if (options.clear) {
+    if (!existsSync(logFile)) {
+      console.log(chalk.dim('  No log file to clear.'));
+      return;
+    }
+    writeFileSync(logFile, '', 'utf-8');
+    console.log(chalk.green('  ✓ Log file cleared.'));
+    return;
+  }
+
   if (!existsSync(logFile)) {
     console.log(chalk.dim('  No daemon log file found.'));
+    console.log(chalk.dim('  Start tota daemon with `tota up` first.'));
     console.log('');
     return;
   }
+
+  const numLines = options.lines ?? 100;
   const content = readFileSync(logFile, 'utf-8');
-  const lines = content.split(/\r?\n/).slice(-100);
-  console.log(lines.join('\n'));
+  const lines = content.split(/\r?\n/).filter((l) => l.trim()).slice(-numLines);
+
+  console.log('');
+  for (const line of lines) {
+    const formatted = formatLogLine(line);
+    if (formatted) console.log(formatted);
+  }
+
+  if (!options.follow) {
+    console.log('');
+    return;
+  }
+
+  console.log(chalk.dim('\n  --- Live logs (Ctrl+C to stop) ---\n'));
+
+  const tail = spawn('tail', ['-n', '0', '-f', logFile], { stdio: ['ignore', 'pipe', 'ignore'] });
+  tail.stdout?.on('data', (data: Buffer) => {
+    const rawLines = data.toString().split(/\r?\n/);
+    for (const raw of rawLines) {
+      const formatted = formatLogLine(raw);
+      if (formatted) console.log(formatted);
+    }
+  });
+
+  process.on('SIGINT', () => {
+    tail.kill();
+    process.exit(0);
+  });
+
+  tail.on('close', () => process.exit(0));
 }
 
 export function tryAutoDaemonize(): boolean {

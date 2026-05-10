@@ -252,6 +252,11 @@ export class WhatsAppChannel extends BaseChannel {
           : 'ask-me';
         this.permissionModes.set(jid, mode);
         resolve(mode);
+        // Send confirmation — fire and forget
+        const confirmText = mode === 'allow-all'
+          ? '✅ *Permission granted!* Allow All mode activated — I\'ll proceed without asking for confirmations this session.'
+          : '🔒 *Got it!* Ask Me mode activated — I\'ll confirm before any risky actions.';
+        this.sock?.sendMessage(jid, { text: confirmText }).catch(() => {});
         return;
       }
       // Not a permission answer — fall through; resolver stays open until timeout
@@ -455,11 +460,9 @@ export class WhatsAppChannel extends BaseChannel {
     const jid = this.resolveJid(targetId);
     if (!jid || !this.sock) return 'ask-me';
 
-    await this.sock.sendMessage(jid, {
-      text: '🔐 *Permission Mode*\nHow should I handle risky actions this session?\n\nReply *1* — 🔒 Ask Me (confirm before file writes, commands, scope changes)\nReply *2* — ✅ Allow All (auto-approve everything, faster)\n\nDefault is Ask Me (120s timeout).',
-    });
-
-    return new Promise<PermissionMode>((resolve) => {
+    // Set up resolver BEFORE sending the message to close the race window
+    // where a fast reply could arrive before the resolver is registered.
+    const modePromise = new Promise<PermissionMode>((resolve) => {
       const timer = setTimeout(() => {
         this.pendingPermModeResolvers.delete(jid);
         resolve('ask-me');
@@ -470,17 +473,20 @@ export class WhatsAppChannel extends BaseChannel {
         resolve(mode);
       });
     });
+
+    await this.sock.sendMessage(jid, {
+      text: '🔐 *Permission Mode*\nHow should I handle risky actions this session?\n\nReply *1* or type *ask me* — 🔒 Ask Me (confirm before file writes, shell commands, etc.)\nReply *2* or type *allow all* — ✅ Allow All (auto-approve everything, faster)\n\nDefault is Ask Me if no reply within 2 min.',
+    });
+
+    return modePromise;
   }
 
   async askPermission(prompt: string, targetId?: string): Promise<string> {
     const jid = this.resolveJid(targetId);
     if (!jid || !this.sock) return 'no';
 
-    await this.sock.sendMessage(jid, {
-      text: `🔒 *Permission Required*\n${prompt}\n\nReply *yes* to allow once, *always* to always allow, or *no* to deny.`,
-    });
-
-    return new Promise<string>((resolve) => {
+    // Set up resolver BEFORE sending the message to close the race window.
+    const answerPromise = new Promise<string>((resolve) => {
       const timer = setTimeout(() => {
         this.pendingPermAskResolvers.delete(jid);
         resolve('no');
@@ -491,6 +497,12 @@ export class WhatsAppChannel extends BaseChannel {
         resolve(answer);
       });
     });
+
+    await this.sock.sendMessage(jid, {
+      text: `🔒 *Permission Required*\n${prompt}\n\nReply *yes* to allow once, *always* to always allow, or *no* to deny.`,
+    });
+
+    return answerPromise;
   }
 
   isReady(): boolean {

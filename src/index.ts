@@ -1974,8 +1974,11 @@ program
 program
   .command('logs')
   .description('Show recent daemon logs')
-  .action(() => {
-    showLogs();
+  .option('-f, --follow', 'Follow log output in real-time')
+  .option('-n, --lines <n>', 'Number of lines to show', '100')
+  .option('--clear', 'Clear the log file')
+  .action((opts: { follow?: boolean; lines?: string; clear?: boolean }) => {
+    showLogs({ follow: opts.follow, clear: opts.clear, lines: parseInt(opts.lines ?? '100', 10) });
   });
 
 program
