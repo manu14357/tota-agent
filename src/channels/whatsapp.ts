@@ -36,6 +36,8 @@ export class WhatsAppChannel extends BaseChannel {
   private pendingAskResolvers = new Map<string, (answer: boolean) => void>();
   /** Prevents the "session expired" console line from printing on every QR refresh. */
   private sessionExpiredPrinted = false;
+  /** True once a connection.update 'open' has been received at least once. */
+  private hasEverConnected = false;
 
   /** Called with the raw QR string whenever a new QR code is received. */
   public qrCallback: ((qr: string) => void) | null = null;
@@ -53,6 +55,10 @@ export class WhatsAppChannel extends BaseChannel {
     if (!enabled) return;
 
     fs.mkdirSync(authDir, { recursive: true });
+
+    // Suppress Baileys' libsignal console.log noise (Signal protocol internals
+    // write directly to console, bypassing the pino logger we've silenced).
+    this.installConsoleFilter();
 
     await this.connect(authDir);
   }
@@ -130,10 +136,12 @@ export class WhatsAppChannel extends BaseChannel {
         if (this.qrCallback) {
           this.qrCallback(qr);
         } else {
-          // In daemon mode there's no qrCallback — print once then suppress repeats.
-          // Baileys will keep retrying and emitting new QR codes until the connection
-          // is re-established, but we only need to tell the user once.
-          if (!this.sessionExpiredPrinted) {
+          // Only tell the user to re-link when we have NEVER connected successfully
+          // (i.e. fresh install / auth deleted). During normal auto-reconnects Baileys
+          // briefly emits a QR before restoring the session — we must NOT treat that
+          // as an expiry. If the session is truly gone the 'close' handler below fires
+          // with loggedOut and we print the message there instead.
+          if (!this.hasEverConnected && !this.sessionExpiredPrinted) {
             this.sessionExpiredPrinted = true;
             logger.warn('WhatsApp session requires re-authentication. Run `tota whatsapp link` to re-link.');
             console.log('\n[WhatsApp] Session expired — run `tota whatsapp link` to re-link your account.\n');
@@ -143,7 +151,8 @@ export class WhatsAppChannel extends BaseChannel {
 
       if (connection === 'open') {
         this.ready = true;
-        this.sessionExpiredPrinted = false; // reset for future disconnects
+        this.hasEverConnected = true;
+        this.sessionExpiredPrinted = false; // reset so future genuine logouts are reported
         logger.info('WhatsApp channel connected');
       }
 
@@ -165,6 +174,12 @@ export class WhatsAppChannel extends BaseChannel {
             logger.error({ err }, 'WhatsApp reconnect failed'),
           );
         } else {
+          // Explicit logout — session is gone, tell the user once.
+          if (!this.sessionExpiredPrinted) {
+            this.sessionExpiredPrinted = true;
+            logger.warn('WhatsApp session logged out. Run `tota whatsapp link` to re-link.');
+            console.log('\n[WhatsApp] Session expired — run `tota whatsapp link` to re-link your account.\n');
+          }
           logger.warn('WhatsApp logged out — delete auth folder and restart to re-link');
         }
       }
@@ -458,6 +473,37 @@ export class WhatsAppChannel extends BaseChannel {
   private normalizePhone(raw: string): string {
     const digits = raw.replace(/\D/g, '');
     return `+${digits}`;
+  }
+
+  /**
+   * Monkey-patches console.log/warn to drop lines that Baileys' libsignal
+   * writes directly (bypassing the pino logger we've silenced).  These are
+   * normal Signal-protocol events and carry no actionable information.
+   */
+  private installConsoleFilter(): void {
+    const SUPPRESS = [
+      'Decrypted message with closed session',
+      'Closing session:',
+      'SessionEntry {',
+      '_chains:',
+      'registrationId:',
+      'currentRatchet:',
+      'pendingPreKey:',
+      'indexInfo:',
+    ];
+    const shouldSuppress = (...args: unknown[]): boolean => {
+      if (args.length === 0) return false;
+      const first = args[0];
+      if (typeof first === 'string' && SUPPRESS.some((s) => first.includes(s))) return true;
+      // SessionEntry object logged directly
+      if (first !== null && typeof first === 'object' && '_chains' in (first as object)) return true;
+      return false;
+    };
+
+    const origLog = console.log.bind(console);
+    const origWarn = console.warn.bind(console);
+    console.log = (...args: unknown[]) => { if (!shouldSuppress(...args)) origLog(...args); };
+    console.warn = (...args: unknown[]) => { if (!shouldSuppress(...args)) origWarn(...args); };
   }
 
   private chunkText(text: string): string[] {
