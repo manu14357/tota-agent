@@ -63,23 +63,48 @@ calendar:
 1. Go to [Google Cloud Console](https://console.cloud.google.com) → APIs & Services → Credentials.
 2. Create an OAuth 2.0 Client ID (application type: **Desktop app**).
 3. Add the client ID and secret to `~/.tota/.env` or `tota.yaml`.
-4. Run `calendar_auth` in tota — it prints an auth URL. Visit it, approve access, paste the code back.
-5. Tokens are saved to `~/.tota/calendar-token.json` and auto-refreshed.
+4. Run `tota setup calendar` in your terminal — the wizard saves credentials and shows the auth URL.
+5. Visit the URL, approve access, and paste the code into the `calendar_auth` tool.
+6. Tokens are saved to `~/.tota/calendar-token.json` and auto-refreshed.
 
 ## Voice (TTS / STT)
 
+tota supports multiple TTS and STT providers. Run `tota setup voice` to configure interactively.
+
+### TTS providers
+
 | Env Var | Description | Default |
 |---------|-------------|---------|
-| `OPENAI_API_KEY` | Used for TTS-1 and Whisper STT | — |
+| `OPENAI_API_KEY` | Used for OpenAI TTS-1 | — |
+| `ELEVENLABS_API_KEY` | ElevenLabs API key | — |
+| `ELEVENLABS_VOICE_ID` | ElevenLabs voice ID to use | — |
+| `GOOGLE_TTS_API_KEY` | Google Cloud TTS API key | — |
 
-Or in `~/.tota/tota.yaml`:
+### STT providers
+
+| Env Var | Description | Default |
+|---------|-------------|---------|
+| `OPENAI_API_KEY` | Used for OpenAI Whisper-1 | — |
+| `GROQ_API_KEY` | Groq Whisper-large-v3 (faster) | — |
+
+Or configure fully in `~/.tota/tota.yaml`:
 
 ```yaml
 voice:
-  defaultVoice: nova    # alloy | echo | fable | onyx | nova | shimmer
+  ttsProvider: openai        # openai | elevenlabs | google
+  sttProvider: openai        # openai | groq
+  defaultVoice: nova         # alloy | echo | fable | onyx | nova | shimmer
+  elevenLabsApiKey: sk-...
+  elevenLabsVoiceId: VOICE_ID
+  googleTtsApiKey: AIza...
+  groqApiKey: gsk_...
 ```
 
-When `OPENAI_API_KEY` is set, Telegram voice messages are **automatically transcribed** using Whisper before being passed to the agent.
+The `provider` param on `text_to_speech` and `transcribe_audio` tools overrides the configured default per call.
+
+When any STT key is present, Telegram voice messages are **automatically transcribed** before being passed to the agent.
+
+Run `tota setup voice` to configure providers via an interactive wizard.
 
 ## Browser Automation
 
@@ -157,6 +182,27 @@ Requires `adb` in your PATH and a connected device or emulator.
 | `adb_shell` | Run any `adb shell` command |
 | `adb_pull` | Pull a file from the device |
 | `adb_push` | Push a local file to the device |
+
+## Secrets Vault
+
+tota stores secrets in the OS keychain (macOS Keychain, GNOME Keyring, Windows Credential Manager). If keytar is unavailable, secrets are kept in an AES-256-GCM encrypted file at `~/.tota/vault.enc.json`.
+
+No configuration is required — the vault is always on. Run `tota setup vault` to see which backend is active and review usage instructions.
+
+| Tool | Description |
+|------|-------------|
+| `secret_store` | Store a secret by name |
+| `secret_get` | Retrieve a secret by name |
+| `secret_list` | List all stored secret names |
+| `secret_delete` | Delete a secret by name |
+
+```
+Store my GitHub PAT
+> secret_store name=github_token value=ghp_xxx
+
+Retrieve it later
+> secret_get name=github_token
+```
 
 ## Loop Guard
 

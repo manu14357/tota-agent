@@ -201,22 +201,41 @@ Retrieve it later
 
 ## Voice (TTS / STT)
 
-Requires `OPENAI_API_KEY`. TTS uses OpenAI TTS-1; STT uses Whisper. Telegram voice messages are **automatically transcribed** when the key is set.
+tota supports multiple TTS and STT providers. Configure the default with `tota setup voice`.
+
+**TTS providers** — set `voice.ttsProvider` in `tota.yaml` or the `provider` param per call:
+
+| Provider | Key required | Notes |
+|----------|-------------|-------|
+| `openai` (default) | `OPENAI_API_KEY` | TTS-1 model, 6 voices |
+| `elevenlabs` | `ELEVENLABS_API_KEY` | `eleven_multilingual_v2` model |
+| `google` | `GOOGLE_TTS_API_KEY` | Cloud TTS, Journey-F voice |
+
+**STT providers** — set `voice.sttProvider` in `tota.yaml` or the `provider` param per call:
+
+| Provider | Key required | Notes |
+|----------|-------------|-------|
+| `openai` (default) | `OPENAI_API_KEY` | Whisper-1 |
+| `groq` | `GROQ_API_KEY` | Whisper-large-v3, fast inference |
+
+Telegram voice messages are **automatically transcribed** using whichever STT provider is configured.
 
 | Tool | Description |
 |------|-------------|
-| `text_to_speech` | Convert text to speech and save as an MP3 file |
-| `transcribe_audio` | Transcribe a local audio file using Whisper |
+| `text_to_speech` | Convert text to speech and save as an MP3. Params: `text`, `voice?`, `provider?` (`openai`\|`elevenlabs`\|`google`), `send?` |
+| `transcribe_audio` | Transcribe a local audio file. Params: `path`, `language?`, `provider?` (`openai`\|`groq`) |
 
 ```
-Read this aloud: "Meeting starts in 5 minutes"
-> text_to_speech text="Meeting starts in 5 minutes" voice=alloy
+Read this aloud using ElevenLabs
+> text_to_speech text="Meeting starts in 5 minutes" provider=elevenlabs
 
-Transcribe a recording
-> transcribe_audio path=/tmp/recording.ogg
+Transcribe with Groq (faster)
+> transcribe_audio path=/tmp/recording.ogg provider=groq
 ```
 
-Supported TTS voices: `alloy`, `echo`, `fable`, `onyx`, `nova`, `shimmer`.
+Supported OpenAI TTS voices: `alloy`, `echo`, `fable`, `onyx`, `nova`, `shimmer`.
+
+Run `tota setup voice` to configure providers interactively.
 
 ## Google Calendar
 
