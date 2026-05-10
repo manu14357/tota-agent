@@ -654,7 +654,10 @@ export class Agent {
                         }
                       }
                     } else {
-                      await channel.send(`  [Using: ${names}]`, msg.channelId).catch(() => {});
+                      // Skip tool-usage noise on WhatsApp — it clutters the chat
+                      if (msg.channelType !== 'whatsapp') {
+                        await channel.send(`  [Using: ${names}]`, msg.channelId).catch(() => {});
+                      }
                     }
                   }
                 } else if (toolResults === undefined || (toolCalls === undefined)) {
@@ -820,7 +823,10 @@ export class Agent {
                         }
                       }
                     } else {
-                      await channel.send(`  [Using: ${names}]`, msg.channelId).catch(() => {});
+                      // Skip tool-usage noise on WhatsApp — it clutters the chat
+                      if (msg.channelType !== 'whatsapp') {
+                        await channel.send(`  [Using: ${names}]`, msg.channelId).catch(() => {});
+                      }
                     }
                   }
                 } else if (toolResults === undefined || (toolCalls === undefined)) {
