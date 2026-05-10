@@ -48,10 +48,13 @@ Stops the running daemon (if any) and starts a fresh one. Useful when something 
 ## View logs
 
 ```bash
-tota logs
+tota logs              # Show last 100 lines of daemon logs
+tota logs -f           # Live-follow logs (Ctrl+C to stop)
+tota logs -n 50        # Show last 50 lines
+tota logs --clear      # Clear the log file
 ```
 
-Shows the last 100 lines of `~/.tota/daemon.log`.
+Logs are formatted with timestamps, color-coded levels (INFO/WARN/ERROR), and extra fields. The log file is at `~/.tota/daemon.log`.
 
 ## Check status
 

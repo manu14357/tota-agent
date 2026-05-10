@@ -76,7 +76,10 @@ tota up
 tota restart      # 重启后台进程
 tota stop         # 停止后台进程
 tota start -d     # 后台启动（不安装服务）
-tota logs         # 查看守护日志
+tota logs         # 查看守护日志（最后100行）
+tota logs -f      # 实时跟踪日志（Ctrl+C 停止）
+tota logs -n 50   # 显示最后50行
+tota logs --clear # 清空日志文件
 tota status       # 显示运行状态
 ```
 
@@ -108,7 +111,10 @@ tota service uninstall
 | `tota start -d` | 后台启动 |
 | `tota restart` | 重启后台进程 |
 | `tota stop` | 停止后台进程 |
-| `tota logs` | 查看守护日志 |
+| `tota logs` | 查看守护日志（最后100行）|
+| `tota logs -f` | 实时跟踪守护日志 |
+| `tota logs -n <n>` | 显示最后 N 行 |
+| `tota logs --clear` | 清空日志文件 |
 | `tota doctor` | 重新配置（回车保留当前值） |
 | `tota setup` | 重新运行配置向导 |
 | `tota status` | 显示配置和守护状态 |

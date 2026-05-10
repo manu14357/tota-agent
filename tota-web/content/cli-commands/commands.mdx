@@ -11,6 +11,9 @@ title: Full Command Reference
 | `tota restart` | Restart a background tota process |
 | `tota stop` | Stop a background tota process |
 | `tota logs` | Show last 100 lines of daemon logs |
+| `tota logs -f` | Live-follow daemon logs (Ctrl+C to stop) |
+| `tota logs -n <n>` | Show last N lines of daemon logs |
+| `tota logs --clear` | Clear the daemon log file |
 | `tota status` | Show config, providers, daemon PID, and budget |
 | `tota doctor` | Reconfigure all settings — press Enter to keep current values |
 | `tota doctor <feature>` | Reconfigure one section only |

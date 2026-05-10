@@ -104,7 +104,10 @@ This installs the system service, starts the background daemon, and confirms eve
 tota restart      # Restart the background process
 tota stop         # Stop the background process
 tota start -d     # Start in background (no service install)
-tota logs         # View recent daemon logs
+tota logs         # View recent daemon logs (last 100 lines)
+tota logs -f      # Live-follow daemon logs (Ctrl+C to stop)
+tota logs -n 50   # Show last 50 lines
+tota logs --clear # Clear the log file
 tota status       # Show if daemon is running
 ```
 
@@ -136,7 +139,10 @@ tota service uninstall
 | `tota start -d` | Start in background |
 | `tota restart` | Restart background process |
 | `tota stop` | Stop background process |
-| `tota logs` | View daemon logs |
+| `tota logs` | View daemon logs (last 100 lines) |
+| `tota logs -f` | Live-follow daemon logs |
+| `tota logs -n <n>` | Show last N lines |
+| `tota logs --clear` | Clear the log file |
 | `tota doctor` | Reconfigure all settings (Enter keeps current) |
 | `tota setup` | Re-run full setup wizard |
 | `tota setup <feature>` | Configure one feature only (see below) |
