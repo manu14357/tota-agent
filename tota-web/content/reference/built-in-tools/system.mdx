@@ -1,0 +1,64 @@
+---
+title: System Tools
+---
+
+# System + scheduling tools
+
+Messaging, scheduling, system utilities, and secure secrets.
+
+## Messaging
+
+| Tool | Description |
+|------|-------------|
+| `send_telegram_message` | Send a message to a Telegram user by ID |
+
+## Scheduler
+
+| Tool | Description |
+|------|-------------|
+| `schedule_task` | Schedule a one-shot or recurring cron task |
+| `list_tasks` | List all scheduled tasks |
+| `cancel_task` | Cancel a scheduled task by ID |
+
+## System
+
+| Tool | Description |
+|------|-------------|
+| `get_current_time` | Return current datetime and timezone |
+| `delegate_task` | Delegate a focused sub-task to a fresh agent instance and return its result |
+| `spawn_agent` | Spawn a specialized sub-agent (researcher, coder, reviewer) with an optional tool allowlist |
+| `notify` | Send a native desktop notification (macOS, Linux, Windows) |
+| `clipboard_read` | Read the current system clipboard contents |
+| `clipboard_write` | Write text to the system clipboard |
+| `sleep` | Wait for N seconds (use sparingly) |
+
+## Secrets Vault
+
+Tota stores secrets in the OS keychain (macOS Keychain, GNOME Keyring, Windows Credential Manager) and falls back to an AES-256-GCM encrypted file at `~/.tota/vault.enc.json`.
+
+| Tool | Description |
+|------|-------------|
+| `secret_store` | Store a secret by name |
+| `secret_get` | Retrieve a secret by name |
+| `secret_list` | List all stored secret names |
+| `secret_delete` | Delete a secret by name |
+
+```
+Store my GitHub PAT as "github_token"
+> secret_store name=github_token value=ghp_xxx
+
+Retrieve it later
+> secret_get name=github_token
+```
+
+## Multi-Agent Crew
+
+`spawn_agent` runs a sub-agent with a focused role and an optional tool allowlist, then returns its output.
+
+```
+Spawn a researcher agent to summarize today's AI news
+> spawn_agent role=researcher task="Summarize the top 3 AI news stories from today" tools=fetch_url,web_search
+
+Spawn a code reviewer
+> spawn_agent role=reviewer task="Review the diff in /tmp/patch.diff and list issues" tools=read_file
+```

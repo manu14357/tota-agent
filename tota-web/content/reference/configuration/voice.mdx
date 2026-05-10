@@ -1,0 +1,42 @@
+---
+title: Voice (TTS/STT) Configuration
+---
+
+# Voice (TTS / STT)
+
+tota supports multiple TTS and STT providers. Run `tota setup voice` to configure interactively.
+
+## TTS providers
+
+| Env Var | Description | Default |
+|---------|-------------|---------|
+| `OPENAI_API_KEY` | Used for OpenAI TTS-1 | — |
+| `ELEVENLABS_API_KEY` | ElevenLabs API key | — |
+| `ELEVENLABS_VOICE_ID` | ElevenLabs voice ID to use | — |
+| `GOOGLE_TTS_API_KEY` | Google Cloud TTS API key | — |
+
+## STT providers
+
+| Env Var | Description | Default |
+|---------|-------------|---------|
+| `OPENAI_API_KEY` | Used for OpenAI Whisper-1 | — |
+| `GROQ_API_KEY` | Groq Whisper-large-v3 (faster) | — |
+
+Or configure fully in `~/.tota/tota.yaml`:
+
+```yaml
+voice:
+  ttsProvider: openai        # openai | elevenlabs | google
+  sttProvider: openai        # openai | groq
+  defaultVoice: nova         # alloy | echo | fable | onyx | nova | shimmer
+  elevenLabsApiKey: sk-...
+  elevenLabsVoiceId: VOICE_ID
+  googleTtsApiKey: AIza...
+  groqApiKey: gsk_...
+```
+
+The `provider` param on `text_to_speech` and `transcribe_audio` tools overrides the configured default per call.
+
+When any STT key is present, Telegram voice messages are **automatically transcribed** before being passed to the agent.
+
+Run `tota setup voice` to configure providers via an interactive wizard.

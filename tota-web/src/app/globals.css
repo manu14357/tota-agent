@@ -8,8 +8,8 @@
   --color-brand-400: #89CFF3;
   --color-brand-500: #00A9FF;
   --color-brand-600: #0090d9;
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-fragment-mono), ui-monospace, monospace;
 }
 
 /* ─── Light theme (default) ─── */
@@ -66,6 +66,7 @@ html {
 body {
   background-color: var(--bg);
   color: var(--fg);
+  font-family: var(--font-mono);
   transition: background-color 0.2s ease, color 0.2s ease;
   overflow-x: hidden;
 }
@@ -103,8 +104,41 @@ pre {
   background: var(--surface);
 }
 
+.mdx-tbody .mdx-tr:last-child {
+  border-bottom: none;
+}
+
 /* MDX card hover */
 .mdx-card:hover {
   border-color: var(--border-hover) !important;
   background: var(--surface-raised) !important;
+}
+
+/* MDX heading anchor */
+.mdx-anchor {
+  margin-right: 0.5rem;
+  opacity: 0;
+  text-decoration: none;
+  color: var(--fg-subtle);
+  font-weight: 600;
+  transition: opacity 0.15s ease;
+}
+
+h2.group:hover .mdx-anchor,
+h3.group:hover .mdx-anchor,
+h4.group:hover .mdx-anchor {
+  opacity: 1;
+}
+
+/* Docs TOC tweaks */
+.docs-toc a:hover {
+  color: var(--fg) !important;
+}
+
+details > summary {
+  list-style: none;
+}
+
+details > summary::-webkit-details-marker {
+  display: none;
 }

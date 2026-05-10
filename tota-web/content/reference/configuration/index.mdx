@@ -1,0 +1,39 @@
+---
+title: Configuration
+---
+
+# Configuration
+
+All configuration and data is stored in `~/.tota/`. Nothing is stored in your project directory.
+
+| File / Directory | Description |
+|-----------------|-------------|
+| `~/.tota/config.json` | Main config: agent name, user name, providers, models, Telegram token |
+| `~/.tota/tota.yaml` | Extended config: loop guard, web search, MCP servers, API channel |
+| `~/.tota/.env` | API keys and tokens (sourced automatically) |
+| `~/.tota/memory/` | SQLite Second Brain database and FTS index |
+| `~/.tota/daemon.pid` | PID of the running background daemon |
+| `~/.tota/daemon.log` | Background mode logs (last 1000 lines kept, then rotated) |
+| `~/.tota/daemon-error.log` | Error log for the daemon process (macOS LaunchAgent only) |
+| `~/.tota/skills/` | Installed custom skill directories |
+| `~/.tota/tasks.json` | Persisted scheduled tasks |
+| `~/.tota/vault.enc.json` | AES-256-GCM encrypted secrets vault (fallback when keychain unavailable) |
+| `~/.tota/calendar-token.json` | Google Calendar OAuth2 tokens (refresh token persisted) |
+| `~/.tota/tmp/voice/` | TTS audio output files (`tts-<timestamp>.mp3`) |
+| `~/.tota/tmp/uploads/` | Incoming Telegram file uploads (voice, photos, documents) |
+
+## Configure by category
+
+<Cards>
+  <Cards.Card title="Web Search" href="/docs/reference/configuration/web-search" icon="🔎" />
+  <Cards.Card title="REST API Channel" href="/docs/reference/configuration/api-channel" icon="🌐" />
+  <Cards.Card title="Google Calendar" href="/docs/reference/configuration/calendar" icon="📅" />
+  <Cards.Card title="Voice (TTS/STT)" href="/docs/reference/configuration/voice" icon="🎙️" />
+  <Cards.Card title="Browser Automation" href="/docs/reference/configuration/browser" icon="🧭" />
+  <Cards.Card title="Computer-Use" href="/docs/reference/configuration/computer-use" icon="🖱️" />
+  <Cards.Card title="Secrets Vault" href="/docs/reference/configuration/secrets-vault" icon="🔐" />
+  <Cards.Card title="Loop Guard" href="/docs/reference/configuration/loop-guard" icon="🧯" />
+  <Cards.Card title="Token Budget" href="/docs/reference/configuration/budget" icon="💰" />
+  <Cards.Card title="Soul" href="/docs/reference/configuration/soul" icon="🧬" />
+  <Cards.Card title="MCP Servers" href="/docs/reference/configuration/mcp-servers" icon="🧩" />
+</Cards>

@@ -1,0 +1,16 @@
+---
+title: MCP Servers Configuration
+---
+
+# MCP Servers (tota.yaml)
+
+```yaml
+mcp:
+  servers:
+    - name: my-tools
+      url: http://localhost:8080/mcp
+      enabled: true
+      apiKey: optional-bearer-token
+```
+
+Each server must implement the [Model Context Protocol](https://modelcontextprotocol.io) JSON-RPC `tools/list` and `tools/call` methods over HTTP.

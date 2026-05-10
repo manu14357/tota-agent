@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "node ./scripts/generate-doc-search-index.cjs",
+    "prebuild": "node ./scripts/generate-doc-search-index.cjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",

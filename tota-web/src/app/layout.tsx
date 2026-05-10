@@ -1,10 +1,22 @@
 import type { Metadata } from 'next'
-import { GeistSans } from 'geist/font/sans'
-import { GeistMono } from 'geist/font/mono'
+import { DM_Sans, Fragment_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { ThemeProvider } from '@/components/ThemeProvider'
 import { SITE_URL } from '@/config/site'
 import './globals.css'
+
+const dmSans = DM_Sans({
+  subsets: ['latin'],
+  variable: '--font-dm-sans',
+  display: 'swap',
+})
+
+const fragmentMono = Fragment_Mono({
+  subsets: ['latin'],
+  variable: '--font-fragment-mono',
+  weight: '400',
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -86,7 +98,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${GeistSans.variable} ${GeistMono.variable} dark`}
+      className={`${dmSans.variable} ${fragmentMono.variable} dark`}
       suppressHydrationWarning
     >
       <body className="antialiased">

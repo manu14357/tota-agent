@@ -1,0 +1,16 @@
+---
+title: Loop Guard Configuration
+---
+
+# Loop Guard
+
+| Env Var | Description | Default |
+|---------|-------------|---------|
+| `LOOP_MAX_STEPS` | Max agentic steps per request | `50` |
+| `LOOP_ABSOLUTE_MAX` | Hard cap on total tool calls | `100` |
+| `LOOP_FAILED_ABSOLUTE_MAX` | Stop after this many failed calls | `25` |
+| `LOOP_IDENTICAL_THRESHOLD` | Consecutive identical calls before warning | `5` |
+| `LOOP_SIMILAR_THRESHOLD` | Consecutive failing calls before warning | `8` |
+| `LOOP_SAME_TOOL_THRESHOLD` | Consecutive same-tool calls before warning | `10` |
+| `LOOP_NO_ACTION_MAX` | Steps with no tool calls before stopping | `10` |
+| `LOOP_TEXT_REPEAT_THRESHOLD` | Repeated step texts before warning | `3` |

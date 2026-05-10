@@ -13,12 +13,16 @@ export interface DocContent {
 }
 
 export function getDocContent(slug: string[]): DocContent | null {
-  const filePath =
+  let filePath =
     slug.length === 0
       ? path.join(CONTENT_DIR, 'index.mdx')
       : path.join(CONTENT_DIR, ...slug) + '.mdx'
 
-  if (!fs.existsSync(filePath)) return null
+  if (!fs.existsSync(filePath)) {
+    const indexPath = path.join(CONTENT_DIR, ...slug, 'index.mdx')
+    if (!fs.existsSync(indexPath)) return null
+    filePath = indexPath
+  }
 
   const raw = fs.readFileSync(filePath, 'utf-8')
   const { data, content } = matter(raw)

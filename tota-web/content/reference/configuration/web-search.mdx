@@ -1,0 +1,20 @@
+---
+title: Web Search Configuration
+---
+
+# Web search
+
+Configure the `web_search` tool and its providers.
+
+| Env Var | Description | Default |
+|---------|-------------|---------|
+| `WEB_SEARCH_ENABLED` | Enable the `web_search` tool | `true` |
+| `WEB_SEARCH_PROVIDER` | `brave`, `serper`, `tavily`, or `auto` | `auto` |
+| `WEB_SEARCH_MAX_RESULTS` | Max results returned (1–10) | `5` |
+| `BRAVE_API_KEY` | [Brave Search API](https://brave.com/search/api/) key | — |
+| `SERPER_API_KEY` | [Serper](https://serper.dev) API key | — |
+| `TAVILY_API_KEY` | [Tavily](https://tavily.com) API key | — |
+
+When `WEB_SEARCH_PROVIDER=auto`, tota picks whichever key it finds first (Brave → Serper → Tavily).
+
+For usage details, see [Web Search](/docs/reference/web-search).

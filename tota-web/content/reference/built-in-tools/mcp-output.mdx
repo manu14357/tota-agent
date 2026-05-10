@@ -1,0 +1,26 @@
+---
+title: MCP + Output Limits
+---
+
+# MCP + output limits
+
+## MCP Plugins
+
+When MCP servers are configured, their tools appear automatically with the prefix `mcp_<server>_<tool>`:
+
+```
+mcp_filesystem_read_file
+mcp_my_db_query
+```
+
+See [MCP Plugins](/docs/integrations/mcp-plugins) for setup instructions.
+
+## Tool Output Truncation
+
+All tool outputs are capped at **12,000 characters**. If a tool returns more, the output is truncated with a clear notice:
+
+```
+... [output truncated — 45320 chars total, showing first 12000]
+```
+
+This prevents token budget overflows on large file reads or command outputs.

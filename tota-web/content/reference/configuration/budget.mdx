@@ -1,0 +1,41 @@
+---
+title: Token Budget Configuration
+---
+
+# Token Budget
+
+tota uses a daily token budget to keep local AI usage predictable and under control.
+
+## What it does
+
+- `tota setup budget` configures your daily token limit.
+- `tota status` shows current usage and remaining tokens.
+- `/budget` reports budget status from chat.
+- `/budget override` allows one extra request past the daily limit.
+- `/budget reset` clears today’s usage.
+- `/budget set <number>` updates the daily budget immediately.
+
+## Auto-concise behavior
+
+When token usage exceeds 70% of the daily budget, tota switches to a more concise prompt style to conserve tokens and stretch the remaining budget.
+
+## Configure the budget
+
+You can set the budget in `~/.tota/tota.yaml`:
+
+```yaml
+tokens:
+  dailyBudget: 150000
+```
+
+Or override the default with an environment variable:
+
+```bash
+export DAILY_TOKEN_BUDGET=150000
+```
+
+## Practical tips
+
+- Start with a conservative budget and increase it if you need longer conversations.
+- Use `/budget` in chat before a long task to verify remaining tokens.
+- Use `/budget override` only when a one-time request is worth the extra cost.

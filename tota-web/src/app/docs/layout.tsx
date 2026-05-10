@@ -3,13 +3,31 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { useState, useEffect } from 'react'
+import { usePathname } from 'next/navigation'
 import type { ReactNode } from 'react'
-import { Github, Menu, X, ChevronLeft } from 'lucide-react'
+import { Github, Menu, X, ChevronLeft, Search } from 'lucide-react'
 import { DocsSidebar } from '@/components/docs/Sidebar'
+import { SearchResults } from '@/components/docs/SearchResults'
 import { ThemeToggle } from '@/components/ThemeToggle'
+
+interface DocSearchEntry {
+  slug: string
+  title: string
+  content: string
+}
 
 export default function DocsLayout({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchIndex, setSearchIndex] = useState<DocSearchEntry[]>([])
+  const pathname = usePathname()
+
+  useEffect(() => {
+    fetch('/docs-search-index.json')
+      .then((res) => res.ok ? res.json() : [])
+      .then((data) => setSearchIndex(data ?? []))
+      .catch(() => setSearchIndex([]))
+  }, [])
 
   // Close sidebar on resize to desktop
   useEffect(() => {
@@ -26,6 +44,11 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
     return () => { document.body.style.overflow = '' }
   }, [sidebarOpen])
 
+  // Clear search when navigating to a page
+  useEffect(() => {
+    setSearchQuery('')
+  }, [pathname])
+
   return (
     <div className="min-h-screen" style={{ background: 'var(--bg)' }}>
       {/* ── Docs Header ── */}
@@ -38,7 +61,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
           WebkitBackdropFilter: 'blur(12px)',
         }}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between gap-4">
+        <div className="max-w-[1560px] mx-auto px-3 sm:px-5 lg:px-6 h-14 flex items-center justify-between gap-4">
           {/* Left: hamburger (mobile) + logo */}
           <div className="flex items-center gap-3">
             <button
@@ -91,6 +114,35 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
             </Link>
           </div>
 
+          {/* Center: header search */}
+          <div className="hidden md:flex flex-1 items-center justify-center px-4">
+            <div
+              className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm w-full max-w-lg transition-all"
+              style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+            >
+              <Search size={14} strokeWidth={2} style={{ color: 'var(--fg-subtle)' }} />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search docs…"
+                className="flex-1 bg-transparent text-sm outline-none placeholder:text-[var(--fg-subtle)]"
+                style={{ color: 'var(--fg)' }}
+                aria-label="Search documentation"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="shrink-0 rounded transition-colors"
+                  style={{ color: 'var(--fg-subtle)' }}
+                  aria-label="Clear search"
+                >
+                  <X size={13} strokeWidth={2} />
+                </button>
+              )}
+            </div>
+          </div>
+
           {/* Right: GitHub + theme toggle */}
           <div className="flex items-center gap-1">
             <a
@@ -109,16 +161,24 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
       </header>
 
       {/* ── Body: sidebar + content ── */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-[1560px] mx-auto px-3 sm:px-5 lg:px-6">
         <div className="flex gap-0">
           {/* Desktop sidebar */}
           <aside className="hidden md:block w-60 lg:w-72 shrink-0 sticky top-14 self-start h-[calc(100vh-3.5rem)] overflow-y-auto py-6 pr-4">
-            <DocsSidebar onNavigate={() => {}} />
+            <DocsSidebar onNavigate={() => setSearchQuery('')} />
           </aside>
 
           {/* Content */}
-          <main className="flex-1 min-w-0 py-8 md:pl-8 md:border-l" style={{ borderColor: 'var(--border)' }}>
-            {children}
+          <main className="flex-1 min-w-0 py-8 md:pl-6 md:border-l" style={{ borderColor: 'var(--border)' }}>
+            {searchQuery ? (
+              <SearchResults
+                query={searchQuery}
+                searchIndex={searchIndex}
+                onNavigate={() => setSearchQuery('')}
+              />
+            ) : (
+              children
+            )}
           </main>
         </div>
       </div>
@@ -155,7 +215,12 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
               </button>
             </div>
             <div className="flex-1 px-4 py-4">
-              <DocsSidebar onNavigate={() => setSidebarOpen(false)} />
+              <DocsSidebar
+                onNavigate={() => {
+                  setSearchQuery('')
+                  setSidebarOpen(false)
+                }}
+              />
             </div>
           </div>
         </>

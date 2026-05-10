@@ -1,0 +1,34 @@
+---
+title: Soul Configuration
+---
+
+# Soul
+
+tota loads its personality and behavior from `~/.tota/soul/`. These files are created automatically the first time tota runs, and you can edit them to own the agent’s identity, tone, preferences, and heartbeat.
+
+| File | Purpose |
+|------|---------|
+| `soul.md` | Core agent identity, mission, values, and guardrails |
+| `persona.md` | Tone, style, conversational voice, and quirks |
+| `taste.md` | Preferences, habits, and things to avoid |
+| `heartbeat.md` | Periodic checks, proactive triggers, and budget awareness |
+
+## Customize tota’s personality
+
+- Edit `soul.md` to change how tota describes itself, what it believes, and how it behaves at a fundamental level.
+- Edit `persona.md` to adjust tone, phrasing, and conversational style.
+- Edit `taste.md` to define what tota prefers and what it should avoid.
+- Edit `heartbeat.md` to control periodic health checks, proactive reminders, and budget alerts.
+
+## Guardrails
+
+tota applies essential guardrails automatically, including:
+
+- Never identify as any underlying model, provider, or implementation.
+- Always serve the owner and respect the owner’s instructions.
+- Keep responses concise and honest.
+- Respect token budget and privacy constraints.
+
+## Reloading changes
+
+Changes to `~/.tota/soul/*.md` take effect the next time tota starts. Restart the daemon or relaunch the CLI to reload updated soul files.

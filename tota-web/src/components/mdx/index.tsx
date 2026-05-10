@@ -1,7 +1,11 @@
 import type { MDXComponents } from 'mdx/types'
+import type { ReactElement, ReactNode } from 'react'
+import { isValidElement } from 'react'
+import { slugify } from '@/lib/slugify'
 import { Callout } from './Callout'
 import { Tabs } from './Tabs'
 import { Cards } from './Cards'
+import { CodeBlock } from './CodeBlock'
 
 // Shared inline-style helpers
 const fg = { color: 'var(--fg)' }
@@ -9,7 +13,38 @@ const fgMuted = { color: 'var(--fg-muted)' }
 const border = { borderColor: 'var(--border)' }
 const surface = { background: 'var(--surface)' }
 
-export const mdxComponents: MDXComponents = {
+function extractText(node: ReactNode): string {
+  if (typeof node === 'string' || typeof node === 'number') return String(node)
+  if (Array.isArray(node)) return node.map(extractText).join('')
+  if (isValidElement(node)) {
+    const element = node as ReactElement<{ children?: ReactNode }>
+    return extractText(element.props.children)
+  }
+  return ''
+}
+
+function createHeadingIdResolver() {
+  const counts = new Map<string, number>()
+  return (baseId?: string): string | undefined => {
+    if (!baseId) return undefined
+    const next = (counts.get(baseId) ?? 0) + 1
+    counts.set(baseId, next)
+    return next === 1 ? baseId : `${baseId}-${next}`
+  }
+}
+
+export function createMdxComponents(): MDXComponents {
+  const getUniqueHeadingId = createHeadingIdResolver()
+
+  function getHeadingId(children: ReactNode, id?: string): string | undefined {
+    const explicitId = id?.trim()
+    if (explicitId) return getUniqueHeadingId(explicitId)
+    const text = extractText(children).trim()
+    if (!text) return undefined
+    return getUniqueHeadingId(slugify(text))
+  }
+
+  return {
   // Custom components
   Callout,
   Tabs,
@@ -19,32 +54,84 @@ export const mdxComponents: MDXComponents = {
   'Cards.Card': Cards.Card,
 
   // ── Headings ──
-  h1: ({ children }) => (
+  h1: ({ children, id }) => {
+    const headingId = getHeadingId(children, id)
+    return (
     <h1
+      id={headingId}
       className="text-3xl sm:text-4xl font-bold tracking-tight mt-0 mb-6 leading-tight"
-      style={fg}
+      style={{ ...fg, fontFamily: 'var(--font-sans)' }}
     >
       {children}
     </h1>
-  ),
-  h2: ({ children }) => (
+    )
+  },
+  h2: ({ children, id }) => {
+    const headingId = getHeadingId(children, id)
+    const label = extractText(children)
+    return (
     <h2
-      className="text-2xl font-semibold mt-12 mb-4 pb-3 border-b"
-      style={{ ...fg, ...border }}
+      id={headingId}
+      className="group text-2xl font-semibold mt-12 mb-4 pb-3 border-b"
+      style={{ ...fg, ...border, fontFamily: 'var(--font-sans)' }}
     >
+      {headingId && (
+        <a
+          href={`#${headingId}`}
+          className="mdx-anchor"
+          aria-label={`Link to ${label}`}
+        >
+          #
+        </a>
+      )}
       {children}
     </h2>
-  ),
-  h3: ({ children }) => (
-    <h3 className="text-lg font-semibold mt-8 mb-3" style={fg}>
-      {children}
-    </h3>
-  ),
-  h4: ({ children }) => (
-    <h4 className="text-base font-semibold mt-6 mb-2" style={{ color: 'var(--fg-muted)' }}>
-      {children}
-    </h4>
-  ),
+    )
+  },
+  h3: ({ children, id }) => {
+    const headingId = getHeadingId(children, id)
+    const label = extractText(children)
+    return (
+      <h3
+        id={headingId}
+        className="group text-lg font-semibold mt-8 mb-3"
+        style={{ ...fg, fontFamily: 'var(--font-sans)' }}
+      >
+        {headingId && (
+          <a
+            href={`#${headingId}`}
+            className="mdx-anchor"
+            aria-label={`Link to ${label}`}
+          >
+            #
+          </a>
+        )}
+        {children}
+      </h3>
+    )
+  },
+  h4: ({ children, id }) => {
+    const headingId = getHeadingId(children, id)
+    const label = extractText(children)
+    return (
+      <h4
+        id={headingId}
+        className="group text-base font-semibold mt-6 mb-2"
+        style={{ color: 'var(--fg-muted)', fontFamily: 'var(--font-sans)' }}
+      >
+        {headingId && (
+          <a
+            href={`#${headingId}`}
+            className="mdx-anchor"
+            aria-label={`Link to ${label}`}
+          >
+            #
+          </a>
+        )}
+        {children}
+      </h4>
+    )
+  },
 
   // ── Prose ──
   p: ({ children }) => (
@@ -100,18 +187,7 @@ export const mdxComponents: MDXComponents = {
     )
   },
   pre: ({ children }) => (
-    <div className="relative my-5 group">
-      <pre
-        className="rounded-xl p-5 overflow-x-auto text-sm font-mono leading-6 border"
-        style={{
-          background: 'var(--code-bg)',
-          borderColor: 'var(--code-border)',
-          color: 'var(--fg-muted)',
-        }}
-      >
-        {children}
-      </pre>
-    </div>
+    <CodeBlock text={extractText(children)}>{children}</CodeBlock>
   ),
 
   // ── Lists ──
@@ -147,13 +223,13 @@ export const mdxComponents: MDXComponents = {
       className="overflow-x-auto my-6 rounded-xl border text-sm"
       style={{ borderColor: 'var(--border)' }}
     >
-      <table className="w-full border-collapse">{children}</table>
+      <table className="mdx-table w-full border-collapse">{children}</table>
     </div>
   ),
   thead: ({ children }) => (
     <thead style={{ background: 'var(--surface)' }}>{children}</thead>
   ),
-  tbody: ({ children }) => <tbody>{children}</tbody>,
+  tbody: ({ children }) => <tbody className="mdx-tbody">{children}</tbody>,
   tr: ({ children }) => (
     <tr
       className="border-b transition-colors mdx-tr"
@@ -180,5 +256,6 @@ export const mdxComponents: MDXComponents = {
   hr: () => (
     <hr className="my-8" style={{ borderColor: 'var(--border)' }} />
   ),
+  }
 }
 

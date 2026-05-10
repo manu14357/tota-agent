@@ -1,0 +1,26 @@
+---
+title: Google Calendar Configuration
+---
+
+# Google Calendar
+
+| Env Var | Description | Default |
+|---------|-------------|---------|
+| `GOOGLE_CALENDAR_CLIENT_ID` | OAuth2 client ID from Google Cloud Console | — |
+| `GOOGLE_CALENDAR_CLIENT_SECRET` | OAuth2 client secret | — |
+
+Or in `~/.tota/tota.yaml`:
+
+```yaml
+calendar:
+  clientId: your-client-id
+  clientSecret: your-client-secret
+```
+
+**Setup guide:**
+1. Go to [Google Cloud Console](https://console.cloud.google.com) → APIs & Services → Credentials.
+2. Create an OAuth 2.0 Client ID (application type: **Desktop app**).
+3. Add the client ID and secret to `~/.tota/.env` or `tota.yaml`.
+4. Run `tota setup calendar` in your terminal — the wizard saves credentials and shows the auth URL.
+5. Visit the URL, approve access, and paste the code into the `calendar_auth` tool.
+6. Tokens are saved to `~/.tota/calendar-token.json` and auto-refreshed.
