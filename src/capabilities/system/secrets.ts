@@ -17,6 +17,17 @@ try {
   logger.info('keytar not available — using encrypted file vault fallback');
 }
 
+function isKeytarServiceUnavailable(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err);
+  return /org\.freedesktop\.secrets|GDBus\.Error|ServiceUnknown/i.test(message);
+}
+
+function disableKeytar(err: unknown): void {
+  const message = err instanceof Error ? err.message : String(err);
+  logger.warn({ err: message }, 'Keytar backend unavailable — falling back to encrypted vault');
+  keytar = null;
+}
+
 // ── AES-256-GCM file-based vault fallback ───────────────────────────────────
 function deriveVaultKey(): Buffer {
   const machineId = `${hostname()}-${homedir()}-tota-vault-v1`;
@@ -66,48 +77,65 @@ function decryptValue(entry: VaultEntry): string {
 // ── Store ────────────────────────────────────────────────────────────────────
 async function storeSecret(name: string, value: string): Promise<void> {
   if (keytar) {
-    await keytar.setPassword(SERVICE, name, value);
-  } else {
-    const vault = readVault();
-    vault[name] = encryptValue(value);
-    writeVault(vault);
+    try {
+      await keytar.setPassword(SERVICE, name, value);
+      return;
+    } catch (err) {
+      if (!isKeytarServiceUnavailable(err)) throw err;
+      disableKeytar(err);
+    }
   }
+  const vault = readVault();
+  vault[name] = encryptValue(value);
+  writeVault(vault);
 }
 
 async function getSecret(name: string): Promise<string | null> {
   if (keytar) {
-    return keytar.getPassword(SERVICE, name);
-  } else {
-    const vault = readVault();
-    const entry = vault[name];
-    if (!entry) return null;
     try {
-      return decryptValue(entry);
-    } catch {
-      return null;
+      return await keytar.getPassword(SERVICE, name);
+    } catch (err) {
+      if (!isKeytarServiceUnavailable(err)) throw err;
+      disableKeytar(err);
     }
+  }
+  const vault = readVault();
+  const entry = vault[name];
+  if (!entry) return null;
+  try {
+    return decryptValue(entry);
+  } catch {
+    return null;
   }
 }
 
 async function listSecrets(): Promise<string[]> {
   if (keytar) {
-    const credentials = await keytar.findCredentials(SERVICE);
-    return credentials.map(c => c.account);
-  } else {
-    return Object.keys(readVault());
+    try {
+      const credentials = await keytar.findCredentials(SERVICE);
+      return credentials.map(c => c.account);
+    } catch (err) {
+      if (!isKeytarServiceUnavailable(err)) throw err;
+      disableKeytar(err);
+    }
   }
+  return Object.keys(readVault());
 }
 
 async function deleteSecret(name: string): Promise<boolean> {
   if (keytar) {
-    return keytar.deletePassword(SERVICE, name);
-  } else {
-    const vault = readVault();
-    if (!vault[name]) return false;
-    delete vault[name];
-    writeVault(vault);
-    return true;
+    try {
+      return await keytar.deletePassword(SERVICE, name);
+    } catch (err) {
+      if (!isKeytarServiceUnavailable(err)) throw err;
+      disableKeytar(err);
+    }
   }
+  const vault = readVault();
+  if (!vault[name]) return false;
+  delete vault[name];
+  writeVault(vault);
+  return true;
 }
 
 // ── Tool factories ───────────────────────────────────────────────────────────

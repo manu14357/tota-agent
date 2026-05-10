@@ -22,7 +22,7 @@ export function createNotifyTool() {
               sound: sound ?? false,
               wait: false,
             },
-            (err) => {
+            (err: Error | null) => {
               if (err) reject(err);
               else resolve();
             },
