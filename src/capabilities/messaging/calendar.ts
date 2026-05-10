@@ -3,12 +3,18 @@ import { z } from 'zod';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
+import http from 'node:http';
+import { exec } from 'node:child_process';
 import { google } from 'googleapis';
 import type { OAuth2Client } from 'google-auth-library';
 import { logger } from '../../utils/logger.js';
 
 const TOKEN_PATH = join(homedir(), '.tota', 'calendar-token.json');
 const SCOPES = ['https://www.googleapis.com/auth/calendar'];
+// Use a local redirect so Google's consent screen doesn't show the
+// deprecated OOB "not safe / not supported" warning (blocked since Oct 2022).
+const REDIRECT_PORT = 8765;
+const REDIRECT_URI = `http://localhost:${REDIRECT_PORT}/oauth2callback`;
 
 // ── OAuth2 helpers ───────────────────────────────────────────────────────────
 function getOAuth2Client(getConfig: () => any): OAuth2Client | null {
@@ -16,7 +22,10 @@ function getOAuth2Client(getConfig: () => any): OAuth2Client | null {
   const clientId = config?.calendar?.clientId || process.env.GOOGLE_CALENDAR_CLIENT_ID || '';
   const clientSecret = config?.calendar?.clientSecret || process.env.GOOGLE_CALENDAR_CLIENT_SECRET || '';
   if (!clientId || !clientSecret) return null;
-  return new google.auth.OAuth2(clientId, clientSecret, 'urn:ietf:wg:oauth:2.0:oob');
+  // REDIRECT_URI must match one of the "Authorized redirect URIs" in your
+  // Google Cloud Console → APIs & Services → Credentials → OAuth Client ID.
+  // Add http://localhost:8765/oauth2callback there if you haven't already.
+  return new google.auth.OAuth2(clientId, clientSecret, REDIRECT_URI);
 }
 
 function loadTokens(oAuth2Client: OAuth2Client): boolean {
@@ -35,23 +44,150 @@ function saveTokens(oAuth2Client: OAuth2Client): void {
   writeFileSync(TOKEN_PATH, JSON.stringify(oAuth2Client.credentials, null, 2), { mode: 0o600 });
 }
 
-function getAuthInstructions(getConfig: () => any): string {
-  const oAuth2Client = getOAuth2Client(getConfig);
-  if (!oAuth2Client) {
-    return 'Google Calendar is not configured. Set GOOGLE_CALENDAR_CLIENT_ID and GOOGLE_CALENDAR_CLIENT_SECRET in ~/.tota/.env, then run this tool again.';
-  }
-  const authUrl = oAuth2Client.generateAuthUrl({ access_type: 'offline', scope: SCOPES, prompt: 'consent' });
-  return `Google Calendar authentication required:\n1. Open this URL in a browser:\n   ${authUrl}\n2. Sign in and grant access\n3. Copy the authorization code shown\n4. Use the calendar_auth tool with that code to complete setup`;
+// ── Browser-based OAuth flow ─────────────────────────────────────────────────
+
+/** Open the default system browser cross-platform. */
+function openBrowser(url: string): void {
+  const escaped = url.replace(/"/g, '\\"');
+  const cmd =
+    process.platform === 'darwin' ? `open "${escaped}"`
+    : process.platform === 'win32' ? `start "" "${escaped}"`
+    : `xdg-open "${escaped}"`;
+  exec(cmd, (err) => {
+    if (err) logger.warn({ err }, 'Could not auto-open browser — open the URL manually if needed');
+  });
+}
+
+/**
+ * Spin up a one-shot local HTTP server that waits for Google to redirect
+ * back to http://localhost:8765/oauth2callback?code=... after the user
+ * grants access.  Resolves with the auth code or rejects on error/timeout.
+ */
+function waitForOAuthCallback(timeoutMs = 120_000): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const page = (title: string, body: string) =>
+      `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title>` +
+      `<style>body{font-family:system-ui,sans-serif;text-align:center;padding:60px;color:#333}` +
+      `h2{color:#1a73e8}p{font-size:1.1em}</style></head>` +
+      `<body><h2>${title}</h2><p>${body}</p></body></html>`;
+
+    const server = http.createServer((req, res) => {
+      try {
+        const url  = new URL(req.url ?? '/', `http://localhost:${REDIRECT_PORT}`);
+        const code  = url.searchParams.get('code');
+        const error = url.searchParams.get('error');
+
+        if (error) {
+          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+          res.end(page('Authorization Denied', 'You denied access. Close this tab and try again.'));
+          server.close();
+          reject(new Error(`OAuth denied: ${error}`));
+          return;
+        }
+        if (code) {
+          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+          res.end(page(
+            '✅ Google Calendar Authorized!',
+            'Authorization complete — you can close this tab and return to tota.',
+          ));
+          server.close();
+          resolve(code);
+          return;
+        }
+        res.writeHead(400, { 'Content-Type': 'text/plain' });
+        res.end('Missing code parameter');
+      } catch (err) {
+        res.writeHead(500);
+        res.end('Internal error');
+        reject(err);
+      }
+    });
+
+    server.on('error', (err: NodeJS.ErrnoException) => {
+      if (err.code === 'EADDRINUSE') {
+        reject(new Error(
+          `Port ${REDIRECT_PORT} is already in use. Close whatever is running on that port and try again, ` +
+          `or use the calendar_auth tool to paste the code manually.`,
+        ));
+      } else {
+        reject(err);
+      }
+    });
+
+    server.listen(REDIRECT_PORT, '127.0.0.1');
+
+    const timer = setTimeout(() => {
+      server.close();
+      reject(new Error('timeout'));
+    }, timeoutMs);
+
+    // Clear the timer as soon as the server closes to avoid keeping the
+    // process alive unnecessarily.
+    server.on('close', () => clearTimeout(timer));
+  });
+}
+
+/**
+ * Singleton in-flight auth flow. Prevents two concurrent calendar tool calls
+ * (e.g. list_events + create_event) from racing each other for port 8765.
+ */
+let _authFlowInProgress: Promise<void> | null = null;
+
+/**
+ * Full automatic auth: opens the system browser → waits for Google's redirect
+ * callback → exchanges the code → saves the token to disk.
+ * On success the token is set on `oAuth2Client` so the caller can use it
+ * immediately.  Rejects with a human-readable Error on failure.
+ */
+function runAuthFlow(oAuth2Client: OAuth2Client): Promise<void> {
+  if (_authFlowInProgress) return _authFlowInProgress;
+
+  const authUrl = oAuth2Client.generateAuthUrl({
+    access_type: 'offline',
+    scope: SCOPES,
+    prompt: 'consent',
+  });
+
+  openBrowser(authUrl);
+  logger.info({ port: REDIRECT_PORT }, 'Opened browser for Google Calendar authorization — waiting for callback…');
+
+  _authFlowInProgress = waitForOAuthCallback(120_000)
+    .then(async (code) => {
+      const { tokens } = await oAuth2Client.getToken(code);
+      oAuth2Client.setCredentials(tokens);
+      saveTokens(oAuth2Client);
+      logger.info('Google Calendar authorized via browser flow');
+    })
+    .catch((err: Error) => {
+      const fallbackMsg =
+        err.message === 'timeout'
+          ? `Google Calendar authorization timed out (2 minutes). Please try again.\n\nIf the browser didn't open automatically, go to:\n${authUrl}`
+          : `Google Calendar authorization failed: ${err.message}\n\nIf the browser didn't open automatically, go to:\n${authUrl}`;
+      throw new Error(fallbackMsg);
+    })
+    .finally(() => { _authFlowInProgress = null; });
+
+  return _authFlowInProgress;
 }
 
 async function getAuthorizedClient(getConfig: () => any): Promise<OAuth2Client | { error: string }> {
   const oAuth2Client = getOAuth2Client(getConfig);
   if (!oAuth2Client) {
-    return { error: getAuthInstructions(getConfig) };
+    return { error: 'Google Calendar is not configured. Set GOOGLE_CALENDAR_CLIENT_ID and GOOGLE_CALENDAR_CLIENT_SECRET in ~/.tota/.env, then try again.' };
   }
+
   if (!loadTokens(oAuth2Client)) {
-    return { error: getAuthInstructions(getConfig) };
+    // No saved token — run the automatic browser auth flow and wait for the
+    // user to approve access.  The browser opens automatically; the user just
+    // needs to click "Allow" in the Google consent screen.
+    try {
+      await runAuthFlow(oAuth2Client);
+    } catch (err: any) {
+      return { error: err.message };
+    }
+    // Tokens are now set on oAuth2Client — fall through to the expiry check.
   }
+
   // Auto-refresh expired tokens
   try {
     const tokenInfo = oAuth2Client.credentials;
@@ -70,9 +206,14 @@ async function getAuthorizedClient(getConfig: () => any): Promise<OAuth2Client |
 
 export function createCalendarAuthTool(getConfig: () => any) {
   return tool({
-    description: 'Complete Google Calendar OAuth2 authorization using the code from the auth URL. Run this after visiting the URL shown by list_events or create_event when Calendar is not yet authorized.',
+    description:
+      'Manually complete Google Calendar OAuth2 authorization using an auth code. ' +
+      'This is only needed in headless / daemon environments where the browser cannot open automatically ' +
+      '(e.g., a remote server). In normal use the browser opens automatically — just click Allow and come back. ' +
+      'To get the code manually: visit the Google consent URL, approve access, then copy the `code` query parameter ' +
+      'from the redirect URL (http://localhost:8765/oauth2callback?code=<THIS_PART>&...).',
     inputSchema: zodSchema(z.object({
-      code: z.string().describe('Authorization code from the Google OAuth2 consent page'),
+      code: z.string().describe('Authorization code from the Google OAuth2 consent page redirect URL'),
     })),
     execute: async ({ code }) => {
       try {
