@@ -2426,10 +2426,51 @@ whatsappCmd
     console.log(chalk.dim('  Open WhatsApp → Linked Devices → Link a Device, then scan.'));
     console.log('');
     const channel = new WhatsAppChannel(config);
-    await channel.start();
+
+    let qrDisplayed = false;
+    let linkError: string | null = null;
+
+    // Show QR code when Baileys emits one
+    channel.qrCallback = (qr) => {
+      qrDisplayed = true;
+      console.log(chalk.bold.white('\n  Scan this QR code in WhatsApp → Linked Devices → Link a Device:\n'));
+      // Dynamic import so the ESM/CJS interop is resolved at call time
+      import('qrcode-terminal').then((m) => {
+        const qrcodeTerminal = (m as any).default ?? m;
+        qrcodeTerminal.generate(qr, { small: false });
+        console.log();
+        console.log(chalk.dim('  Waiting for you to scan…'));
+      }).catch(() => {
+        // Fallback: print raw QR data so user can paste into an online QR viewer
+        console.log(qr);
+        console.log();
+      });
+    };
+
+    // Capture connection errors so they show up in the terminal
+    channel.disconnectCallback = (reason, _shouldReconnect) => {
+      if (!channel.isReady() && !qrDisplayed) {
+        linkError = reason;
+      }
+    };
+
+    try {
+      await channel.start();
+    } catch (err: any) {
+      console.log(chalk.red(`\n  Failed to start WhatsApp: ${err?.message ?? String(err)}`));
+      console.log(chalk.dim('  Try deleting ~/.tota/whatsapp-auth/ and running `tota whatsapp link` again.'));
+      console.log('');
+      process.exit(1);
+    }
+
     // Wait until connected (up to 120s)
     let waited = 0;
     while (!channel.isReady() && waited < 120000) {
+      if (linkError) {
+        console.log(chalk.red(`\n  Connection error: ${linkError}`));
+        console.log(chalk.dim('  Try deleting ~/.tota/whatsapp-auth/ and running `tota whatsapp link` again.'));
+        break;
+      }
       await new Promise((r) => setTimeout(r, 1000));
       waited += 1000;
     }
@@ -2437,7 +2478,7 @@ whatsappCmd
       console.log('');
       console.log(chalk.green('  ✓ WhatsApp linked successfully!'));
       console.log(chalk.dim('  You can now run `tota start` to go live.'));
-    } else {
+    } else if (!linkError) {
       console.log('');
       console.log(chalk.yellow('  Timed out waiting for QR scan. Try `tota whatsapp link` again.'));
     }

@@ -33,6 +33,11 @@ export class WhatsAppChannel extends BaseChannel {
   private typingTimer: NodeJS.Timeout | null = null;
   private pendingAskResolvers = new Map<string, (answer: boolean) => void>();
 
+  /** Called with the raw QR string whenever a new QR code is received. */
+  public qrCallback: ((qr: string) => void) | null = null;
+  /** Called when the connection closes unexpectedly. */
+  public disconnectCallback: ((reason: string, shouldReconnect: boolean) => void) | null = null;
+
   constructor(private config: TotaConfig) {
     super();
   }
@@ -88,9 +93,13 @@ export class WhatsAppChannel extends BaseChannel {
       const { connection, lastDisconnect, qr } = update;
 
       if (qr) {
-        console.log('\n[WhatsApp] Scan this QR code to link your WhatsApp account:\n');
-        qrcode.generate(qr, { small: true });
-        console.log();
+        if (this.qrCallback) {
+          this.qrCallback(qr);
+        } else {
+          console.log('\n[WhatsApp] Scan this QR code to link your WhatsApp account:\n');
+          qrcode.generate(qr, { small: true });
+          console.log();
+        }
       }
 
       if (connection === 'open') {
@@ -104,6 +113,11 @@ export class WhatsAppChannel extends BaseChannel {
         const code = boom?.output?.statusCode;
         const shouldReconnect = code !== DisconnectReason.loggedOut;
         logger.warn({ code }, 'WhatsApp connection closed');
+
+        if (this.disconnectCallback) {
+          const reason = boom?.message ?? `status ${code ?? 'unknown'}`;
+          this.disconnectCallback(reason, shouldReconnect);
+        }
 
         if (shouldReconnect) {
           logger.info('WhatsApp reconnecting…');
