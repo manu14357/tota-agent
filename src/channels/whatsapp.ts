@@ -100,7 +100,18 @@ export class WhatsAppChannel extends BaseChannel {
       debug: () => {},
       info:  () => {},
       warn:  () => {},
-      error: (obj: unknown, msg?: string) => logger.error({ module: 'baileys', obj }, msg),
+      error: (obj: unknown, msg?: string) => {
+        // Init-query timeouts are transient — WhatsApp server occasionally takes
+        // too long to reply during handshake. Baileys closes + retries automatically;
+        // logging it as ERROR just creates alarm. Downgrade to debug (silent).
+        if (msg === "unexpected error in 'init queries'") return;
+        // Status-broadcast decrypt failures are harmless — we ignore status@broadcast
+        // messages entirely in our handler, but Baileys tries to decrypt them first.
+        // Missing signal keys for other users' statuses are expected and unavoidable.
+        if (msg === 'failed to decrypt message' &&
+            (obj as any)?.key?.remoteJid === 'status@broadcast') return;
+        logger.error({ module: 'baileys', obj }, msg);
+      },
       fatal: (obj: unknown, msg?: string) => logger.error({ module: 'baileys', obj }, msg),
       child: function() { return this; },
     } as any;
