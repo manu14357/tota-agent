@@ -12,9 +12,16 @@
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/tota-agent"><img src="https://img.shields.io/npm/v/tota-agent?color=blue" alt="npm"></a>
-  <a href="https://github.com/manu14357/tota-agent/blob/main/LICENSE"><img src="https://img.shields.io/github/license/manu14357/tota-agent" alt="license"></a>
+  <!-- Version & downloads -->
+  <a href="https://www.npmjs.com/package/tota-agent"><img src="https://img.shields.io/npm/v/tota-agent?color=blue&label=npm" alt="npm version"></a>
+  <a href="https://www.npmjs.com/package/tota-agent"><img src="https://img.shields.io/npm/dm/tota-agent?color=blue&label=downloads%2Fmo" alt="npm downloads/month"></a>
+  <a href="https://www.npmjs.com/package/tota-agent"><img src="https://img.shields.io/npm/dt/tota-agent?color=blue&label=total%20downloads" alt="npm total downloads"></a>
+  <!-- CI & Security -->
+  <a href="https://github.com/manu14357/tota-agent/actions/workflows/ci.yml"><img src="https://github.com/manu14357/tota-agent/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/manu14357/tota-agent/actions/workflows/security.yml"><img src="https://github.com/manu14357/tota-agent/actions/workflows/security.yml/badge.svg" alt="Security"></a>
+  <!-- Meta -->
   <a href="https://nodejs.org/"><img src="https://img.shields.io/node/v/tota-agent" alt="node"></a>
+  <a href="https://github.com/manu14357/tota-agent/blob/main/LICENSE"><img src="https://img.shields.io/github/license/manu14357/tota-agent" alt="license"></a>
   <a href="https://github.com/manu14357/tota-agent"><img src="https://img.shields.io/github/stars/manu14357/tota-agent?style=social" alt="stars"></a>
   <a href="https://github.com/sponsors/manu14357"><img src="https://img.shields.io/badge/sponsor-%E2%9D%A4-ea4aaa?logo=github-sponsors" alt="sponsor"></a>
 </p>
