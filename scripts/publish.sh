@@ -25,7 +25,8 @@ head -1 dist/index.js
 
 echo ""
 echo "5/6 Publishing to npm..."
-npm publish --access public
+# --ignore-scripts skips the prepublishOnly build since verify-package.cjs already built above
+npm publish --access public --ignore-scripts
 
 echo ""
 echo "✓ Published ${PKG_NAME}@${PKG_VERSION}"

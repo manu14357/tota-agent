@@ -2,6 +2,123 @@
 
 All notable changes to tota-agent will be documented here.
 
+## 0.0.3 — (2026-05-11)
+
+### New Channels
+
+- **WhatsApp Channel** — Full bidirectional WhatsApp integration via `@whiskeysockets/baileys`; QR-code device linking (no Business API needed); phone allowlist with per-number approval flow; typing indicators; file/image sending; group support; auto-reconnect with exponential backoff
+- **`whatsapp_send` tool** — Agent can proactively message any approved E.164 number from within a conversation
+
+### New Tools
+
+#### Document Readers
+- **`read_pdf`** — Extract text, page count, and metadata from PDF files via pdf-parse
+- **`read_excel`** — Read `.xlsx` / `.xls` / `.ods` / `.csv` files as markdown table or JSON via exceljs
+- **`write_excel`** — Create `.xlsx` files with styled headers from JSON or markdown table
+- **`read_docx`** — Extract text or HTML from `.docx` Word documents via mammoth
+
+#### Advanced File Finder
+- **`find_files`** — Glob, content keyword, type, date range, and size filters; recursive traversal with depth limit; skips `node_modules/.git/dist`
+
+#### Browser Automation (10 tools total)
+- **`browser_open`**, **`browser_click`**, **`browser_type`**, **`browser_screenshot`**, **`browser_extract`**, **`browser_scroll`**, **`browser_close`** — Playwright-powered automation
+- **`browser_key`** — Press Enter / Tab / Escape / arrow keys between steps (required for login flows, dropdowns)
+- **`browser_wait`** — Wait for a CSS selector to appear or navigation to complete
+- **`browser_engine`** — Switch between Chromium, Firefox, and WebKit at runtime
+
+#### Computer-Use / Desktop (9 tools)
+- **`computer_screenshot`**, **`computer_see`**, **`computer_click`**, **`computer_move`**, **`computer_type`**, **`computer_key`**, **`computer_scroll`**, **`computer_drag`**, **`computer_screen_size`** — Desktop control via `@nut-tree-fork/nut-js`; gated behind `COMPUTER_USE_ENABLED=true`
+
+#### Android ADB (10 tools)
+- **`adb_devices`**, **`adb_screenshot`**, **`adb_see`**, **`adb_tap`**, **`adb_swipe`**, **`adb_type`**, **`adb_key`**, **`adb_shell`**, **`adb_pull`**, **`adb_push`** — Android device control via ADB CLI; gated behind `COMPUTER_USE_ENABLED=true`
+
+#### Voice — Multi-provider TTS & STT
+- **`text_to_speech`** — Three TTS providers: OpenAI `tts-1`, ElevenLabs `eleven_multilingual_v2`, Google Cloud TTS `Journey-F`; optional `provider` param to override configured default per call
+- **`transcribe_audio`** — Two STT providers: OpenAI Whisper `whisper-1`, Groq `whisper-large-v3`; optional `provider` param
+
+#### Google Calendar (5 tools)
+- **`calendar_auth`** — Manual OAuth2 fallback for headless environments
+- **`list_events`** — List upcoming calendar events with date/time filtering
+- **`create_event`** — Create new events with attendees, location, and description
+- **`check_availability`** — Query free/busy slots via Google Calendar free-busy API
+- **`delete_event`** — Delete events by ID
+
+#### System Utilities
+- **`secret_store`** / **`secret_get`** / **`secret_list`** / **`secret_delete`** — AES-256-GCM encrypted secrets vault; keytar-backed key storage with derived-key fallback; vault path `~/.tota/vault.enc.json`
+- **`clipboard_read`** / **`clipboard_write`** — System clipboard access via clipboardy
+- **`notify`** — Desktop notifications (osascript on macOS, notify-send on Linux, node-notifier on Windows)
+- **`spawn_agent`** — Multi-agent crew spawning; delegates focused sub-tasks with custom role and tool restrictions
+
+### New CLI Commands
+
+#### `tota whatsapp` (9 subcommands)
+- `tota whatsapp link` — Display QR code to link a WhatsApp device (waits 120 s)
+- `tota whatsapp status` — Show linked state and access lists
+- `tota whatsapp setup` — Re-run the WhatsApp wizard
+- `tota whatsapp allow <phone>` — Add phone to allowFrom list
+- `tota whatsapp disallow <phone>` — Remove phone from allowFrom list
+- `tota whatsapp pending` — List pending access requests from unknown numbers
+- `tota whatsapp approve <phone>` — Approve a pending number
+- `tota whatsapp reject <phone>` — Reject a pending number
+- `tota whatsapp revoke <phone>` — Delete WhatsApp auth and restart daemon
+
+#### Per-feature Setup Wizards
+- `tota setup browser` — Run `npx playwright install` for Chromium / Firefox / WebKit
+- `tota setup computer` — Enable / disable `COMPUTER_USE_ENABLED` with nut-js / ADB instructions
+- `tota setup calendar` — Guide Google Calendar OAuth2 credential setup
+- `tota setup voice` — Arrow-key TTS/STT provider selection, API key prompts
+- `tota setup vault` — Show vault backend and usage instructions
+- `tota setup websearch` — Brave / Serper / Tavily key entry with validation
+- `tota setup api` — Enable REST API, configure port and optional auth key
+
+#### `tota logs` Improvements
+- `tota logs -f` / `--follow` — Live tail (like `tail -f`) of daemon log
+- `tota logs -n <count>` / `--lines` — Limit output to N most recent lines
+- `tota logs --clear` — Clear daemon log file
+
+#### In-Chat
+- `/` → **Configure** — Feature picker shows exact `tota setup <feature>` command; no restart needed
+
+### Core Improvements
+
+- **Force-upgrade check** — `enforceUpToDate()` queries the npm registry on every command (24 h cache); blocks execution if a newer version is available; shows exact self-heal command; skipped only for `tota upgrade`
+- **Multi-engine Browser** — `BROWSER_ENGINE` env var selects Chromium / Firefox / WebKit default; browser opens as a **visible window** by default (`PLAYWRIGHT_HEADLESS=true` or `CI=true` to force headless)
+- **Per-channel Permission Modes** — Replaced shared `autoApproveAll` boolean with per-channel `channelModes` map; Telegram and WhatsApp each maintain independent Allow All / Ask Me state
+- **WhatsApp Bidirectional Hint** — System prompt now explicitly tells the model it has both inbound and outbound WhatsApp access, preventing hallucinated "I can only send" responses
+- **Tool Labels & Result Hints** — `tool-label.ts` now covers all 60+ registered tools (was missing ~60 entries); `RESULT_HINTS` map added for every tool
+- **npm Package** — Added `exports` field; fixed double-build in `publish.sh` (`--ignore-scripts`); version bump `0.0.2 → 0.0.3`
+
+### Bug Fixes
+
+- **Google Calendar OAuth** — Replaced deprecated OOB redirect (`urn:ietf:wg:oauth:2.0:oob`) with `http://localhost:8765/oauth2callback`; adds `openBrowser()` (cross-platform) and `waitForOAuthCallback()` one-shot HTTP server; no copy-paste needed
+- **WhatsApp: infinite reconnect on conflict** — Detects `DisconnectReason.connectionReplaced` (code 440) and stops immediately; exponential backoff (`min(2s × 2^n, 60s)`, max 10 attempts) for all other disconnects
+- **WhatsApp: permission race condition** — `askPermissionMode` resolver registered _before_ the prompt message is sent; agent can no longer start executing tools before the user selects a mode
+- **WhatsApp: send_file wrong channel** — `send_file` no longer falls through to Telegram when the WhatsApp socket is unavailable; throws a clear error instead
+- **WhatsApp: Baileys console noise** — `installConsoleFilter()` monkey-patches `console.log` / `console.warn` to drop known Baileys / libsignal patterns; pino logger replaced with silent stub
+- **WhatsApp: session-expired false positives** — `hasEverConnected` flag prevents "Session expired" from printing during normal auto-reconnect cycles
+- **Computer-use after setup** — Fixed YAML-overrides-env-var bug where `saveConfig()` wrote `enabled: false` after `tota setup computer`, leaving computer-use disabled on next start
+- **setup/doctor hang** — `arrow-select.ts` now calls `stdin.pause()` in cleanup; `process.exit(0)` added after wizard completion as belt-and-suspenders
+- **Windows schtasks spaces** — `/tr` argument now escapes inner double-quotes with backslashes so `node.exe` paths containing spaces (e.g. `C:\Program Files\nodejs\`) work correctly
+- **macOS notifications** — Replaced `node-notifier` (requires `terminal-notifier` binary) with `execFile('osascript')` which is always available on macOS
+- **Telegram Allow All button** — Fixed `checkFsAccess` early-exit when `autoApproveAll=true`; fixed root path `'/'` scope matching; `setOnPermissionMode` now resets flag when Ask Me is selected
+- **Package rename** — All references to `@manu14357/tota-agent` replaced with `tota-agent`; Windows `EEXIST` binary-conflict fix documented and shown in blocking banner
+- **Calendar test timeout** — `process.env.VITEST` guard in `runAuthFlow()` prevents tests hanging on a real browser/server
+
+### Tests
+
+- **184 tests across 17 files** — all passing (was 85 tests / 10 files in 0.0.2)
+- New test files: `secrets` (14), `notify` (6), `clipboard` (6), `crew` (7), `voice` (18), `calendar` (12), `browser` (13), `whatsapp` (10)
+
+### Documentation & Landing Page
+
+- Docs site UI revamp: header search, mobile/desktop TOC, copy buttons for code blocks, new fonts (DM Sans + Fragment Mono)
+- New docs pages: WhatsApp integration, Google Calendar setup, Voice TTS/STT multi-provider, Secrets Vault, Computer-Use, Android ADB, Browser Automation
+- Configuration reference: Browser, Computer-Use, Voice, Calendar, Vault, Loop Guard sections
+- CLI commands reference: all new `tota whatsapp`, `tota setup`, `tota logs` entries
+- README: 60+ tool count; WhatsApp, Calendar, Voice, Vault, Computer-Use, Browser feature rows; Google Calendar Cloud Console setup guide; upgrade-from-`@manu14357/tota-agent` notice
+
+---
+
 ## 0.0.2 — (2026-05-08)
 
 ### New Tools

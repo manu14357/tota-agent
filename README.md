@@ -34,6 +34,14 @@ npm i -g tota-agent
 tota
 ```
 
+> **Upgrading from the old `@manu14357/tota-agent` package?**
+> The package was renamed to `tota-agent` (unscoped). The old binary shim blocks the new install on Windows.
+> Uninstall the old package first, then reinstall:
+> ```bash
+> npm uninstall -g @manu14357/tota-agent
+> npm i -g tota-agent
+> ```
+
 First run launches the setup wizard — enter your name, an API key, and optionally a Telegram bot token. Takes about 30 seconds.
 
 To reconfigure at any time:
