@@ -192,8 +192,14 @@ export async function enforceUpToDate(currentVersion: string, totaHome: string):
   console.log('  ' + chalk.cyan('tota upgrade'));
   console.log('  ' + chalk.cyan('npm i -g tota-agent'));
   console.log('');
-  console.log(chalk.dim('  If you see "file already exists", first run:'));
-  console.log('  ' + chalk.cyan('rm $(which tota) && npm i -g tota-agent'));
+  console.log(chalk.dim('  If you see "file already exists", delete the old shim first:'));
+  if (process.platform === 'win32') {
+    console.log(chalk.dim('  PowerShell:'));
+    console.log('  ' + chalk.cyan('Remove-Item "$env:APPDATA\\npm\\tota","$env:APPDATA\\npm\\tota.cmd","$env:APPDATA\\npm\\tota.ps1" -Force -ErrorAction SilentlyContinue'));
+    console.log('  ' + chalk.cyan('npm i -g tota-agent'));
+  } else {
+    console.log('  ' + chalk.cyan('rm $(which tota) && npm i -g tota-agent'));
+  }
   console.log(border);
   console.log('');
   process.exit(1);
@@ -204,7 +210,7 @@ export async function enforceUpToDate(currentVersion: string, totaHome: string):
  * Keeps it minimal — only summarises what's actually new between versions.
  */
 function getHighlights(from: string, to: string): string[] {
-  // Version range: if upgrading from 0.0.1 to ≥ 0.0.2
+  // Version range: if upgrading from < 0.0.2 to ≥ 0.0.2
   if (compareVersions(from, '0.0.1') <= 0 && compareVersions(to, '0.0.2') >= 0) {
     return [
       'web_search — Brave, Serper, Tavily support',
@@ -214,6 +220,19 @@ function getHighlights(from: string, to: string): string[] {
       'REST API channel — GET /status · POST /message',
       'MCP plugins — connect any JSON-RPC MCP server',
       '40+ built-in tools (was 31)',
+    ];
+  }
+  // Version range: if upgrading from < 0.0.3 to ≥ 0.0.3
+  if (compareVersions(from, '0.0.2') <= 0 && compareVersions(to, '0.0.3') >= 0) {
+    return [
+      'WhatsApp channel — QR linking, allowlist, tota whatsapp commands',
+      'Google Calendar — OAuth2 auto-browser, 5 tools',
+      'Voice TTS/STT — OpenAI / ElevenLabs / Google Cloud / Groq',
+      'Secrets vault — AES-256-GCM encrypted, secret_store/get/list/delete',
+      'Computer-Use — 9 desktop tools + 10 Android ADB tools',
+      'Browser — 10 Playwright tools, Chromium + Firefox + WebKit',
+      'Document readers — read_pdf, read_excel, write_excel, read_docx',
+      '60+ built-in tools (was 40+), 184 tests',
     ];
   }
   return [];
