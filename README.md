@@ -14,7 +14,6 @@
 <p align="center">
   <!-- Version & downloads -->
   <a href="https://www.npmjs.com/package/tota-agent"><img src="https://img.shields.io/npm/v/tota-agent?color=blue&label=npm" alt="npm version"></a>
-  <a href="https://www.npmjs.com/package/tota-agent"><img src="https://img.shields.io/npm/dm/tota-agent?color=blue&label=downloads%2Fmo" alt="npm downloads/month"></a>
   <a href="https://www.npmjs.com/package/tota-agent"><img src="https://img.shields.io/npm/dt/tota-agent?color=blue&label=total%20downloads" alt="npm total downloads"></a>
   <!-- CI & Security -->
   <a href="https://github.com/manu14357/tota-agent/actions/workflows/ci.yml"><img src="https://github.com/manu14357/tota-agent/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
