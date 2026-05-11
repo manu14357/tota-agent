@@ -52,10 +52,10 @@ export function SearchResults({ query, searchIndex, onNavigate }: SearchResultsP
       if (!titleMatch && contentMatchIndex === -1) return null
       const snippet = contentMatchIndex === -1
         ? entry.content.slice(0, 160).trim()
-        : entry.content.slice(Math.max(0, contentMatchIndex - 40), Math.min(entry.content.length, contentMatchIndex + q.length + 80)).trim()
+        : entry.content.slice(Math.max(0, contentMatchIndex - 40), Math.min(entry.content.length, contentMatchIndex + q.length + 120)).trim()
       return {
         ...entry,
-        snippet: snippet.replace(/\s+/g, ' '),
+        snippet: snippet.replace(/\s+/g, ' ').replace(/`{3}[\s\S]*?`{3}/g, '').slice(0, 220),
         score: titleMatch ? 0 : contentMatchIndex,
       }
     })
@@ -63,8 +63,8 @@ export function SearchResults({ query, searchIndex, onNavigate }: SearchResultsP
     .sort((a, b) => a.score - b.score)
 
   return (
-    <div className="pb-16">
-      <div className="mb-8 rounded-2xl border p-6" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+    <div className="pb-16 min-w-0 overflow-hidden">
+      <div className="mb-8 rounded-2xl border p-4 sm:p-6 overflow-hidden" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
         <div className="flex items-center gap-3 mb-4">
           <Search size={18} strokeWidth={2} style={{ color: 'var(--accent)' }} />
           <div>
@@ -88,13 +88,13 @@ export function SearchResults({ query, searchIndex, onNavigate }: SearchResultsP
                 key={entry.slug}
                 href={entry.slug ? `/docs/${entry.slug}` : '/docs'}
                 onClick={onNavigate}
-                className="block rounded-xl border p-4 transition-all hover:border-[var(--border-hover)] hover:bg-[var(--surface)]"
+                className="block rounded-xl border p-4 transition-all hover:border-[var(--border-hover)] hover:bg-[var(--surface)] overflow-hidden min-w-0"
                 style={{ borderColor: 'var(--border)' }}
               >
-                <p className="text-sm font-semibold" style={{ color: 'var(--fg-muted)' }}>
+                <p className="text-sm font-semibold break-words" style={{ color: 'var(--fg-muted)' }}>
                   {highlight(entry.title, query)}
                 </p>
-                <p className="mt-2 text-sm leading-6" style={{ color: 'var(--fg-subtle)' }}>
+                <p className="mt-2 text-sm leading-6 break-words overflow-hidden" style={{ color: 'var(--fg-subtle)' }}>
                   {highlight(entry.snippet, query)}
                 </p>
               </Link>

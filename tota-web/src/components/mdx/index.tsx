@@ -59,7 +59,7 @@ export function createMdxComponents(): MDXComponents {
     return (
     <h1
       id={headingId}
-      className="text-3xl sm:text-4xl font-bold tracking-tight mt-0 mb-6 leading-tight"
+      className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight mt-0 mb-6 leading-tight"
       style={{ ...fg, fontFamily: 'var(--font-sans)' }}
     >
       {children}
@@ -72,7 +72,7 @@ export function createMdxComponents(): MDXComponents {
     return (
     <h2
       id={headingId}
-      className="group text-2xl font-semibold mt-12 mb-4 pb-3 border-b"
+      className="group text-xl sm:text-2xl font-semibold mt-12 mb-4 pb-3 border-b"
       style={{ ...fg, ...border, fontFamily: 'var(--font-sans)' }}
     >
       {headingId && (
@@ -94,7 +94,7 @@ export function createMdxComponents(): MDXComponents {
     return (
       <h3
         id={headingId}
-        className="group text-lg font-semibold mt-8 mb-3"
+        className="group text-base sm:text-lg font-semibold mt-8 mb-3"
         style={{ ...fg, fontFamily: 'var(--font-sans)' }}
       >
         {headingId && (
@@ -135,7 +135,7 @@ export function createMdxComponents(): MDXComponents {
 
   // ── Prose ──
   p: ({ children }) => (
-    <p className="leading-7 mb-5 text-base" style={fgMuted}>
+    <p className="leading-6 sm:leading-7 mb-5 text-sm sm:text-base" style={fgMuted}>
       {children}
     </p>
   ),
@@ -167,7 +167,7 @@ export function createMdxComponents(): MDXComponents {
     if (className) {
       // Inside a <pre> block — let pre handle styling
       return (
-        <code className={`${className} text-sm font-mono`} style={{ color: 'var(--fg-muted)' }}>
+        <code className={`${className} text-[13px] sm:text-sm font-mono`} style={{ color: 'var(--fg-muted)' }}>
           {children}
         </code>
       )
@@ -178,7 +178,6 @@ export function createMdxComponents(): MDXComponents {
         className="rounded-md px-1.5 py-0.5 text-[0.85em] font-mono"
         style={{
           background: 'var(--code-bg)',
-          border: '1px solid var(--code-border)',
           color: 'var(--accent-light)',
         }}
       >
@@ -192,12 +191,12 @@ export function createMdxComponents(): MDXComponents {
 
   // ── Lists ──
   ul: ({ children }) => (
-    <ul className="list-disc list-outside ml-5 space-y-2 mb-5 text-base" style={fgMuted}>
+    <ul className="list-disc list-outside ml-5 space-y-2 mb-5 text-sm sm:text-base" style={fgMuted}>
       {children}
     </ul>
   ),
   ol: ({ children }) => (
-    <ol className="list-decimal list-outside ml-5 space-y-2 mb-5 text-base" style={fgMuted}>
+    <ol className="list-decimal list-outside ml-5 space-y-2 mb-5 text-sm sm:text-base" style={fgMuted}>
       {children}
     </ol>
   ),
@@ -206,7 +205,7 @@ export function createMdxComponents(): MDXComponents {
   // ── Blockquote ──
   blockquote: ({ children }) => (
     <blockquote
-      className="border-l-4 pl-5 pr-3 py-1 my-5 rounded-r-lg text-base italic"
+      className="border-l-4 pl-5 pr-3 py-1 my-5 rounded-r-lg text-sm sm:text-base italic"
       style={{
         borderColor: 'var(--accent)',
         background: 'var(--accent-dim)',

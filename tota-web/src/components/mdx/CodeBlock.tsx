@@ -64,7 +64,7 @@ export function CodeBlock({ children, text }: CodeBlockProps) {
       <button
         type="button"
         onClick={handleCopy}
-        className="absolute top-3 right-3 inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] font-medium opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:focus:opacity-100"
+        className="absolute top-2 right-2 sm:top-3 sm:right-3 inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] font-medium opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:focus:opacity-100"
         style={{
           background: 'var(--surface)',
           borderColor: 'var(--border)',
@@ -76,7 +76,7 @@ export function CodeBlock({ children, text }: CodeBlockProps) {
         {copied ? 'Copied' : 'Copy'}
       </button>
       <pre
-        className="rounded-xl p-5 overflow-x-auto text-sm font-mono leading-6 border"
+        className="rounded-xl p-3 sm:p-5 overflow-x-auto text-[13px] sm:text-sm font-mono leading-6 border"
         style={{
           background: 'var(--code-bg)',
           borderColor: 'var(--code-border)',

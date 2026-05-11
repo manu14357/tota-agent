@@ -110,8 +110,8 @@ export default async function DocPage({
 
           {tocItems.length > 0 && (
             <div
-              className="xl:hidden mb-6 rounded-xl border p-3"
-              style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+              className="xl:hidden mb-6 pl-3 border-l-2"
+              style={{ borderColor: 'var(--accent)' }}
             >
               <details>
                 <summary
