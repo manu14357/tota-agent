@@ -20,6 +20,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchIndex, setSearchIndex] = useState<DocSearchEntry[]>([])
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
   const pathname = usePathname()
 
   useEffect(() => {
@@ -47,6 +48,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
   // Clear search when navigating to a page
   useEffect(() => {
     setSearchQuery('')
+    setMobileSearchOpen(false)
   }, [pathname])
 
   return (
@@ -143,8 +145,20 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
             </div>
           </div>
 
-          {/* Right: GitHub + theme toggle */}
+          {/* Right: search icon (mobile) + GitHub + theme toggle */}
           <div className="flex items-center gap-1">
+            {/* Mobile search icon */}
+            <button
+              className="md:hidden p-1.5 rounded-lg transition-colors"
+              style={{ color: mobileSearchOpen ? 'var(--accent)' : 'var(--fg-muted)' }}
+              onClick={() => {
+                setMobileSearchOpen((v) => !v)
+                if (mobileSearchOpen) setSearchQuery('')
+              }}
+              aria-label="Toggle search"
+            >
+              {mobileSearchOpen ? <X size={18} /> : <Search size={18} />}
+            </button>
             <a
               href="https://github.com/manu14357/tota-agent"
               target="_blank"
@@ -158,10 +172,46 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
             <ThemeToggle />
           </div>
         </div>
+
+        {/* Mobile slide-down search bar */}
+        {mobileSearchOpen && (
+          <div
+            className="md:hidden border-t px-4 py-2"
+            style={{ borderColor: 'var(--border)', background: 'color-mix(in srgb, var(--bg) 95%, transparent)' }}
+          >
+            <div
+              className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm w-full"
+              style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+            >
+              <Search size={14} strokeWidth={2} style={{ color: 'var(--fg-subtle)' }} />
+              <input
+                autoFocus
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search docs…"
+                className="flex-1 bg-transparent text-sm outline-none placeholder:text-[var(--fg-subtle)]"
+                style={{ color: 'var(--fg)' }}
+                aria-label="Search documentation"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="shrink-0 rounded"
+                  style={{ color: 'var(--fg-subtle)' }}
+                  aria-label="Clear search"
+                >
+                  <X size={13} strokeWidth={2} />
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
       </header>
 
       {/* ── Body: sidebar + content ── */}
-      <div className="max-w-[1560px] mx-auto px-3 sm:px-5 lg:px-6">
+      <div className="max-w-[1560px] mx-auto px-4 sm:px-5 lg:px-6">
         <div className="flex gap-0">
           {/* Desktop sidebar */}
           <aside className="hidden md:block w-60 lg:w-72 shrink-0 sticky top-14 self-start h-[calc(100vh-3.5rem)] overflow-y-auto py-6 pr-4">
@@ -169,12 +219,15 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
           </aside>
 
           {/* Content */}
-          <main className="flex-1 min-w-0 py-8 md:pl-6 md:border-l" style={{ borderColor: 'var(--border)' }}>
+          <main className="flex-1 min-w-0 py-6 sm:py-8 md:pl-6 md:border-l" style={{ borderColor: 'var(--border)' }}>
             {searchQuery ? (
               <SearchResults
                 query={searchQuery}
                 searchIndex={searchIndex}
-                onNavigate={() => setSearchQuery('')}
+                onNavigate={() => {
+                  setSearchQuery('')
+                  setMobileSearchOpen(false)
+                }}
               />
             ) : (
               children
@@ -214,13 +267,52 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
                 <X size={18} />
               </button>
             </div>
-            <div className="flex-1 px-4 py-4">
-              <DocsSidebar
-                onNavigate={() => {
-                  setSearchQuery('')
-                  setSidebarOpen(false)
-                }}
-              />
+            {/* Mobile search */}
+            <div className="px-4 pt-3 pb-2">
+              <div
+                className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm w-full"
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+              >
+                <Search size={14} strokeWidth={2} style={{ color: 'var(--fg-subtle)' }} />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search docs…"
+                  className="flex-1 bg-transparent text-sm outline-none placeholder:text-[var(--fg-subtle)]"
+                  style={{ color: 'var(--fg)' }}
+                  aria-label="Search documentation"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="shrink-0 rounded"
+                    style={{ color: 'var(--fg-subtle)' }}
+                    aria-label="Clear search"
+                  >
+                    <X size={13} strokeWidth={2} />
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="flex-1 px-4 py-3 overflow-y-auto">
+              {searchQuery ? (
+                <SearchResults
+                  query={searchQuery}
+                  searchIndex={searchIndex}
+                  onNavigate={() => {
+                    setSearchQuery('')
+                    setSidebarOpen(false)
+                  }}
+                />
+              ) : (
+                <DocsSidebar
+                  onNavigate={() => {
+                    setSearchQuery('')
+                    setSidebarOpen(false)
+                  }}
+                />
+              )}
             </div>
           </div>
         </>

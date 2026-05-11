@@ -9,6 +9,12 @@ tota requires **Node.js 20+**. Install with npm:
 npm i -g tota-agent
 ```
 
+Or pin to the latest release:
+
+```bash
+npm i -g tota-agent@0.0.3
+```
+
 Or run without installing:
 
 ```bash
@@ -33,4 +39,13 @@ This command:
 
 <Callout type="info">
   **ENOTEMPTY fix** — If you see `ENOTEMPTY: directory not empty, rename` when running `npm i -g` manually, use `tota upgrade` instead — it removes the old package directory before installing the new one.
+</Callout>
+
+<Callout type="warning">
+  **Windows EEXIST fix** — If you see `EEXIST: file already exists` for the `tota` binary (common when upgrading from an older package name), delete the orphaned shim first:
+
+  ```powershell
+  Remove-Item "$env:APPDATA\npm\tota","$env:APPDATA\npm\tota.cmd","$env:APPDATA\npm\tota.ps1" -Force -ErrorAction SilentlyContinue
+  npm i -g tota-agent
+  ```
 </Callout>

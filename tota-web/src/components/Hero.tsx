@@ -1,11 +1,27 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Copy, Check, ArrowRight, Terminal, Star, Heart } from 'lucide-react'
 
 const NPX_CMD = 'npx tota-agent'
+
+const USER_MSG = 'schedule a team standup tomorrow at 10am, 30 mins'
+
+// Lines that appear after the user message finishes typing
+const RESPONSE_LINES: { text: string; tool?: boolean; ok?: boolean; ask?: boolean; dim?: boolean }[] = [
+  { text: '' },
+  { text: '  ● calendar_list  checking tomorrow\'s schedule...', tool: true },
+  { text: '  ● calendar_create  "Team Standup" · 12 May · 10:00–10:30 AM', tool: true },
+  { text: '' },
+  { text: '  ✓  Event created:', ok: true },
+  { text: '     📅  Team Standup', ok: true },
+  { text: '     🕙  Mon, 12 May · 10:00 – 10:30 AM', ok: true },
+  { text: '     🔗  Google Calendar invite link ready', ok: true },
+  { text: '' },
+  { text: '  ⚡ Add anyone else to the invite? [y/N]', ask: true },
+]
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false)
@@ -32,22 +48,118 @@ function CopyButton({ text }: { text: string }) {
   )
 }
 
-const terminalLines = [
-  { prompt: true, text: 'tota' },
-  { prompt: false, text: '  ✦ tota is listening...', dim: true },
-  { prompt: false, text: '' },
-  { prompt: false, text: 'you  look at my screen and submit the form that is open', user: true },
-  { prompt: false, text: '' },
-  { prompt: false, text: '  ● computer_see  what is on screen?', tool: true },
-  { prompt: false, text: '  ● computer_click  x=640 y=420', tool: true },
-  { prompt: false, text: '  ● computer_type  "hello@acme.com"', tool: true },
-  { prompt: false, text: '  ● computer_key  tab', tool: true },
-  { prompt: false, text: '  ● computer_click  x=640 y=520  (Submit)', tool: true },
-  { prompt: false, text: '' },
-  { prompt: false, text: '  Form submitted successfully.' },
-  { prompt: false, text: '' },
-  { prompt: false, text: '  ⚡ Take a screenshot to confirm? [y/N]', ask: true },
-]
+function TerminalDemo() {
+  const [typed, setTyped] = useState('')
+  const [visibleCount, setVisibleCount] = useState(0)
+  const [done, setDone] = useState(false)
+  const rafRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    // Reset and restart the whole animation when component mounts / loops
+    let charIdx = 0
+    let lineIdx = 0
+    let cancelled = false
+
+    function typeChar() {
+      if (cancelled) return
+      if (charIdx < USER_MSG.length) {
+        charIdx++
+        setTyped(USER_MSG.slice(0, charIdx))
+        // Vary typing speed slightly for realism
+        const delay = 38 + Math.random() * 40
+        rafRef.current = setTimeout(typeChar, delay)
+      } else {
+        // Finished typing — start revealing response lines
+        revealLine()
+      }
+    }
+
+    function revealLine() {
+      if (cancelled) return
+      if (lineIdx < RESPONSE_LINES.length) {
+        lineIdx++
+        setVisibleCount(lineIdx)
+        const delay = RESPONSE_LINES[lineIdx - 1].tool ? 520 : 180
+        rafRef.current = setTimeout(revealLine, delay)
+      } else {
+        setDone(true)
+        // After a pause, loop the whole animation
+        rafRef.current = setTimeout(() => {
+          if (!cancelled) {
+            setTyped('')
+            setVisibleCount(0)
+            setDone(false)
+            charIdx = 0
+            lineIdx = 0
+            rafRef.current = setTimeout(typeChar, 900)
+          }
+        }, 3800)
+      }
+    }
+
+    // Initial delay before starting
+    rafRef.current = setTimeout(typeChar, 700)
+
+    return () => {
+      cancelled = true
+      if (rafRef.current) clearTimeout(rafRef.current)
+    }
+  }, [])
+
+  const isTyping = typed.length < USER_MSG.length || visibleCount === 0
+  const showCursor = !done
+
+  return (
+    <div className="p-3 sm:p-5 font-mono text-xs sm:text-sm leading-6 sm:leading-7 space-y-0.5 overflow-x-auto">
+      {/* Static prefix lines */}
+      <div style={{ color: '#5a8aa0' }}>
+        <span style={{ color: '#00A9FF', marginRight: '8px' }}>$</span>tota
+      </div>
+      <div style={{ color: '#2a4a5e' }}>{'  ✦ tota is listening...'}</div>
+      <div>{''}</div>
+
+      {/* User message — typed character by character */}
+      <div style={{ color: '#e8f4fd' }}>
+        {typed}
+        {isTyping && (
+          <span
+            className="inline-block w-[7px] h-[13px] ml-[2px] align-[-2px] animate-pulse"
+            style={{ background: '#00A9FF' }}
+          />
+        )}
+      </div>
+
+      {/* Response lines revealed one by one */}
+      {RESPONSE_LINES.slice(0, visibleCount).map((line, i) => (
+        <div
+          key={i}
+          style={{
+            color: line.tool ? '#89CFF3' : line.ok ? '#34d399' : line.ask ? '#fbbf24' : '#5a8aa0',
+          }}
+        >
+          {line.text}
+          {/* Blinking cursor on last visible line while still revealing */}
+          {i === visibleCount - 1 && showCursor && !done && (
+            <span
+              className="inline-block w-[7px] h-[13px] ml-[2px] align-[-2px] animate-pulse"
+              style={{ background: '#00A9FF' }}
+            />
+          )}
+        </div>
+      ))}
+
+      {/* Steady cursor after everything is done */}
+      {done && (
+        <div>
+          <span
+            className="inline-block w-[7px] h-[13px] animate-pulse"
+            style={{ background: '#00A9FF' }}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function Hero() {
   const [stars, setStars] = useState<number | null>(null)
@@ -80,7 +192,7 @@ export default function Hero() {
             }}
           >
             <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#00A9FF' }} />
-            70+ built-in tools · 9 AI providers · Web search · Vision · Browser · Computer-use · Android · MCP plugins
+            v0.0.3 · 70+ built-in tools · 9 AI providers · WhatsApp · Browser · Computer-use · Android · MCP plugins
           </span>
         </div>
 
@@ -100,7 +212,7 @@ export default function Hero() {
         >
           Permission-hardened tools, token budgets, and multi-channel access.
           <br className="hidden sm:block" />
-          Sees your screen. Controls your desktop. Runs 24/7 from CLI, Telegram, or REST API.
+          Sees your screen. Controls your desktop. Runs 24/7 from CLI, Telegram, WhatsApp, or REST API.
         </p>
 
         {/* Install snippet */}
@@ -179,23 +291,8 @@ export default function Hero() {
               <span className="w-3 h-3 rounded-full bg-[#28c840]" />
               <span className="ml-2 text-xs font-mono" style={{ color: '#3d6070' }}>tota — zsh</span>
             </div>
-            {/* Content */}
-            <div className="p-3 sm:p-5 font-mono text-xs sm:text-sm leading-6 sm:leading-7 space-y-0.5 overflow-x-auto">
-              {terminalLines.map((line, i) => (
-                <div
-                  key={i}
-                  style={{
-                    color: line.user ? '#e8f4fd' : line.tool ? '#89CFF3' : line.ask ? '#fbbf24' : line.dim ? '#2a4a5e' : '#5a8aa0',
-                  }}
-                >
-                  {line.prompt && <span style={{ color: '#00A9FF', marginRight: '8px' }}>$</span>}
-                  {line.text}
-                  {i === terminalLines.length - 1 && (
-                    <span className="inline-block w-2 h-4 ml-1 align-[-2px] animate-pulse" style={{ background: '#00A9FF' }} />
-                  )}
-                </div>
-              ))}
-            </div>
+            {/* Animated terminal content */}
+            <TerminalDemo />
           </div>
           <p className="text-center text-xs mt-3" style={{ color: 'var(--fg-subtle)' }}>
             tota always asks before it acts
