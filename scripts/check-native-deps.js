@@ -6,22 +6,54 @@ console.log('\u263F Checking native build prerequisites for better-sqlite3...\n'
 
 let missing = false;
 const isWin = platform() === 'win32';
+const isTermux = process.env.PREFIX?.includes('com.termux') || process.env.TERMUX_VERSION !== undefined;
+
+// ── git check (required to build @whiskeysockets/libsignal-node) ──────────────
+if (!commandExists('git')) {
+  console.log('\u26A0  \'git\' not found — npm cannot install @whiskeysockets/libsignal-node.');
+  if (isTermux) {
+    console.log('   Fix for Termux (run in order):');
+    console.log('     pkg install git');
+    console.log('     git config --global url.https://github.com/.insteadOf "git@github.com:"');
+    console.log('     npm i -g tota-agent');
+  } else if (isWin) {
+    console.log('   Install with: winget install Git.Git');
+    console.log('               or https://git-scm.com/download/win');
+  } else {
+    console.log('   Install with: sudo apt-get install git        (Debian/Ubuntu)');
+    console.log('                 sudo yum install git             (RHEL/CentOS)');
+    console.log('                 brew install git                 (macOS)');
+  }
+  missing = true;
+}
 
 if (!isWin) {
   if (!commandExists('make')) {
     console.log('\u26A0  \'make\' not found \u2014 better-sqlite3 may not compile.');
-    console.log('   Install with: sudo apt-get install build-essential  (Debian/Ubuntu)');
-    console.log('                 sudo yum groupinstall "Development Tools"  (RHEL/CentOS)');
+    if (isTermux) {
+      console.log('   Install with: pkg install make');
+    } else {
+      console.log('   Install with: sudo apt-get install build-essential  (Debian/Ubuntu)');
+      console.log('                 sudo yum groupinstall "Development Tools"  (RHEL/CentOS)');
+    }
     missing = true;
   }
   if (!commandExists('gcc') && !commandExists('cc')) {
     console.log('\u26A0  C compiler not found \u2014 better-sqlite3 may not compile.');
-    console.log('   Install with: sudo apt-get install gcc  (Debian/Ubuntu)');
+    if (isTermux) {
+      console.log('   Install with: pkg install clang');
+    } else {
+      console.log('   Install with: sudo apt-get install gcc  (Debian/Ubuntu)');
+    }
     missing = true;
   }
   if (!commandExists('python3') && !commandExists('python')) {
     console.log('\u26A0  Python not found \u2014 better-sqlite3 may not compile.');
-    console.log('   Install with: sudo apt-get install python3  (Debian/Ubuntu)');
+    if (isTermux) {
+      console.log('   Install with: pkg install python');
+    } else {
+      console.log('   Install with: sudo apt-get install python3  (Debian/Ubuntu)');
+    }
     missing = true;
   }
 } else {
@@ -38,7 +70,11 @@ const nodeMajor = parseInt(nodeVersion.replace(/^v/, '').split('.')[0], 10);
 
 if (nodeMajor < 20) {
   console.log(`\u26A0  Node.js ${nodeVersion} detected \u2014 better-sqlite3 v12 requires Node >= 20.`);
-  console.log('   Upgrade with: nvm install 20');
+  if (isTermux) {
+    console.log('   Install with: pkg install nodejs-lts');
+  } else {
+    console.log('   Upgrade with: nvm install 20');
+  }
   missing = true;
 }
 
@@ -46,6 +82,10 @@ if (!missing) {
   console.log('\u2713  All native build prerequisites found.\n');
 } else {
   console.log('');
+  if (isTermux) {
+    console.log('   Quick fix for Termux: pkg install git nodejs-lts python make clang');
+    console.log('   Then re-run: npm i -g tota-agent');
+  }
   console.log('   Second brain memory will be disabled until the above are resolved.');
   console.log('   The rest of tota-agent will work fine without better-sqlite3.\n');
 }

@@ -2718,10 +2718,31 @@ program
       console.log('');
       console.log(chalk.green(`  ✓ Upgraded to v${latestVersion}`));
       console.log(chalk.dim('  Run `tota` to start the new version.'));
-    } catch {
+    } catch (err: unknown) {
       console.log('');
-      console.log(chalk.red('  ✗ Upgrade failed. Try manually:'));
-      console.log(chalk.dim('    npm rm -g tota-agent && npm i -g tota-agent'));
+      const errMsg = err instanceof Error ? err.message : String(err);
+      const isGitMissing = errMsg.includes('spawn git') || (errMsg.includes('ENOENT') && errMsg.includes('git'));
+      const isTermux = process.env.PREFIX?.includes('com.termux') || process.env.TERMUX_VERSION !== undefined;
+
+      console.log(chalk.red('  ✗ Upgrade failed.'));
+      if (isGitMissing) {
+        console.log(chalk.yellow('\n  git not found — required to install a dependency (libsignal-node).'));
+        if (isTermux) {
+          console.log(chalk.dim('\n  Fix for Termux (run these in order):'));
+          console.log(chalk.cyan('    pkg install git'));
+          console.log(chalk.cyan('    git config --global url.https://github.com/.insteadOf "git@github.com:"'));
+          console.log(chalk.cyan('    npm rm -g tota-agent && npm i -g tota-agent'));
+        } else {
+          console.log(chalk.dim('\n  Install git for your platform, then run:'));
+          console.log(chalk.dim('    macOS:   brew install git'));
+          console.log(chalk.dim('    Ubuntu:  sudo apt-get install git'));
+          console.log(chalk.dim('    Windows: winget install Git.Git'));
+          console.log(chalk.cyan('\n    npm rm -g tota-agent && npm i -g tota-agent'));
+        }
+      } else {
+        console.log(chalk.dim('  Try manually:'));
+        console.log(chalk.dim('    npm rm -g tota-agent && npm i -g tota-agent'));
+      }
     }
 
     console.log('');
