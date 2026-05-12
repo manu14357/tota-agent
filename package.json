@@ -8,7 +8,8 @@
     ".": "./dist/index.js"
   },
   "bin": {
-    "tota": "dist/index.js"
+    "tota": "dist/index.js",
+    "tota-agent": "dist/index.js"
   },
   "scripts": {
     "build": "tsup",

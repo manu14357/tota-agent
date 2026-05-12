@@ -1891,12 +1891,33 @@ async function runAgent(isDaemon: boolean = false): Promise<void> {
 
 const program = new Command();
 
+/** Detect if we are running under npx (not a permanent global install). */
+function isRunningViaNpx(): boolean {
+  const scriptPath = process.argv[1] ?? '';
+  // npx caches packages under _npx, npx-cache, or .npm/_npx directories
+  return (
+    scriptPath.includes('_npx') ||
+    scriptPath.includes('npx-cache') ||
+    process.env.npm_lifecycle_event === undefined && process.env.npm_execpath?.includes('npx') === true
+  );
+}
+
 program
   .name('tota')
   .description('tota — Soul-driven AI agent with permission-hardened tools, token budgets, and multi-channel access.')
   .version(pkgVersion)
   .option('-v, --verbose', 'Show debug logs')
   .action(async () => {
+    if (isRunningViaNpx()) {
+      console.log('');
+      console.log(chalk.yellow('  ⚠  You are running tota via npx.'));
+      console.log(chalk.dim('     The `tota` command will NOT be available after this session.'));
+      console.log(chalk.dim('     To install permanently, run:'));
+      console.log(chalk.cyan('       npm i -g tota-agent'));
+      console.log(chalk.dim('     Then start with:'));
+      console.log(chalk.cyan('       tota'));
+      console.log('');
+    }
     if (!isSetupComplete()) {
       await configure();
       autoDaemonize();

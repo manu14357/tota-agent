@@ -29,16 +29,22 @@
 
 ## Quick Start
 
-```bash
-npx tota-agent
-```
-
-Or install globally:
+Install globally (recommended — makes `tota` available everywhere):
 
 ```bash
 npm i -g tota-agent
 tota
 ```
+
+Or try it once without installing:
+
+```bash
+npx tota-agent
+```
+
+> **Note:** `npx tota-agent` runs tota in a temporary session only.  
+> The `tota` command will **not** be available after that session ends.  
+> Use `npm i -g tota-agent` for a permanent install.
 
 > **Upgrading from the old `@manu14357/tota-agent` package?**
 > The package was renamed to `tota-agent` (unscoped). The old binary shim blocks the new install on Windows.
