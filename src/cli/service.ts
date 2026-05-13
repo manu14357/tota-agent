@@ -33,23 +33,45 @@ function getNodeBinPath(): string {
 }
 
 function getDistPath(): string {
-  // When run directly as 'node dist/index.js', argv[1] IS the correct script path
-  if (process.argv[1] && existsSync(process.argv[1])) {
-    return process.argv[1];
+  // When run directly as 'node dist/index.js', argv[1] IS the correct script path —
+  // but not when running via npx (path is a temporary cache dir that gets cleaned up).
+  const argv1 = process.argv[1];
+  if (argv1) {
+    const isNpx = argv1.includes('_npx') || argv1.includes('npx-cache') || argv1.includes('.npm/_npx');
+    if (!isNpx && existsSync(argv1)) {
+      return argv1;
+    }
   }
-  // Fallback: search common global npm install locations
+
+  // Search common global npm install locations (platform-specific)
   const ver = process.version.slice(1);
-  const candidates = [
-    join(homedir(), '.nvm', 'versions', 'node', `v${ver}`, 'lib', 'node_modules', '@manu14357', 'tota-agent', 'dist', 'index.js'),
-    join('/usr', 'local', 'lib', 'node_modules', '@manu14357', 'tota-agent', 'dist', 'index.js'),
-    join('/opt', 'homebrew', 'lib', 'node_modules', '@manu14357', 'tota-agent', 'dist', 'index.js'),
-  ];
+  const isWin = process.platform === 'win32';
+  const candidates: string[] = [];
+
+  if (isWin) {
+    // npm global on Windows: %APPDATA%\npm\node_modules\tota-agent\dist\index.js
+    const appData = process.env.APPDATA ?? join(homedir(), 'AppData', 'Roaming');
+    candidates.push(join(appData, 'npm', 'node_modules', 'tota-agent', 'dist', 'index.js'));
+    // Also try Program Files locations
+    candidates.push(join('C:\\Program Files\\nodejs\\node_modules', 'tota-agent', 'dist', 'index.js'));
+    candidates.push(join(homedir(), 'AppData', 'Local', 'npm', 'node_modules', 'tota-agent', 'dist', 'index.js'));
+  } else {
+    // macOS / Linux
+    candidates.push(
+      join(homedir(), '.nvm', 'versions', 'node', `v${ver}`, 'lib', 'node_modules', 'tota-agent', 'dist', 'index.js'),
+      join('/usr', 'local', 'lib', 'node_modules', 'tota-agent', 'dist', 'index.js'),
+      join('/opt', 'homebrew', 'lib', 'node_modules', 'tota-agent', 'dist', 'index.js'),
+      join('/usr', 'lib', 'node_modules', 'tota-agent', 'dist', 'index.js'),
+    );
+  }
+
   for (const p of candidates) {
     if (existsSync(p)) return p;
   }
-  // Last resort: use argv[1] even if not confirmed to exist
-  if (process.argv[1]) return process.argv[1];
-  throw new Error('Cannot determine tota script path for service install. Install globally via npm: npm install -g tota-agent');
+
+  // Last resort: use argv[1] even if it's the npx cache (better than nothing)
+  if (argv1) return argv1;
+  throw new Error('Cannot determine tota script path for service install. Install globally: npm install -g tota-agent');
 }
 
 export function installService(): void {
@@ -333,33 +355,49 @@ function installWindows(): void {
   // so cmd.exe doesn't treat the first inner " as the end of the /tr argument.
   const cmd = `\\"${nodeBin}\\" \\"${scriptPath}\\" start --daemon`;
 
+  // Show the raw (unescaped) command so the user can paste it directly into cmd
+  const rawCmd = `"${nodeBin}" "${scriptPath}" start --daemon`;
+
+  let taskCreated = false;
   try {
+    // /rl limited = run without elevation (default). Omit on systems where it fails.
     execSync(
-      `schtasks /create /tn "${WIN_TASK_NAME}" /tr "${cmd}" /sc onlogon /rl limited /f`,
-      { stdio: 'inherit', shell: 'cmd.exe' }
+      `schtasks /create /tn "${WIN_TASK_NAME}" /tr "${cmd}" /sc onlogon /f`,
+      { stdio: 'pipe', shell: 'cmd.exe' }
     );
-  } catch {
-    // Show the raw (unescaped) command so the user can paste it directly into cmd
-    const rawCmd = `"${nodeBin}" "${scriptPath}" start --daemon`;
-    console.log(chalk.yellow('  schtasks create failed. Try running from an Administrator cmd:'));
-    console.log(chalk.dim(`    schtasks /create /tn "${WIN_TASK_NAME}" /tr "${rawCmd}" /sc onlogon /rl limited /f`));
+    taskCreated = true;
+  } catch (e1: any) {
+    // Some Windows editions or GPO restrictions block schtasks without elevation.
+    // Show a clear message and the command the user can run as Administrator.
+    const msg: string = e1?.stderr?.toString?.() ?? e1?.message ?? '';
+    console.log('');
+    console.log(chalk.yellow('  schtasks create failed: ' + (msg.split('\n')[0]?.trim() || 'Access denied')));
+    console.log(chalk.dim('  To set up auto-start, run this once in an Administrator Command Prompt:'));
+    console.log('');
+    console.log(chalk.dim(`    schtasks /create /tn "${WIN_TASK_NAME}" /tr "${rawCmd}" /sc onlogon /f`));
+    console.log('');
+    console.log(chalk.dim('  Or just run `tota start` manually each session.'));
+    console.log('');
+    return;
   }
 
-  try {
-    execSync(`schtasks /run /tn "${WIN_TASK_NAME}"`, { stdio: 'inherit', shell: 'cmd.exe' });
-  } catch {
-    console.log(chalk.yellow('  Task created but failed to start immediately. It will start on next login.'));
-  }
+  if (taskCreated) {
+    try {
+      execSync(`schtasks /run /tn "${WIN_TASK_NAME}"`, { stdio: 'pipe', shell: 'cmd.exe' });
+    } catch {
+      console.log(chalk.yellow('  Task created but failed to start immediately. It will start on next login.'));
+    }
 
-  console.log('');
-  console.log(chalk.green('  tota service installed (Windows Task Scheduler)'));
-  console.log(chalk.dim(`  Task: ${WIN_TASK_NAME}`));
-  console.log(chalk.dim(`  Trigger: on logon`));
-  console.log(chalk.dim(`  Logs: ${logPath}`));
-  console.log(chalk.dim('  Auto-starts on login. Use --daemon flag for crash recovery.'));
-  console.log('');
-  console.log(chalk.dim('  Uninstall: tota service uninstall'));
-  console.log('');
+    console.log('');
+    console.log(chalk.green('  tota service installed (Windows Task Scheduler)'));
+    console.log(chalk.dim(`  Task: ${WIN_TASK_NAME}`));
+    console.log(chalk.dim(`  Trigger: on logon`));
+    console.log(chalk.dim(`  Logs: ${logPath}`));
+    console.log(chalk.dim('  Auto-starts on login. Use --daemon flag for crash recovery.'));
+    console.log('');
+    console.log(chalk.dim('  Uninstall: tota service uninstall'));
+    console.log('');
+  }
 }
 
 function uninstallWindows(): void {

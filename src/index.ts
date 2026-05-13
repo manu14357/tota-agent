@@ -1563,7 +1563,14 @@ async function configure(existingConfig?: TotaConfig, section?: string): Promise
   }
   console.log('');
   if (!section) {
-  console.log(chalk.cyan(`  ${config.identity.name} is ready. Run \`tota start\` to chat.`));
+  const _setupScriptPath = process.argv[1] ?? '';
+  const _isNpxSetup = _setupScriptPath.includes('_npx') || _setupScriptPath.includes('npx-cache') || _setupScriptPath.includes('.npm/_npx');
+  if (_isNpxSetup) {
+    console.log(chalk.cyan(`  ${config.identity.name} is ready. Run \`npx tota-agent start\` to chat.`));
+    console.log(chalk.yellow('  Tip: Install permanently with `npm i -g tota-agent` so `tota` is always available.'));
+  } else {
+    console.log(chalk.cyan(`  ${config.identity.name} is ready. Run \`tota start\` to chat.`));
+  }
   console.log(chalk.dim('  github.com/manu14357/tota-agent'));
   }
   console.log('');
@@ -1577,6 +1584,16 @@ function autoDaemonize(): void {
 
   if (!process.argv[1]) {
     console.log(chalk.dim('  Background mode not available in this context.'));
+    return;
+  }
+
+  // When running via npx, process.argv[1] is a temporary cache path that is
+  // cleaned up after the session — installing a scheduled task / service with
+  // that path would point to a non-existent file after the npx session ends.
+  const scriptPath = process.argv[1] ?? '';
+  const isNpx = scriptPath.includes('_npx') || scriptPath.includes('npx-cache') || scriptPath.includes('.npm/_npx');
+  if (isNpx) {
+    console.log(chalk.dim('  Background mode skipped (running via npx — install globally with `npm i -g tota-agent`).'));
     return;
   }
 
