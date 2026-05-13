@@ -1,6 +1,6 @@
 import { tool, zodSchema } from 'ai';
 import { z } from 'zod';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { resolve, isAbsolute } from 'node:path';
 import type { PermissionManager } from '../permissions.js';
 
@@ -22,15 +22,29 @@ export function createReadFileTool(permissions: PermissionManager, getCwd: () =>
         return `Error: File not found: ${resolved}`;
       }
 
+      // Resolve symlinks and re-validate real path to prevent TOCTOU symlink attacks
+      let realPath: string;
       try {
-        const stat = await import('node:fs').then(m => m.statSync(resolved));
+        realPath = realpathSync(resolved);
+      } catch {
+        return `Error: File not found: ${resolved}`;
+      }
+      if (realPath !== resolved) {
+        const recheck = await permissions.checkFsAccess(realPath, 'read');
+        if (!recheck.allowed) {
+          return `Error: Permission denied — symlink target is outside the allowed scope.`;
+        }
+      }
+
+      try {
+        const stat = await import('node:fs').then(m => m.statSync(realPath));
         if (stat.isDirectory()) {
           return `Error: ${resolved} is a directory, not a file. Use list_dir instead.`;
         }
         if (stat.size > 1024 * 1024) {
           return `Error: File too large (${Math.round(stat.size / 1024)}KB). Maximum is 1MB.`;
         }
-        return readFileSync(resolved, 'utf-8');
+        return readFileSync(realPath, 'utf-8');
       } catch (err: any) {
         return `Error reading file: ${err.message}`;
       }

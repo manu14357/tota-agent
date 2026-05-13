@@ -67,7 +67,11 @@ export class APIChannel extends BaseChannel {
   }
 
   private isAuthorized(req: IncomingMessage): boolean {
-    if (!this.apiKey) return true; // No auth configured
+    if (!this.apiKey) {
+      // No key configured — restrict to loopback connections only
+      const addr = req.socket.remoteAddress;
+      return addr === '127.0.0.1' || addr === '::1' || addr === '::ffff:127.0.0.1';
+    }
 
     const authHeader = req.headers['authorization'];
     if (authHeader?.startsWith('Bearer ')) {
@@ -80,10 +84,19 @@ export class APIChannel extends BaseChannel {
     return false;
   }
 
-  private async readBody(req: IncomingMessage): Promise<string> {
+  private async readBody(req: IncomingMessage, maxBytes = 10 * 1024 * 1024): Promise<string> {
     return new Promise((resolve, reject) => {
       const chunks: Buffer[] = [];
-      req.on('data', (chunk: Buffer) => chunks.push(chunk));
+      let total = 0;
+      req.on('data', (chunk: Buffer) => {
+        total += chunk.length;
+        if (total > maxBytes) {
+          req.destroy();
+          reject(Object.assign(new Error('Request body too large'), { code: 'ETOOLARGE' }));
+          return;
+        }
+        chunks.push(chunk);
+      });
       req.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
       req.on('error', reject);
     });
@@ -107,7 +120,12 @@ export class APIChannel extends BaseChannel {
       try {
         const raw = await this.readBody(req);
         body = JSON.parse(raw);
-      } catch {
+      } catch (err: any) {
+        if (err.code === 'ETOOLARGE') {
+          res.writeHead(413, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Request body too large (max 10MB)' }));
+          return;
+        }
         return this.badRequest(res, 'Invalid JSON body');
       }
 

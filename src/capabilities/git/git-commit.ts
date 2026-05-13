@@ -1,6 +1,6 @@
 import { tool, zodSchema } from 'ai';
 import { z } from 'zod';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { writeFileSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -18,7 +18,7 @@ export function createGitCommitTool(getCwd: () => string) {
         const cwd = getCwd();
         const msgFilePath = join(cwd, '.git', 'MERCU_MSG');
         writeFileSync(msgFilePath, fullMessage, 'utf-8');
-        const result = execSync(`git commit -F "${msgFilePath}"`, {
+        const result = execFileSync('git', ['commit', '-F', msgFilePath], {
           encoding: 'utf-8',
           timeout: 10000,
           cwd,

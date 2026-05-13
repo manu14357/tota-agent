@@ -1,6 +1,6 @@
 import { tool, zodSchema } from 'ai';
 import { z } from 'zod';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 
 export function createGitAddTool(getCwd: () => string) {
   return tool({
@@ -10,8 +10,7 @@ export function createGitAddTool(getCwd: () => string) {
     })),
     execute: async ({ paths }) => {
       try {
-        const fileArgs = paths.map(p => `"${p}"`).join(' ');
-        const result = execSync(`git add ${fileArgs}`, { encoding: 'utf-8', timeout: 10000, cwd: getCwd() });
+        execFileSync('git', ['add', '--', ...paths], { encoding: 'utf-8', timeout: 10000, cwd: getCwd() });
         return `Staged ${paths.length} file(s): ${paths.join(', ')}`;
       } catch (err: any) {
         return `Error: ${err.stderr?.trim() || err.message}`;

@@ -14,12 +14,21 @@ export function createInstallSkillTool(skillLoader: SkillLoader) {
       let skillContent: string;
 
       if (url && !content) {
+        // Enforce HTTPS to prevent MITM attacks on remote skills
+        if (!url.startsWith('https://')) {
+          return 'For security, skills can only be installed from HTTPS URLs.';
+        }
         try {
           const resp = await fetch(url);
           if (!resp.ok) {
             return `Failed to fetch skill from URL: ${resp.status} ${resp.statusText}`;
           }
-          skillContent = await resp.text();
+          // Limit download size to 1MB to prevent memory exhaustion
+          const buf = await resp.arrayBuffer();
+          if (buf.byteLength > 1024 * 1024) {
+            return 'Failed to fetch skill from URL: response exceeds 1MB size limit.';
+          }
+          skillContent = Buffer.from(buf).toString('utf-8');
         } catch (err: any) {
           return `Failed to fetch skill from URL: ${err.message}`;
         }

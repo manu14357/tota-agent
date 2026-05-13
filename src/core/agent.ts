@@ -307,16 +307,18 @@ export class Agent {
 
     this.processing = true;
 
-    while (this.messageQueue.length > 0) {
-      const msg = this.messageQueue.shift()!;
-      try {
-        await this.handleMessage(msg);
-      } catch (err) {
-        logger.error({ err, msg: msg.content.slice(0, 50) }, 'Failed to handle message');
+    try {
+      while (this.messageQueue.length > 0) {
+        const msg = this.messageQueue.shift()!;
+        try {
+          await this.handleMessage(msg);
+        } catch (err) {
+          logger.error({ err, msg: msg.content.slice(0, 50) }, 'Failed to handle message');
+        }
       }
+    } finally {
+      this.processing = false;
     }
-
-    this.processing = false;
   }
 
   async birth(): Promise<void> {
@@ -1693,11 +1695,6 @@ Results flow back to you. Chain multiple spawn_agent calls to build multi-step p
           : 'Telegram streaming disabled. Responses will arrive as a single message.',
         channelId,
       );
-      return true;
-    }
-    if (cmd === '/stream off') {
-      this.telegramStreaming = false;
-      await channel.send('Telegram streaming disabled. Responses will arrive as a single message.', channelId);
       return true;
     }
 

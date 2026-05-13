@@ -102,7 +102,7 @@ export class ShortTermMemory {
 
   private saveToDisk(conversationId: string, messages: MemoryEntry[]): void {
     const filepath = join(this.dir, `${conversationId}.json`);
-    writeFileSync(filepath, JSON.stringify(messages), 'utf-8');
+    writeFileSync(filepath, JSON.stringify(messages), { encoding: 'utf-8', mode: 0o600 });
   }
 }
 

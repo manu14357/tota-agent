@@ -1,6 +1,7 @@
 import { tool, zodSchema } from 'ai';
 import { z } from 'zod';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { existsSync, unlinkSync } from 'node:fs';
@@ -9,12 +10,11 @@ import type { VisionHandler } from '../vision/analyze-image.js';
 
 const MAX_OUTPUT = 8000;
 
-function adb(cmd: string, deviceId?: string): string {
-  const deviceFlag = deviceId ? `-s ${deviceId}` : '';
-  const full = `adb ${deviceFlag} ${cmd}`.trim();
+function adb(args: string[], deviceId?: string): string {
+  const fullArgs = deviceId ? ['-s', deviceId, ...args] : [...args];
   try {
-    logger.info({ cmd: full }, 'adb command');
-    const out = execSync(full, { encoding: 'utf-8', timeout: 30000, maxBuffer: 1024 * 1024 });
+    logger.info({ cmd: `adb ${fullArgs.join(' ')}` }, 'adb command');
+    const out = execFileSync('adb', fullArgs, { encoding: 'utf-8', timeout: 30000, maxBuffer: 1024 * 1024 });
     const trimmed = out.trim();
     return trimmed.length > MAX_OUTPUT ? trimmed.slice(0, MAX_OUTPUT) + '\n...(truncated)' : trimmed;
   } catch (err: any) {
@@ -28,7 +28,7 @@ function adb(cmd: string, deviceId?: string): string {
 }
 
 function adbAvailable(): boolean {
-  try { execSync('adb version', { stdio: 'pipe' }); return true; } catch { return false; }
+  try { execFileSync('adb', ['version'], { stdio: 'pipe' }); return true; } catch { return false; }
 }
 
 const ADB_MISSING = 'adb is not installed or not in PATH. Install Android SDK platform-tools and ensure "adb" is accessible.';
@@ -41,7 +41,7 @@ export function createAdbDevicesTool() {
     inputSchema: zodSchema(z.object({})),
     execute: async () => {
       if (!adbAvailable()) return ADB_MISSING;
-      return adb('devices -l');
+      return adb(['devices', '-l']);
     },
   });
 }
@@ -55,13 +55,13 @@ export function createAdbScreenshotTool(sendFileHandler?: (filePath: string) => 
     })),
     execute: async ({ device, send_to_user }) => {
       if (!adbAvailable()) return ADB_MISSING;
-      const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const id = randomUUID();
       const remotePath = `/sdcard/tota-screen-${id}.png`;
       const localPath = join(tmpdir(), `adb-screen-${id}.png`);
 
-      adb(`shell screencap -p ${remotePath}`, device);
-      adb(`pull ${remotePath} "${localPath}"`, device);
-      adb(`shell rm ${remotePath}`, device);
+      adb(['shell', 'screencap', '-p', remotePath], device);
+      adb(['pull', remotePath, localPath], device);
+      adb(['shell', 'rm', remotePath], device);
 
       if (!existsSync(localPath)) {
         return 'Screenshot failed: file not pulled from device.';
@@ -88,13 +88,13 @@ export function createAdbSeeTool(getVisionHandler: () => VisionHandler | null) {
       const handler = getVisionHandler();
       if (!handler) return 'Vision analysis is not available. Configure a vision-capable provider.';
 
-      const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const id = randomUUID();
       const remotePath = `/sdcard/tota-screen-${id}.png`;
       const localPath = join(tmpdir(), `adb-screen-${id}.png`);
 
-      adb(`shell screencap -p ${remotePath}`, device);
-      adb(`pull ${remotePath} "${localPath}"`, device);
-      adb(`shell rm ${remotePath}`, device);
+      adb(['shell', 'screencap', '-p', remotePath], device);
+      adb(['pull', remotePath, localPath], device);
+      adb(['shell', 'rm', remotePath], device);
 
       if (!existsSync(localPath)) {
         return 'Screenshot failed: file not pulled from device.';
@@ -123,7 +123,7 @@ export function createAdbTapTool() {
     })),
     execute: async ({ x, y, device }) => {
       if (!adbAvailable()) return ADB_MISSING;
-      return adb(`shell input tap ${x} ${y}`, device);
+      return adb(['shell', 'input', 'tap', String(x), String(y)], device);
     },
   });
 }
@@ -141,7 +141,7 @@ export function createAdbSwipeTool() {
     })),
     execute: async ({ from_x, from_y, to_x, to_y, duration_ms = 300, device }) => {
       if (!adbAvailable()) return ADB_MISSING;
-      return adb(`shell input swipe ${from_x} ${from_y} ${to_x} ${to_y} ${duration_ms}`, device);
+      return adb(['shell', 'input', 'swipe', String(from_x), String(from_y), String(to_x), String(to_y), String(duration_ms)], device);
     },
   });
 }
@@ -155,9 +155,9 @@ export function createAdbTypeTool() {
     })),
     execute: async ({ text, device }) => {
       if (!adbAvailable()) return ADB_MISSING;
-      // Escape spaces for adb shell input text
+      // Escape spaces for adb shell input text; execFileSync avoids host-level shell injection
       const escaped = text.replace(/ /g, '%s');
-      return adb(`shell input text "${escaped}"`, device);
+      return adb(['shell', 'input', 'text', escaped], device);
     },
   });
 }
@@ -171,7 +171,7 @@ export function createAdbKeyTool() {
     })),
     execute: async ({ keycode, device }) => {
       if (!adbAvailable()) return ADB_MISSING;
-      return adb(`shell input keyevent ${keycode}`, device);
+      return adb(['shell', 'input', 'keyevent', String(keycode)], device);
     },
   });
 }
@@ -185,7 +185,7 @@ export function createAdbShellTool() {
     })),
     execute: async ({ command, device }) => {
       if (!adbAvailable()) return ADB_MISSING;
-      return adb(`shell ${command}`, device);
+      return adb(['shell', command], device);
     },
   });
 }
@@ -200,7 +200,7 @@ export function createAdbPullTool() {
     })),
     execute: async ({ remote, local, device }) => {
       if (!adbAvailable()) return ADB_MISSING;
-      return adb(`pull "${remote}" "${local}"`, device);
+      return adb(['pull', remote, local], device);
     },
   });
 }
@@ -215,7 +215,7 @@ export function createAdbPushTool() {
     })),
     execute: async ({ local, remote, device }) => {
       if (!adbAvailable()) return ADB_MISSING;
-      return adb(`push "${local}" "${remote}"`, device);
+      return adb(['push', local, remote], device);
     },
   });
 }

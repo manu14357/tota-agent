@@ -1,6 +1,6 @@
 import { tool, zodSchema } from 'ai';
 import { z } from 'zod';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 
 export function createGitLogTool(getCwd: () => string) {
   return tool({
@@ -11,10 +11,10 @@ export function createGitLogTool(getCwd: () => string) {
     })),
     execute: async ({ count, path }) => {
       try {
-        const n = count ?? 10;
-        let cmd = `git log --oneline --decorate -${n}`;
-        if (path) cmd += ` -- "${path}"`;
-        const result = execSync(cmd, { encoding: 'utf-8', timeout: 10000, cwd: getCwd() });
+        const n = Math.min(Math.max(Math.floor(count ?? 10), 1), 200);
+        const args = ['log', '--oneline', '--decorate', `-${n}`];
+        if (path) args.push('--', path);
+        const result = execFileSync('git', args, { encoding: 'utf-8', timeout: 10000, cwd: getCwd() });
         if (!result.trim()) return 'No commits found.';
         return result.trim();
       } catch (err: any) {
