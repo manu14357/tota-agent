@@ -26,6 +26,7 @@ export class ProviderRegistry {
       config.providers.mimo,
       config.providers.mimoTokenPlan,
       config.providers.nvidia,
+      config.providers.openrouter,
     ];
 
     for (const pc of entries) {
@@ -45,6 +46,8 @@ export class ProviderRegistry {
         } else if (pc.name === 'mimo' || pc.name === 'mimoTokenPlan') {
           provider = new MiMoProvider(pc);
         } else if (pc.name === 'nvidia') {
+          provider = new OpenAICompatProvider(pc, { useChatApi: true });
+        } else if (pc.name === 'openrouter') {
           provider = new OpenAICompatProvider(pc, { useChatApi: true });
         } else {
           provider = new OpenAICompatProvider(pc);

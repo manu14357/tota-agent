@@ -295,6 +295,7 @@ const PROVIDER_OPTIONS: Array<{ key: ProviderName; label: string }> = [
   { key: 'mimo', label: 'MiMo (Xiaomi)' },
   { key: 'mimoTokenPlan', label: 'MiMo Token Plan (Xiaomi)' },
   { key: 'nvidia', label: 'NVIDIA NIM' },
+  { key: 'openrouter', label: 'OpenRouter' },
 ];
 
 function getConfiguredProviderNames(config: TotaConfig): ProviderName[] {
@@ -449,6 +450,12 @@ function validateApiKey(provider: ProviderName, value: string): string | null {
     return /^nvapi-[A-Za-z0-9_-]{20,}$/i.test(value)
       ? null
       : 'NVIDIA API keys must start with `nvapi-`.';
+  }
+
+  if (provider === 'openrouter') {
+    return /^sk-or-[A-Za-z0-9_-]{16,}$/i.test(value)
+      ? null
+      : 'OpenRouter API keys must start with `sk-or-`.';
   }
 
   return null;
@@ -995,6 +1002,22 @@ async function configure(existingConfig?: TotaConfig, section?: string): Promise
           config.providers.nvidia.apiKey = result.apiKey;
           config.providers.nvidia.model = result.model;
           config.providers.nvidia.enabled = true;
+        }
+      }
+
+      if (provider === 'openrouter') {
+        const mask = isReconfig && config.providers.openrouter.apiKey ? ` [${maskKey(config.providers.openrouter.apiKey)}]` : '';
+        const result = await promptApiKeyWithModelSelection(
+          config,
+          'openrouter',
+          'OpenRouter',
+          chalk.white(`  OpenRouter API key${mask}${isReconfig ? '' : ' (Enter to skip)'}: `),
+          isReconfig,
+        );
+        if (!result.skipped && result.apiKey && result.model) {
+          config.providers.openrouter.apiKey = result.apiKey;
+          config.providers.openrouter.model = result.model;
+          config.providers.openrouter.enabled = true;
         }
       }
     }

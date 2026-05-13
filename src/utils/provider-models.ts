@@ -74,6 +74,13 @@ const NVIDIA_PREFERRED_MODELS = [
   'z-ai/glm5',
 ] as const;
 
+const OPENROUTER_PREFERRED_MODELS = [
+  'openrouter/auto',
+  'moonshotai/kimi-k2.6',
+  'moonshotai/kimi-k2.5',
+  'deepseek-ai/deepseek-v4-pro',
+] as const;
+
 const OPENAI_COMPAT_PREFERRED_MODELS = [] as const;
 
 export class ProviderModelFetchError extends Error {
@@ -183,6 +190,7 @@ function chooseRecommendedModel(
     mimo: MIMO_PREFERRED_MODELS,
     mimoTokenPlan: MIMO_TOKEN_PLAN_PREFERRED_MODELS,
     nvidia: NVIDIA_PREFERRED_MODELS,
+    openrouter: OPENROUTER_PREFERRED_MODELS,
   };
 
   for (const candidate of preferredByProvider[provider]) {
@@ -220,6 +228,7 @@ export function buildModelCatalog(
     mimo: MIMO_PREFERRED_MODELS,
     mimoTokenPlan: MIMO_TOKEN_PLAN_PREFERRED_MODELS,
     nvidia: NVIDIA_PREFERRED_MODELS,
+    openrouter: OPENROUTER_PREFERRED_MODELS,
   };
 
   const withoutRecommended = filtered.filter((model) => model !== recommendedModel);
@@ -420,6 +429,40 @@ async function fetchNvidiaModels(config: ProviderConfig): Promise<ProviderModelC
   return buildModelCatalog('nvidia', staticModels, config.model);
 }
 
+async function fetchOpenRouterModels(config: ProviderConfig): Promise<ProviderModelCatalog> {
+  // OpenRouter uses OpenAI-compatible /models endpoint
+  try {
+    const data = await fetchJson<OpenAIModelResponse>(
+      `${trimTrailingSlash(config.baseUrl)}/models`,
+      {
+        headers: {
+          Authorization: `Bearer ${config.apiKey}`,
+        },
+      },
+      'tota could not fetch models for this OpenRouter API key. Please re-enter it.',
+    );
+
+    const ids = (data.data ?? [])
+      .map((model) => model.id?.trim() ?? '')
+      .filter((id) => id.length > 0 && !id.includes('embedding') && !id.includes('rerank'));
+
+    if (ids.length > 0) {
+      return buildModelCatalog('openrouter', ids, config.model);
+    }
+  } catch {
+    // Fall through to static catalog if live fetch fails
+  }
+
+  // Static fallback catalog when API is unreachable or returns empty list
+  const staticModels = [
+    'openrouter/auto',
+    'moonshotai/kimi-k2.6',
+    'moonshotai/kimi-k2.5',
+    'deepseek-ai/deepseek-v4-pro',
+  ];
+  return buildModelCatalog('openrouter', staticModels, config.model);
+}
+
 export async function fetchProviderModelCatalog(
   provider: ProviderName,
   config: ProviderConfig,
@@ -454,6 +497,10 @@ export async function fetchProviderModelCatalog(
 
   if (provider === 'nvidia') {
     return fetchNvidiaModels(config);
+  }
+
+  if (provider === 'openrouter') {
+    return fetchOpenRouterModels(config);
   }
 
   return fetchOpenAICompatModels(provider, config);

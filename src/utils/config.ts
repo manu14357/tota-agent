@@ -56,7 +56,8 @@ export type ProviderName =
   | 'openaiCompat'
   | 'mimo'
   | 'mimoTokenPlan'
-  | 'nvidia';
+  | 'nvidia'
+  | 'openrouter';
 
 export interface LoopGuardConfig {
   /** Max LLM steps per request (default 50). Raise for complex multi-tool tasks. */
@@ -123,6 +124,7 @@ export interface TotaConfig {
     mimo: ProviderConfig;
     mimoTokenPlan: ProviderConfig;
     nvidia: ProviderConfig;
+    openrouter: ProviderConfig;
   };
   channels: {
     telegram: {
@@ -304,6 +306,13 @@ export function getDefaultConfig(): TotaConfig {
         baseUrl: getEnv('NVIDIA_BASE_URL', 'https://integrate.api.nvidia.com/v1'),
         model: getEnv('NVIDIA_MODEL', 'nvidia/nemotron-3-super-120b-a12b'),
         enabled: getEnvBool('NVIDIA_ENABLED', true),
+      },
+      openrouter: {
+        name: 'openrouter',
+        apiKey: getEnv('OPENROUTER_API_KEY', ''),
+        baseUrl: getEnv('OPENROUTER_BASE_URL', 'https://openrouter.ai/api/v1'),
+        model: getEnv('OPENROUTER_MODEL', 'openrouter/auto'),
+        enabled: getEnvBool('OPENROUTER_ENABLED', true),
       },
     },
     channels: {
