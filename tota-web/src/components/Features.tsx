@@ -20,6 +20,9 @@ import {
   Mic,
   CalendarDays,
   Users,
+  Globe,
+  Monitor,
+  Smartphone,
 } from 'lucide-react'
 
 const features = [
@@ -184,6 +187,33 @@ const features = [
     accent: 'text-blue-400',
     bg: 'rgba(96,165,250,0.08)',
     borderColor: 'rgba(96,165,250,0.18)',
+  },
+  {
+    icon: Globe,
+    title: 'Browser Automation',
+    description:
+      '26 browser_* tools powered by Playwright. Click, type, scroll, hover, drag, evaluate JS, manage cookies and storage, export to PDF, set viewport, and switch between Chromium, Firefox, and WebKit engines.',
+    accent: 'text-sky-400',
+    bg: 'rgba(14,165,233,0.1)',
+    borderColor: 'rgba(14,165,233,0.2)',
+  },
+  {
+    icon: Monitor,
+    title: 'Computer-Use',
+    description:
+      'See and control your desktop with 9 computer_* tools. Screenshot, semantic vision (find-by-description), click, move, type, key-press, scroll, drag, and read screen dimensions — cross-platform.',
+    accent: 'text-teal-400',
+    bg: 'rgba(20,184,166,0.1)',
+    borderColor: 'rgba(20,184,166,0.2)',
+  },
+  {
+    icon: Smartphone,
+    title: 'Android Control',
+    description:
+      '10 adb_* tools for Android automation. Screenshot, vision, tap, swipe, type, key events, shell commands, and bidirectional file transfers — no root required, just ADB.',
+    accent: 'text-green-400',
+    bg: 'rgba(74,222,128,0.1)',
+    borderColor: 'rgba(74,222,128,0.2)',
   },
   {
     icon: Users,

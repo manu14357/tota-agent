@@ -179,3 +179,52 @@ describe('web_search tool — tavily provider', () => {
     }
   });
 });
+
+// ─── detectProvider regression: BRAVE_API_KEY env var takes precedence ────────
+// Regression test for the dead-code bug in detectProvider() where the second
+// condition `cfg.apiKey === process.env.BRAVE_API_KEY` was unreachable.
+// After the fix: only BRAVE_API_KEY env var is checked.
+
+describe('web_search tool — detectProvider fix regression', () => {
+  it('uses brave when BRAVE_API_KEY env is set, regardless of cfg.apiKey', async () => {
+    const calls: string[] = [];
+    const origFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn(async (url: any) => {
+      calls.push(String(url));
+      return new Response(JSON.stringify({ web: { results: [] } }), { status: 200 });
+    }) as any;
+
+    process.env.BRAVE_API_KEY = 'env-brave-key';
+    // cfg.apiKey intentionally different to prove env wins, not cfg match
+    const tool = createWebSearchTool(() => makeConfig({ provider: 'auto', apiKey: 'something-else' }));
+    try {
+      await execute(tool, { query: 'regression' });
+      expect(calls.length).toBe(1);
+      expect(calls[0]).toContain('brave');
+    } finally {
+      delete process.env.BRAVE_API_KEY;
+      globalThis.fetch = origFetch;
+    }
+  });
+
+  it('falls through to serper when BRAVE_API_KEY is absent but SERPER_API_KEY is set', async () => {
+    const calls: string[] = [];
+    const origFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn(async (url: any) => {
+      calls.push(String(url));
+      return new Response(JSON.stringify({ organic: [] }), { status: 200 });
+    }) as any;
+
+    delete process.env.BRAVE_API_KEY;
+    process.env.SERPER_API_KEY = 'env-serper-key';
+    const tool = createWebSearchTool(() => makeConfig({ provider: 'auto', apiKey: '' }));
+    try {
+      await execute(tool, { query: 'fallthrough' });
+      expect(calls.length).toBe(1);
+      expect(calls[0]).toContain('serper');
+    } finally {
+      delete process.env.SERPER_API_KEY;
+      globalThis.fetch = origFetch;
+    }
+  });
+});

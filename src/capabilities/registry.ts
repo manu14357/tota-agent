@@ -57,6 +57,22 @@ import {
   createBrowserKeyTool,
   createBrowserWaitTool,
   createBrowserEngineTool,
+  createBrowserHoverTool,
+  createBrowserSelectTool,
+  createBrowserDragTool,
+  createBrowserScrollIntoViewTool,
+  createBrowserGetUrlTool,
+  createBrowserReloadTool,
+  createBrowserEvaluateTool,
+  createBrowserNavigateTool,
+  createBrowserCookiesGetTool,
+  createBrowserCookiesSetTool,
+  createBrowserCookiesClearTool,
+  createBrowserStorageGetTool,
+  createBrowserStorageSetTool,
+  createBrowserStorageClearTool,
+  createBrowserPdfTool,
+  createBrowserSetViewportTool,
 } from './web/browser.js';
 import { loadMCPTools } from './mcp/mcp-loader.js';
 import {
@@ -333,6 +349,22 @@ export class CapabilityRegistry {
     this.tools.browser_key = createBrowserKeyTool();
     this.tools.browser_wait = createBrowserWaitTool();
     this.tools.browser_engine = createBrowserEngineTool();
+    this.tools.browser_hover = createBrowserHoverTool();
+    this.tools.browser_select = createBrowserSelectTool();
+    this.tools.browser_drag = createBrowserDragTool();
+    this.tools.browser_scroll_into_view = createBrowserScrollIntoViewTool();
+    this.tools.browser_get_url = createBrowserGetUrlTool();
+    this.tools.browser_reload = createBrowserReloadTool();
+    this.tools.browser_evaluate = createBrowserEvaluateTool();
+    this.tools.browser_navigate = createBrowserNavigateTool();
+    this.tools.browser_cookies_get = createBrowserCookiesGetTool();
+    this.tools.browser_cookies_set = createBrowserCookiesSetTool();
+    this.tools.browser_cookies_clear = createBrowserCookiesClearTool();
+    this.tools.browser_storage_get = createBrowserStorageGetTool();
+    this.tools.browser_storage_set = createBrowserStorageSetTool();
+    this.tools.browser_storage_clear = createBrowserStorageClearTool();
+    this.tools.browser_pdf = createBrowserPdfTool(this.sendFileHandler);
+    this.tools.browser_set_viewport = createBrowserSetViewportTool();
     logger.info('Browser automation tools registered');
 
     // Desktop computer-use tools

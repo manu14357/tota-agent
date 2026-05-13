@@ -64,7 +64,7 @@ async function searchTavily(query: string, apiKey: string, maxResults: number): 
 
 function detectProvider(cfg: WebSearchConfig): 'brave' | 'serper' | 'tavily' | null {
   if (cfg.provider !== 'auto') return cfg.provider;
-  if (process.env.BRAVE_API_KEY || (cfg.apiKey && cfg.apiKey === process.env.BRAVE_API_KEY)) return 'brave';
+  if (process.env.BRAVE_API_KEY) return 'brave';
   if (process.env.SERPER_API_KEY) return 'serper';
   if (process.env.TAVILY_API_KEY) return 'tavily';
   return null;

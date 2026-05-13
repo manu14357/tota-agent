@@ -7,6 +7,20 @@ import {
   createDeleteEventTool,
 } from './calendar.js';
 
+// Prevent real ~/.tota/calendar-token.json from interfering with tests that
+// explicitly test the "no saved token" path.  All other existsSync calls
+// (e.g. directory checks) still use the real implementation.
+vi.mock('node:fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs')>();
+  return {
+    ...actual,
+    existsSync: vi.fn((path: string) => {
+      if (typeof path === 'string' && path.includes('calendar-token')) return false;
+      return actual.existsSync(path);
+    }),
+  };
+});
+
 function execute(tool: any, args: any): Promise<string> {
   return (tool as any).execute(args);
 }
