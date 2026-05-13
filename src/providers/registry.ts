@@ -25,6 +25,7 @@ export class ProviderRegistry {
       config.providers.openaiCompat,
       config.providers.mimo,
       config.providers.mimoTokenPlan,
+      config.providers.nvidia,
     ];
 
     for (const pc of entries) {

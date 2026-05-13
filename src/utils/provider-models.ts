@@ -67,6 +67,13 @@ const MIMO_PREFERRED_MODELS = [
 
 const MIMO_TOKEN_PLAN_PREFERRED_MODELS = MIMO_PREFERRED_MODELS;
 
+const NVIDIA_PREFERRED_MODELS = [
+  'nvidia/nemotron-3-super-120b-a12b',
+  'moonshotai/kimi-k2.5',
+  'minimaxai/minimax-m2.5',
+  'z-ai/glm5',
+] as const;
+
 const OPENAI_COMPAT_PREFERRED_MODELS = [] as const;
 
 export class ProviderModelFetchError extends Error {
@@ -175,6 +182,7 @@ function chooseRecommendedModel(
     openaiCompat: OPENAI_COMPAT_PREFERRED_MODELS,
     mimo: MIMO_PREFERRED_MODELS,
     mimoTokenPlan: MIMO_TOKEN_PLAN_PREFERRED_MODELS,
+    nvidia: NVIDIA_PREFERRED_MODELS,
   };
 
   for (const candidate of preferredByProvider[provider]) {
@@ -211,6 +219,7 @@ export function buildModelCatalog(
     openaiCompat: OPENAI_COMPAT_PREFERRED_MODELS,
     mimo: MIMO_PREFERRED_MODELS,
     mimoTokenPlan: MIMO_TOKEN_PLAN_PREFERRED_MODELS,
+    nvidia: NVIDIA_PREFERRED_MODELS,
   };
 
   const withoutRecommended = filtered.filter((model) => model !== recommendedModel);
@@ -377,6 +386,40 @@ async function fetchMiMoTokenPlanModels(config: ProviderConfig): Promise<Provide
   return buildModelCatalog('mimoTokenPlan', ids, config.model);
 }
 
+async function fetchNvidiaModels(config: ProviderConfig): Promise<ProviderModelCatalog> {
+  // NVIDIA NIM uses OpenAI-compatible /models endpoint
+  try {
+    const data = await fetchJson<OpenAIModelResponse>(
+      `${trimTrailingSlash(config.baseUrl)}/models`,
+      {
+        headers: {
+          Authorization: `Bearer ${config.apiKey}`,
+        },
+      },
+      'tota could not fetch models for this NVIDIA API key. Please re-enter it.',
+    );
+
+    const ids = (data.data ?? [])
+      .map((model) => model.id?.trim() ?? '')
+      .filter((id) => id.length > 0 && !id.includes('embedding') && !id.includes('rerank'));
+
+    if (ids.length > 0) {
+      return buildModelCatalog('nvidia', ids, config.model);
+    }
+  } catch {
+    // Fall through to static catalog if live fetch fails
+  }
+
+  // Static fallback catalog when API is unreachable or returns empty list
+  const staticModels = [
+    'nvidia/nemotron-3-super-120b-a12b',
+    'moonshotai/kimi-k2.5',
+    'minimaxai/minimax-m2.5',
+    'z-ai/glm5',
+  ];
+  return buildModelCatalog('nvidia', staticModels, config.model);
+}
+
 export async function fetchProviderModelCatalog(
   provider: ProviderName,
   config: ProviderConfig,
@@ -407,6 +450,10 @@ export async function fetchProviderModelCatalog(
 
   if (provider === 'mimoTokenPlan') {
     return fetchMiMoTokenPlanModels(config);
+  }
+
+  if (provider === 'nvidia') {
+    return fetchNvidiaModels(config);
   }
 
   return fetchOpenAICompatModels(provider, config);

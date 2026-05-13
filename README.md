@@ -490,6 +490,7 @@ All runtime data lives in `~/.tota/`.
 | **Ollama Cloud** | gpt-oss:120b | `OLLAMA_CLOUD_API_KEY` |
 | **Ollama Local** | gpt-oss:20b | — |
 | **OpenAI-compat** | custom | `OPENAI_COMPAT_BASE_URL` |
+| **NVIDIA NIM** | nemotron-3-super-120b | `NVIDIA_API_KEY` |
 
 tota tries providers in order and falls back automatically on failure.
 

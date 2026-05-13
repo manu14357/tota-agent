@@ -55,7 +55,8 @@ export type ProviderName =
   | 'ollamaLocal'
   | 'openaiCompat'
   | 'mimo'
-  | 'mimoTokenPlan';
+  | 'mimoTokenPlan'
+  | 'nvidia';
 
 export interface LoopGuardConfig {
   /** Max LLM steps per request (default 50). Raise for complex multi-tool tasks. */
@@ -121,6 +122,7 @@ export interface TotaConfig {
     openaiCompat: ProviderConfig;
     mimo: ProviderConfig;
     mimoTokenPlan: ProviderConfig;
+    nvidia: ProviderConfig;
   };
   channels: {
     telegram: {
@@ -295,6 +297,13 @@ export function getDefaultConfig(): TotaConfig {
         baseUrl: getEnv('MIMO_TOKEN_PLAN_BASE_URL', 'https://token-plan-cn.xiaomimimo.com/v1'),
         model: getEnv('MIMO_TOKEN_PLAN_MODEL', 'mimo-v2.5-pro'),
         enabled: getEnvBool('MIMO_TOKEN_PLAN_ENABLED', false),
+      },
+      nvidia: {
+        name: 'nvidia',
+        apiKey: getEnv('NVIDIA_API_KEY', ''),
+        baseUrl: getEnv('NVIDIA_BASE_URL', 'https://integrate.api.nvidia.com/v1'),
+        model: getEnv('NVIDIA_MODEL', 'nvidia/nemotron-3-super-120b-a12b'),
+        enabled: getEnvBool('NVIDIA_ENABLED', true),
       },
     },
     channels: {

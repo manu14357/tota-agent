@@ -3,7 +3,7 @@ title: Provider Fallback
 ---
 
 
-tota supports 9 AI providers and tries them in order when the primary fails — rate limits, network errors, API outages. You configure providers once during setup; the fallback chain is automatic.
+tota supports 10 AI providers and tries them in order when the primary fails — rate limits, network errors, API outages. You configure providers once during setup; the fallback chain is automatic.
 
 ## Supported providers
 
@@ -17,6 +17,7 @@ tota supports 9 AI providers and tries them in order when the primary fails — 
 | Ollama (local) | `llama3.2:latest` | *(none)* |
 | Ollama (cloud) | `llama3.2:latest` | `OLLAMA_API_KEY` |
 | OpenAI-compatible | your chosen model | `OPENAI_COMPAT_API_KEY` |
+| NVIDIA NIM | `nvidia/nemotron-3-super-120b-a12b` | `NVIDIA_API_KEY` |
 
 <Callout type="info">
   **Env vars are optional** — tota stores keys in `~/.tota/config.json`. The env vars are only for CI/CD environments or if you prefer not to use the config file.
