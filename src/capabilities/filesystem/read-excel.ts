@@ -2,14 +2,15 @@ import { tool, zodSchema } from 'ai';
 import { z } from 'zod';
 import { existsSync, statSync } from 'node:fs';
 import { resolve, isAbsolute, extname } from 'node:path';
+import ExcelJS from 'exceljs';
 import type { PermissionManager } from '../permissions.js';
 
-const EXCEL_EXTS = new Set(['.xlsx', '.xlsm', '.xls', '.xlsb', '.ods', '.csv']);
+const EXCEL_EXTS = new Set(['.xlsx', '.xlsm', '.xls', '.csv']);
 
 export function createReadExcelTool(permissions: PermissionManager, getCwd: () => string) {
   return tool({
     description:
-      'Read an Excel or spreadsheet file (.xlsx, .xls, .ods, .csv). Returns sheet names and data as a markdown table or JSON. Use this when the user sends or references a spreadsheet file.',
+      'Read an Excel or spreadsheet file (.xlsx, .xls, .csv). Returns sheet names and data as a markdown table or JSON. Use this when the user sends or references a spreadsheet file.',
     inputSchema: zodSchema(
       z.object({
         path: z.string().describe('Absolute or relative path to the Excel/spreadsheet file'),
@@ -53,51 +54,53 @@ export function createReadExcelTool(permissions: PermissionManager, getCwd: () =
       }
 
       try {
-        const XLSX = await import('xlsx').catch((e) => {
-          throw new Error(`xlsx is not installed. Run: npm install xlsx\n${e.message}`);
-        });
+        const workbook = new ExcelJS.Workbook();
 
-        const workbook = XLSX.readFile(resolved, { cellDates: true });
-        const sheetNames = workbook.SheetNames;
+        if (ext === '.csv') {
+          await workbook.csv.readFile(resolved);
+        } else {
+          await workbook.xlsx.readFile(resolved);
+        }
 
-        if (sheetNames.length === 0) {
+        const worksheets = workbook.worksheets;
+        if (worksheets.length === 0) {
           return `Error: Workbook contains no sheets.`;
         }
 
-        let targetSheet = sheetNames[0];
+        const sheetNames = worksheets.map((ws) => ws.name);
+
+        let worksheet: ExcelJS.Worksheet = worksheets[0];
         if (sheet) {
-          if (sheetNames.includes(sheet)) {
-            targetSheet = sheet;
-          } else {
-            const idx = parseInt(sheet, 10) - 1;
-            if (!isNaN(idx) && idx >= 0 && idx < sheetNames.length) {
-              targetSheet = sheetNames[idx];
-            } else {
-              return `Error: Sheet "${sheet}" not found. Available sheets: ${sheetNames.join(', ')}`;
-            }
+          const found =
+            workbook.getWorksheet(sheet) ?? workbook.getWorksheet(parseInt(sheet, 10));
+          if (!found) {
+            return `Error: Sheet "${sheet}" not found. Available sheets: ${sheetNames.join(', ')}`;
           }
+          worksheet = found;
         }
 
-        const worksheet = workbook.Sheets[targetSheet];
-        const allRows = XLSX.utils.sheet_to_json<(string | number | boolean | null)[]>(
-          worksheet,
-          { header: 1, defval: '' },
-        ) as (string | number | boolean | null)[][];
+        const allRows: string[][] = [];
+        worksheet.eachRow({ includeEmpty: false }, (row) => {
+          const values = (
+            row.values as (ExcelJS.CellValue | null | undefined)[]
+          ).slice(1);
+          allRows.push(values.map((v) => formatCellValue(v)));
+        });
 
         if (allRows.length === 0) {
-          return `Sheet "${targetSheet}" is empty.\nAvailable sheets: ${sheetNames.join(', ')}`;
+          return `Sheet "${worksheet.name}" is empty.\nAvailable sheets: ${sheetNames.join(', ')}`;
         }
 
-        const header = allRows[0].map((c) => String(c ?? ''));
-        const dataRows = allRows.slice(1, 1 + max_rows).map((r) =>
-          header.map((_, i) => String(r[i] ?? '')),
-        );
+        const header = allRows[0];
+        const dataRows = allRows.slice(1, 1 + max_rows);
         const truncated = allRows.length - 1 > max_rows;
 
         let output =
           `File: ${resolved}\n` +
-          `Sheet: ${targetSheet} (${allRows.length - 1} data rows)\n` +
-          (sheetNames.length > 1 ? `Other sheets: ${sheetNames.filter((n) => n !== targetSheet).join(', ')}\n` : '') +
+          `Sheet: ${worksheet.name} (${allRows.length - 1} data rows)\n` +
+          (sheetNames.length > 1
+            ? `Other sheets: ${sheetNames.filter((n) => n !== worksheet.name).join(', ')}\n`
+            : '') +
           (truncated ? `(Showing first ${max_rows} of ${allRows.length - 1} rows)\n` : '') +
           '\n';
 
@@ -116,7 +119,6 @@ export function createReadExcelTool(permissions: PermissionManager, getCwd: () =
 
         return output;
       } catch (err: any) {
-        if (err.message?.includes('xlsx is not installed')) return `Error: ${err.message}`;
         return `Error reading Excel file: ${err.message}`;
       }
     },
@@ -152,33 +154,42 @@ export function createWriteExcelTool(permissions: PermissionManager, getCwd: () 
       }
 
       try {
-        const XLSX = await import('xlsx').catch((e) => {
-          throw new Error(`xlsx is not installed. Run: npm install xlsx\n${e.message}`);
-        });
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet(sheet_name);
 
-        const wsData = [headers, ...rows.map((r) => r.map((v) => v ?? ''))];
-        const worksheet = XLSX.utils.aoa_to_sheet(wsData);
-
-        // Auto-fit column widths (approximate)
-        const colWidths = headers.map((h, i) =>
-          Math.min(
+        // Set column widths (key-only: no auto header row)
+        worksheet.columns = headers.map((h, i) => ({
+          key: String(i),
+          width: Math.min(
             Math.max(h.length, ...rows.map((r) => String(r[i] ?? '').length), 10) + 2,
             60,
           ),
-        );
-        worksheet['!cols'] = colWidths.map((w) => ({ wch: w }));
+        }));
 
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, worksheet, sheet_name);
-        XLSX.writeFile(wb, resolved);
+        // Header row with bold formatting
+        const headerRow = worksheet.addRow(headers);
+        headerRow.font = { bold: true };
 
+        // Data rows
+        for (const row of rows) {
+          worksheet.addRow(row.map((v) => v ?? ''));
+        }
+
+        await workbook.xlsx.writeFile(resolved);
         return `Excel file written: ${resolved} (${rows.length} rows, ${headers.length} columns)`;
       } catch (err: any) {
-        if (err.message?.includes('xlsx is not installed')) return `Error: ${err.message}`;
         return `Error writing Excel file: ${err.message}`;
       }
     },
   });
+}
+
+function formatCellValue(v: unknown): string {
+  if (v == null) return '';
+  if (v instanceof Date) return v.toISOString().slice(0, 10);
+  if (typeof v === 'object' && 'text' in (v as object)) return String((v as any).text);
+  if (typeof v === 'object' && 'result' in (v as object)) return String((v as any).result);
+  return String(v);
 }
 
 function renderMarkdownTable(headers: string[], rows: string[][]): string {
@@ -195,4 +206,3 @@ function renderMarkdownTable(headers: string[], rows: string[][]): string {
 
   return [headerLine, sepLine, ...dataLines].join('\n');
 }
-
