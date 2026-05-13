@@ -192,7 +192,7 @@ export default function Hero() {
             }}
           >
             <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#00A9FF' }} />
-            v0.0.3 · 70+ built-in tools · 9 AI providers · WhatsApp · Browser · Computer-use · Android · MCP plugins
+            v0.0.4 · 70+ built-in tools · 11 AI providers · WhatsApp · Browser · Computer-use · Android · MCP plugins
           </span>
         </div>
 

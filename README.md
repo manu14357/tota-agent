@@ -8,7 +8,7 @@
 
 <p align="center">
   Remembers what matters. Asks before it acts. Runs 24/7 from CLI, Telegram, WhatsApp, or REST API.<br>
-  50+ built-in tools · Web search · Vision · Code sandbox · Browser automation (26 tools) · Computer-use · Android control · Document readers · MCP plugins · Extensible skills · SQLite-backed Second Brain memory.
+  60+ built-in tools · Web search · Vision · Code sandbox · Browser automation (36 tools) · Computer-use · Android control · Document readers · MCP plugins · Extensible skills · SQLite-backed Second Brain memory · 11 LLM providers (NVIDIA NIM, OpenRouter, DeepSeek, OpenAI, Anthropic, Grok, Ollama, MiMo…).
 </p>
 
 <p align="center">

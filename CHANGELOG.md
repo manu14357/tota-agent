@@ -2,6 +2,65 @@
 
 All notable changes to tota-agent will be documented here.
 
+## 0.0.4 — (2026-05-13)
+
+### New LLM Providers
+
+- **NVIDIA NIM** (`nvidia`) — OpenAI-compatible API at `https://integrate.api.nvidia.com/v1`; default model `nvidia/nemotron-3-super-120b-a12b` (262k context); key format `nvapi-…`; live `/models` fetch with 4-model static fallback catalog; fully integrated into setup wizard (option 10)
+- **OpenRouter** (`openrouter`) — Routes to 300+ models via a single API key at `https://openrouter.ai/api/v1`; default model `openrouter/auto` (automatic routing); key format `sk-or-…`; live `/models` fetch with 4-model static fallback; integrated into setup wizard (option 11)
+- tota now supports **11 LLM providers** with automatic fallback chain
+
+### New Browser Tools (26 added, total 36)
+
+- **`browser_fetch`** — HTTP GET with headers + JSON/text response
+- **`browser_navigate`** — Navigate to a URL with wait-for-load control
+- **`browser_evaluate`** — Execute arbitrary JavaScript in page context (IIFE-wrapped, returns real values)
+- **`browser_cookies_get`** / **`browser_cookies_set`** / **`browser_cookies_clear`** — Cookie management
+- **`browser_storage_get`** / **`browser_storage_set`** / **`browser_storage_clear`** — `localStorage` / `sessionStorage` access
+- **`browser_pdf`** — Print current page to PDF with paper/margin options
+- **`browser_viewport`** — Set viewport width and height
+- **`browser_select`** — Choose a `<select>` option by value or label
+- **`browser_hover`** — Hover over an element
+- **`browser_focus`** — Focus an input element
+- **`browser_check`** / **`browser_uncheck`** — Check or uncheck checkboxes
+- **`browser_upload`** — Upload files to `<input type="file">` elements
+- **`browser_dialog`** — Accept or dismiss browser dialogs (alert / confirm / prompt)
+- **`browser_network`** — Intercept and inspect network requests
+- **`browser_frame`** — Switch execution context to an iframe
+- **`browser_new_tab`** / **`browser_close_tab`** / **`browser_tabs`** — Multi-tab management
+- **`browser_back`** / **`browser_forward`** / **`browser_reload`** — Navigation history
+
+### Security Fixes
+
+- **API channel auth bypass** — Unauthenticated requests now restricted to loopback (`127.0.0.1` / `::1`) only
+- **DoS body size limit** — HTTP 413 enforced at 10 MB on the API channel
+- **Git command injection** — All 6 git tools (`git-add`, `git-commit`, `git-diff`, `git-log`, `git-push`, `git-status`) converted from `execSync` string interpolation to `execFileSync` with array arguments
+- **ADB command injection** — `adb.ts` converted to `execFileSync` array args; temp filenames use `randomUUID()` instead of `Date.now()+Math.random()`
+- **TOCTOU symlink attack** — `read-file.ts` now resolves symlinks with `realpathSync` after permission check and re-validates the real path is inside the approved scope
+- **Processing flag deadlock** — `agent.ts` message queue wrapped in `try/finally` so `processing` flag is always cleared on exception
+- **Skill HTTPS enforcement** — Remote skill URLs validated for HTTPS; 1 MB download cap added
+- **`delay_seconds` overflow** — Added `positive()` and `.max(365 * 86400)` validation in `schedule-task.ts`
+- **Conversation file permissions** — `store.ts` writes conversation files with `0o600` (owner-only)
+- **protobufjs CVE** — Overridden to `>=7.5.5` to fix GHSA-xq3m-2v4x-88gg (critical)
+- **NVIDIA model-id validation** — Fixed 1273 Vercel AI SDK schema errors by routing NVIDIA through `useChatApi: true`
+
+### Bug Fixes
+
+- **npx detection** — `tota-agent` bin alias added; detects when run via `npx` and prompts for global install
+- **Termux / Android install** — Detects `spawn git ENOENT` failures; shows platform-specific instructions including SSH→HTTPS git-config rewrite needed for `@whiskeysockets/libsignal-node`
+- **Windows upgrade hint** — `EEXIST` shim-delete error now shows PowerShell commands (`Remove-Item`) alongside Unix ones
+- **Duplicate `/stream off` handler** — Dead code removed from `agent.ts`
+
+### CI / DevOps
+
+- **Security workflow** — `npm audit` + CodeQL analysis added to GitHub Actions; runs on push and weekly schedule
+- README badges updated (security workflow, npm version, license)
+
+### Docs / Web
+
+- Landing page Hero updated: animated terminal demo, mobile search, responsive layout fixes
+- `tota-web` docs: v0.0.3 content updates backported; mobile layout fixes (code block padding, text size, search overflow, TOC border)
+
 ## 0.0.3 — (2026-05-11)
 
 ### New Channels

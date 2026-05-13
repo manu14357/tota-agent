@@ -71,6 +71,22 @@ const providers = [
     border: 'rgba(34,211,238,0.2)',
     description: 'Token-based pricing',
   },
+  {
+    name: 'NVIDIA NIM',
+    model: 'nemotron-3-super-120b',
+    color: '#76b900',
+    bg: 'rgba(118,185,0,0.08)',
+    border: 'rgba(118,185,0,0.2)',
+    description: '262k ctx · 100s of models',
+  },
+  {
+    name: 'OpenRouter',
+    model: 'openrouter/auto',
+    color: '#7c3aed',
+    bg: 'rgba(124,58,237,0.08)',
+    border: 'rgba(124,58,237,0.2)',
+    description: '300+ models · One API key',
+  },
 ]
 
 export default function Providers() {
@@ -80,7 +96,7 @@ export default function Providers() {
         {/* Header */}
         <div className="text-center mb-12">
           <h2 className="text-3xl sm:text-4xl font-bold mb-4" style={{ color: 'var(--fg)' }}>
-            9 providers. Automatic fallback.
+            11 providers. Automatic fallback.
           </h2>
           <p className="text-lg max-w-2xl mx-auto" style={{ color: 'var(--fg-muted)' }}>
             Configure multiple LLM providers and tota tries them in order,
@@ -90,13 +106,13 @@ export default function Providers() {
         </div>
 
         {/* Provider grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 mb-8 sm:mb-12">
-          {providers.slice(0, 5).map((p) => (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 mb-8 sm:mb-12">
+          {providers.slice(0, 6).map((p) => (
             <ProviderCard key={p.name} {...p} />
           ))}
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 max-w-4xl mx-auto">
-          {providers.slice(5).map((p) => (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 max-w-5xl mx-auto">
+          {providers.slice(6).map((p) => (
             <ProviderCard key={p.name} {...p} />
           ))}
         </div>

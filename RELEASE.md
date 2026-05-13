@@ -1,3 +1,87 @@
+# Release v0.0.4
+
+## tota-agent v0.0.4
+
+**Security & Providers release** by [manu14357](https://github.com/manu14357). This release hardens the agent against 9 security vulnerabilities, expands the browser automation suite to 36 tools, and adds 2 new LLM providers — NVIDIA NIM and OpenRouter — bringing the total to **11 providers with automatic fallback**.
+
+### Highlights
+
+- **NVIDIA NIM** — Access `nvidia/nemotron-3-super-120b-a12b` and hundreds more via `integrate.api.nvidia.com/v1`. Key prefix `nvapi-`. Integrated into setup wizard as option 10.
+- **OpenRouter** — Route to 300+ models through a single `sk-or-…` key at `openrouter.ai/api/v1`. Default model `openrouter/auto` lets OpenRouter pick the best available. Integrated as wizard option 11.
+- **9 Security Fixes** — Git/ADB command injection, API auth bypass, body-size DoS, TOCTOU symlink attack, processing flag deadlock, skill HTTPS enforcement, delay_seconds overflow, file permission hardening, and protobufjs CVE (GHSA-xq3m-2v4x-88gg).
+- **26 new browser tools** — Total browser capability: 36 tools covering cookies, storage, PDF, viewport, multi-tab, file upload, dialogs, network interception, iframes, and navigation history.
+- **Termux / Android install fix** — Detects missing `git` and shows the exact `pkg install git` + SSH→HTTPS rewrite steps.
+- **CodeQL + npm audit CI** — Automated security scanning on every push.
+- **312 tests, 19 files** — All passing.
+
+### What's New In Detail
+
+#### New LLM Providers (total: 11)
+
+| Provider | Key env var | Default model | Notes |
+|----------|------------|---------------|-------|
+| NVIDIA NIM | `NVIDIA_API_KEY` | `nvidia/nemotron-3-super-120b-a12b` | 262k context, 8192 max tokens |
+| OpenRouter | `OPENROUTER_API_KEY` | `openrouter/auto` | Routes to 300+ models |
+
+Both providers:
+- Use `useChatApi: true` (OpenAI-compatible chat completions path) — avoids Vercel AI SDK model-id validation
+- Live `/models` endpoint fetch during setup wizard → falls back to curated 4-model static catalog
+- Key format validation in wizard (`nvapi-…` / `sk-or-…`)
+- `OPENROUTER_MODEL`, `NVIDIA_MODEL` env vars for CI/CD
+
+#### New Browser Tools (26 added → 36 total)
+
+| Category | Tools |
+|---|---|
+| HTTP | `browser_fetch` |
+| Navigation | `browser_navigate`, `browser_back`, `browser_forward`, `browser_reload` |
+| JavaScript | `browser_evaluate` (IIFE-wrapped, real return values) |
+| Cookies | `browser_cookies_get/set/clear` |
+| Storage | `browser_storage_get/set/clear` |
+| PDF | `browser_pdf` |
+| Viewport | `browser_viewport` |
+| Form elements | `browser_select`, `browser_check/uncheck`, `browser_upload`, `browser_focus` |
+| Mouse | `browser_hover` |
+| Dialogs | `browser_dialog` |
+| Network | `browser_network` |
+| iframes | `browser_frame` |
+| Tabs | `browser_new_tab`, `browser_close_tab`, `browser_tabs` |
+
+#### Security Fixes (9)
+
+| Area | Fix |
+|---|---|
+| API channel | Restrict unauthenticated access to loopback only; 10 MB body-size cap (HTTP 413) |
+| Git tools (6) | `execFileSync` array args instead of `execSync` string interpolation |
+| ADB tools | `execFileSync` array args; `randomUUID()` for temp filenames |
+| `read-file.ts` | `realpathSync` + re-validate real path after permission check (TOCTOU) |
+| `agent.ts` | `try/finally` around message queue so `processing` flag always clears |
+| `install-skill.ts` | HTTPS-only for remote URLs; 1 MB download cap |
+| `schedule-task.ts` | `positive().max(365d)` on `delay_seconds` |
+| `store.ts` | Conversation files written with `0o600` permissions |
+| protobufjs | Overridden to `>=7.5.5` (GHSA-xq3m-2v4x-88gg, critical) |
+
+#### Bug Fixes
+
+| Area | Fix |
+|---|---|
+| npx | `tota-agent` bin alias added; detects `npx` run and prompts global install |
+| Termux/Android | Detects `spawn git ENOENT`; shows `pkg install git` + SSH→HTTPS rewrite |
+| Windows upgrade | `EEXIST` hint now shows `Remove-Item` PowerShell commands |
+| NVIDIA provider | Fixed 1273 Vercel AI SDK schema errors — use `useChatApi:true` |
+| Duplicate handler | Removed dead `/stream off` handler in `agent.ts` |
+
+#### CI / DevOps
+
+- GitHub Actions: `npm audit` + CodeQL (push + weekly schedule)
+- README security workflow + npm version badges added
+
+### Migration from v0.0.3
+
+No breaking changes. Just `npm i -g tota-agent` or `npx tota-agent`. Run `tota setup` to add NVIDIA NIM or OpenRouter to your provider chain.
+
+---
+
 # Release v0.0.3
 
 ## tota-agent v0.0.3
