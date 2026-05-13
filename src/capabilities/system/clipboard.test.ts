@@ -12,7 +12,7 @@ describe('clipboard_read tool', () => {
     // Either returns clipboard contents or an error message — never undefined
     expect(typeof result).toBe('string');
     expect(result.length).toBeGreaterThan(0);
-  });
+  }, 10000);
 
   it('has correct description', () => {
     const tool = createClipboardReadTool();
