@@ -44,6 +44,8 @@ export class ProviderRegistry {
           provider = new OpenAICompatProvider(pc, { useChatApi: true });
         } else if (pc.name === 'mimo' || pc.name === 'mimoTokenPlan') {
           provider = new MiMoProvider(pc);
+        } else if (pc.name === 'nvidia') {
+          provider = new OpenAICompatProvider(pc, { useChatApi: true });
         } else {
           provider = new OpenAICompatProvider(pc);
         }
