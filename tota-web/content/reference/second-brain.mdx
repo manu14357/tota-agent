@@ -7,47 +7,56 @@ tota automatically extracts memories from your conversations and stores them in 
 
 ## Memory types
 
-| Type | Description | Persistence |
-|------|-------------|-------------|
-| `fact` | A concrete piece of information about you or your context | Durable |
-| `preference` | How you like things done | Durable |
-| `project` | A project goal, structure, or constraint | Durable |
-| `code` | A code pattern, snippet, or convention | Durable |
-| `workflow` | A repeatable process or sequence of steps | Durable |
-| `contact` | A person, role, or team relationship | Durable |
-| `event` | A past event, decision, or notable moment | Durable |
-| `goal` | Something you're working toward | Durable |
-| `context` | Session context — current task, working directory | Active (short-lived) |
-| `reminder` | A time-based prompt to revisit something | Active |
+| Type | Description | Scope |
+|------|-------------|-------|
+| `identity` | Who you are — name, role, background, skills | Durable |
+| `preference` | How you like things done — style, format, tool choices | Durable |
+| `goal` | Something you're actively working toward | Durable |
+| `project` | A project goal, structure, stack, or constraint | Durable |
+| `habit` | Repeated patterns in how you work | Durable |
+| `decision` | A choice made and its rationale | Durable |
+| `constraint` | A hard limit, rule, or non-negotiable | Durable |
+| `relationship` | A person, team, or organization you work with | Durable |
+| `episode` | A notable event, milestone, or past outcome | Durable |
+| `reflection` | Auto-generated summaries tota creates by consolidating related memories | Durable |
 
 ## How it works
 
 1. **Extract** — After each response, tota scans the conversation for notable information
-2. **Score** — Assigns relevance and novelty scores to candidate memories
-3. **Recall** — Before responding, retrieves the top 5 most relevant memories via FTS5
-4. **Consolidate** — Merges near-duplicates and updates stale facts
+2. **Score** — Assigns confidence, importance, and durability scores to candidates (min confidence: 0.55 to store)
+3. **Merge** — Near-duplicates (≥74% similarity) are consolidated into existing memories rather than stored twice
+4. **Recall** — Before responding, retrieves the most relevant memories via FTS5 full-text search
+5. **Decay** — Confidence degrades slowly over time for stale memories; confirmed memories gain confidence
 
-All data is local: `~/.tota/memory/`. Nothing is sent to the cloud.
+All data is local: `~/.tota/memory/second-brain/`. Nothing is sent to the cloud.
+
+## Evidence kinds
+
+Each memory record tracks how the information was learned:
+
+| Evidence kind | Meaning |
+|---------------|---------|
+| `direct` | You stated it explicitly |
+| `inferred` | tota concluded it from conversation context |
+| `manual` | Added via the `/memory` menu or vault |
+| `system` | Set programmatically (e.g., from scheduled tasks) |
 
 ## Manage memories
 
-```
-/memory             # browse and manage memories
-/memory list        # list recent memories
-/memory search <q>  # full-text search
-/memory delete <id> # delete a specific memory
-/memory clear       # clear all memories (destructive!)
-```
+Type `/memory` during any conversation to open the interactive memory manager:
+
+- **Overview** — total count, learning status, profile summary
+- **Recent Memories** — last 10 memories with confidence and evidence kind
+- **Search** — full-text search across all memories
+- **Pause / Resume Learning** — stop tota from storing new memories temporarily
+- **Clear All** — permanently delete all stored memories
 
 <Callout type="warning">
-  `/memory clear` is irreversible. All extracted memories will be deleted permanently.
+  **Clear All** is irreversible. All extracted memories will be deleted permanently.
 </Callout>
 
 ## Conflict resolution
 
-When tota encounters a new fact that contradicts a stored memory, it:
-1. Updates the stored memory with the new value
-2. Keeps a note of the old value as context
-3. Logs the conflict for transparency
+When tota encounters a new fact that contradicts a stored memory, it compares confidence scores: the higher-confidence value wins. If confidence is equal, the newer record wins. The old value is noted for transparency.
 
-Evidence kinds tracked: `conversation`, `explicit`, `inferred`, `confirmed`.
+Evidence kinds tracked: `direct`, `inferred`, `manual`, `system`.

@@ -4,13 +4,46 @@ title: Loop Guard Configuration
 
 # Loop Guard
 
+Loop Guard prevents tota from getting stuck in repetitive tool-call cycles. It runs automatically on every agentic request — no setup needed.
+
+## How it works
+
+Loop Guard tracks every tool call and detects four failure patterns:
+
+| Pattern | What triggers it |
+|---------|-----------------|
+| **Identical calls** | The same tool is called with the same parameters repeatedly |
+| **Failing loop** | Too many consecutive tool calls return errors |
+| **No-action steps** | tota keeps thinking but calls no tools, making no progress |
+| **Text repeat** | The agent's reasoning text repeats across steps |
+
+When a threshold is hit, tota surfaces a warning and either retries differently or halts gracefully with an explanation.
+
+## High-tolerance tools
+
+The following tools get a +2 threshold bonus — they are legitimately called many times in a row (reading multiple files, paginating results, etc.):
+
+`fetch_url`, `read_file`, `list_dir`, `web_search`, `github_api`, `analyze_image`
+
+## Adaptive thresholds
+
+When failures accumulate (3+ failed calls in the recent window), thresholds are halved automatically to stop runaway loops faster.
+
+## Configuration
+
+All thresholds can be overridden via environment variables in `~/.tota/.env`:
+
 | Env Var | Description | Default |
 |---------|-------------|---------|
-| `LOOP_MAX_STEPS` | Max agentic steps per request | `50` |
-| `LOOP_ABSOLUTE_MAX` | Hard cap on total tool calls | `100` |
+| `LOOP_ABSOLUTE_MAX` | Hard cap on total tool calls per request | `100` |
 | `LOOP_FAILED_ABSOLUTE_MAX` | Stop after this many failed calls | `25` |
+| `LOOP_NO_ACTION_MAX` | Steps with no tool calls before stopping | `10` |
 | `LOOP_IDENTICAL_THRESHOLD` | Consecutive identical calls before warning | `5` |
 | `LOOP_SIMILAR_THRESHOLD` | Consecutive failing calls before warning | `8` |
 | `LOOP_SAME_TOOL_THRESHOLD` | Consecutive same-tool calls before warning | `10` |
-| `LOOP_NO_ACTION_MAX` | Steps with no tool calls before stopping | `10` |
 | `LOOP_TEXT_REPEAT_THRESHOLD` | Repeated step texts before warning | `3` |
+| `LOOP_MAX_STEPS` | Max agentic steps per request | `50` |
+
+<Callout type="info">
+  If tota stops mid-task with a loop guard message, it usually means the task needs more specific instructions, the tools don't have access to the right paths, or a dependency (network, file) is unavailable. Retry with a more focused prompt.
+</Callout>

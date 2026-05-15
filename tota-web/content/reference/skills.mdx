@@ -3,7 +3,7 @@ title: Skills
 ---
 
 
-Skills are structured prompt files that extend what tota can do. Each skill is a directory containing a `SKILL.md` file in a simple format.
+Skills are structured prompt files that extend what tota can do. Each skill is a directory containing a `SKILL.md` file — tota injects the skill's instructions into its context when the skill is invoked.
 
 ## SKILL.md format
 
@@ -11,9 +11,11 @@ Skills are structured prompt files that extend what tota can do. Each skill is a
 ---
 name: my-skill
 description: One-line description of what this skill does
-triggers:
-  - keyword that invokes the skill
-  - another trigger phrase
+version: 0.1.0
+allowed-tools:
+  - read_file
+  - run_command
+disable-model-invocation: false
 ---
 
 # My Skill
@@ -22,7 +24,41 @@ The body of the skill — instructions, context, prompts, or templates.
 Include anything you want the agent to follow when this skill is active.
 ```
 
+### Frontmatter fields
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | Yes | Unique name for this skill |
+| `description` | Yes | One-line description (shown by `/skills`) |
+| `version` | No | Semver string (e.g. `0.1.0`) |
+| `allowed-tools` | No | Restrict which tools the skill may use |
+| `disable-model-invocation` | No | Set `true` to run the skill without calling the LLM |
+
 ## Install a skill
+
+### From a URL
+
+Ask tota to install any skill from a public HTTPS URL:
+
+```
+Install the skill from https://example.com/skills/code-review/SKILL.md
+```
+
+tota fetches the file, validates the frontmatter, and saves it to `~/.tota/skills/<name>/SKILL.md`. Only HTTPS URLs are accepted.
+
+### Write one manually
+
+### From a URL
+
+Ask tota to install any skill from a public HTTPS URL:
+
+```
+Install the skill from https://example.com/skills/code-review/SKILL.md
+```
+
+tota fetches the file, validates the frontmatter, and saves it to `~/.tota/skills/<name>/SKILL.md`. Only HTTPS URLs are accepted.
+
+### Write one manually
 
 Place the skill directory in `~/.tota/skills/`:
 
@@ -37,6 +73,24 @@ Or ask tota to create it:
 Create a skill that always uses conventional commit format
 ```
 
+### Optional directories
+
+| Directory | Purpose |
+|-----------|---------|
+| `scripts/` | Shell scripts the skill may reference |
+| `references/` | Reference files or documents the skill uses |
+
+Directories starting with `_` (e.g. `_template`) are ignored during discovery.
+
+### Optional directories
+
+| Directory | Purpose |
+|-----------|---------|
+| `scripts/` | Shell scripts the skill may reference |
+| `references/` | Reference files or documents the skill uses |
+
+Directories starting with `_` (e.g. `_template`) are ignored during discovery.
+
 ## View installed skills
 
 ```
@@ -47,11 +101,14 @@ Lists all skills with their name, trigger phrases, and status.
 
 ## Invoke a skill
 
-Skills are invoked automatically when your message matches a trigger phrase. You can also invoke them explicitly:
+Skills are not triggered by keywords automatically. To use a skill, ask tota explicitly:
 
 ```
 Use the code-review skill to check this file
+Use the daily-brief skill to summarize my GitHub issues
 ```
+
+tota uses the `use_skill` tool internally, which loads the skill's instructions and injects them into the current context.
 
 ## Schedule with a skill
 

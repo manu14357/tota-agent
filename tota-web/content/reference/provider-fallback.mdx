@@ -7,21 +7,26 @@ tota supports 11 AI providers and tries them in order when the primary fails —
 
 ## Supported providers
 
-| Provider | Default model | Key env var |
-|----------|--------------|-------------|
+| Provider | Top model | Key env var |
+|----------|-----------|-------------|
+| OpenAI | `gpt-5.2` | `OPENAI_API_KEY` |
+| Anthropic | `claude-sonnet-4-20250514` | `ANTHROPIC_API_KEY` |
 | DeepSeek | `deepseek-chat` | `DEEPSEEK_API_KEY` |
-| OpenAI | `gpt-4o-mini` | `OPENAI_API_KEY` |
-| Anthropic | `claude-3-5-haiku-20241022` | `ANTHROPIC_API_KEY` |
-| Grok (xAI) | `grok-3-mini-fast-beta` | `XAI_API_KEY` |
-| Mimo | `mimo-vl-7b-rl` | `MIMO_API_KEY` |
-| Ollama (local) | `llama3.2:latest` | *(none)* |
-| Ollama (cloud) | `llama3.2:latest` | `OLLAMA_API_KEY` |
+| Grok (xAI) | `grok-4` | `XAI_API_KEY` |
+| MiMo | `mimo-v2.5-pro` | `MIMO_API_KEY` |
+| MiMo Token Plan | `mimo-v2.5-pro` | `MIMO_TOKEN_PLAN_API_KEY` |
+| Ollama (local) | `qwen3.5:2b` | *(none)* |
+| Ollama (cloud) | `gpt-oss:120b` | `OLLAMA_API_KEY` |
 | OpenAI-compatible | your chosen model | `OPENAI_COMPAT_API_KEY` |
 | NVIDIA NIM | `nvidia/nemotron-3-super-120b-a12b` | `NVIDIA_API_KEY` |
 | OpenRouter | `openrouter/auto` | `OPENROUTER_API_KEY` |
 
 <Callout type="info">
   **Env vars are optional** — tota stores keys in `~/.tota/config.json`. The env vars are only for CI/CD environments or if you prefer not to use the config file.
+</Callout>
+
+<Callout type="info">
+  **DeepSeek Reasoner** (`deepseek-reasoner`) and **MiMo** providers use a specialized AI SDK code path for extended reasoning. Select them during `tota setup llm` to enable this behavior.
 </Callout>
 
 ## How fallback works
