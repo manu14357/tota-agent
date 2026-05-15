@@ -9,6 +9,7 @@ Type these during a conversation with tota. Most work in both CLI and Telegram u
 |---------|-------------|
 | `/help` | Show the full manual |
 | `/status` | Show agent name, provider, budget, and channels |
+| `/exit` or `/quit` | Shut down tota |
 | `/` or `/menu` | CLI only: open the arrow-key command picker with Back and Exit options |
 | `/telegram` | CLI only: open Telegram management with pending requests, approvals, roles, and reset actions |
 | `/telegram pending` | CLI only: list pending Telegram access requests |
@@ -22,15 +23,15 @@ Type these during a conversation with tota. Most work in both CLI and Telegram u
 | `/tools` | List all currently loaded tools |
 | `/skills` | List installed skills |
 | `/stream` | Toggle Telegram text streaming (on/off) |
+| `/stream on` | Enable streaming — responses appear progressively |
 | `/stream off` | Disable streaming — responses arrive as single message |
 | `/budget` | Show token budget status |
 | `/budget override` | Override budget for one request |
 | `/budget reset` | Reset usage to zero |
 | `/budget set <n>` | Change daily token budget |
-| `/permissions` | Change permission mode (Ask Me / Allow All) — Telegram only |
+| `/permissions` | Change permission mode (Ask Me / Allow All) — available in CLI and WhatsApp |
 | `/tasks` | List scheduled tasks |
 | `/memory` | View and manage second brain memory |
-| `/unpair` | Telegram only: reset all access, new users can /start again |
 
 <Callout type="info">
   **Telegram pairing and access** — Telegram stays private 1:1 only. The first user sends `/start`, receives a pairing code in Telegram, and you approve that code from the CLI during setup. Later Telegram users also send `/start`, appear as pending requests, and can then be approved or rejected from the CLI `/telegram` menu.

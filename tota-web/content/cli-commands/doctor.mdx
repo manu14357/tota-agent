@@ -21,12 +21,16 @@ You don’t need to step through every section to change one thing. Pass a featu
 tota setup websearch    # add or swap your web search key
 tota setup llm          # change provider or model
 tota setup telegram     # update bot token
+tota setup whatsapp     # enable / configure WhatsApp channel
 tota setup github       # update PAT or default repo
 tota setup browser      # install Chromium for browser automation
 tota setup computer     # enable / disable computer-use & Android ADB
 tota setup api          # enable / configure the REST API channel
 tota setup budget       # change your daily token limit
 tota setup identity     # update your name or agent name
+tota setup calendar     # configure Google Calendar credentials
+tota setup voice        # configure TTS/STT providers
+tota setup vault        # view secrets vault backend info
 ```
 
 `tota doctor <feature>` is an alias for the same thing.
@@ -36,12 +40,16 @@ tota setup identity     # update your name or agent name
 | `identity` | Your name and agent name |
 | `llm` | LLM providers and models |
 | `telegram` | Telegram bot token and pairing |
+| `whatsapp` | WhatsApp channel (QR link, allowed numbers, auth directory) |
 | `github` | GitHub username, PAT, default repo |
 | `websearch` | Web search provider key (Brave / Serper / Tavily) |
 | `browser` | Install Chromium browser binary (Playwright) |
 | `computer` | Enable / disable computer-use and Android ADB tools |
 | `api` | REST API channel (port, auth key) |
 | `budget` | Daily token budget |
+| `calendar` | Google Calendar OAuth2 credentials |
+| `voice` | TTS/STT providers (OpenAI / ElevenLabs / Google / Groq) |
+| `vault` | Show secrets vault backend and usage info |
 
 The running agent is not interrupted — open a new terminal tab while tota is running.
 

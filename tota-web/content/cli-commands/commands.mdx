@@ -4,10 +4,11 @@ title: Full Command Reference
 
 | Command | Description |
 |---------|-------------|
-| `tota up` | **Recommended.** Install service + start daemon + ensure running |
+| `tota up` | **Recommended.** Start tota as a persistent daemon — installs the system service if needed, shows PID if already running |
 | `tota` | Start the agent (same as `tota start`) |
 | `tota start` | Start as background daemon (default) |
 | `tota start --foreground` | Start in foreground (interactive) mode. Shorthand: `-f` |
+| `tota start --detached` | Run in background (daemon mode) — same as default. Shorthand: `-d` |
 | `tota restart` | Restart a background tota process |
 | `tota stop` | Stop a background tota process |
 | `tota logs` | Show last 100 lines of daemon logs |
@@ -51,6 +52,7 @@ title: Full Command Reference
 | `tota whatsapp approve <phone>` | Approve a pending access request |
 | `tota whatsapp reject <phone>` | Reject a pending access request |
 | `tota whatsapp remove <phone>` | Remove a number from access |
+| `tota whatsapp revoke` | Revoke the WhatsApp session — deletes saved auth and disconnects the linked device |
 
 ## `tota setup <feature>` — Configure a Single Section
 
