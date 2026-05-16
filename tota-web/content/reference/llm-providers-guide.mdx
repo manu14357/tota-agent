@@ -1,0 +1,103 @@
+---
+title: LLM Providers Guide
+---
+
+tota supports multiple AI providers that can be connected using API keys or local setup. This guide explains how to create API keys, configure providers, and use models.
+
+## Supported providers
+
+| Provider | API Key Required | Local Support |
+|-----------|-----------------|---------------|
+| OpenAI | Yes | No |
+| Gemini | Yes | No |
+| Anthropic | Yes | No |
+| Groq | Yes | No |
+| DeepSeek | Yes | No |
+| Ollama | No (local) | Yes |
+| OpenAI Compatible | Depends | Depends |
+
+<Callout type="info">
+Configure providers during setup. API keys can also be stored in `~/.tota/config.json`.
+</Callout>
+
+## OpenAI
+
+### Create API key
+
+1. Sign in to OpenAI platform
+2. Open API Keys
+3. Click **Create API Key**
+4. Copy the generated key
+
+### Configuration
+
+```bash
+OPENAI_API_KEY=your_api_key
+```
+
+### Example
+
+```bash
+Provider: OpenAI
+Model: gpt-4o
+```
+
+---
+
+## Gemini
+
+### Create API key
+
+1. Open Google AI Studio
+2. Sign in
+3. Click **Get API Key**
+4. Copy generated key
+
+### Configuration
+
+```bash
+GEMINI_API_KEY=your_api_key
+```
+
+### Example
+
+```bash
+Provider: Gemini
+Model: gemini-2.5-pro
+```
+
+---
+
+## Ollama
+
+### Install Ollama
+
+Download and install Ollama locally.
+
+### Pull model
+
+```bash
+ollama pull llama3
+```
+
+### Example
+
+```bash
+Provider: Ollama
+Model: llama3
+```
+
+---
+
+## Common issues
+
+| Error | Solution |
+|---------|----------|
+| Invalid API key | Generate a new key |
+| Model not found | Verify model name |
+| Connection failed | Check configuration |
+| Rate limit exceeded | Retry later |
+
+<Callout type="info">
+Ollama runs locally and does not require cloud API access.
+</Callout>
