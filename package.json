@@ -1,6 +1,6 @@
 {
   "name": "tota-agent",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Soul-driven AI agent with 60+ tools, web search, vision, 11 LLM providers with automatic fallback, browser/desktop/Android automation, MCP plugins, REST API, Second Brain memory, and multi-channel access (CLI, Telegram, WhatsApp, REST API).",
   "type": "module",
   "main": "dist/index.js",

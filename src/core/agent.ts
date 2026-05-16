@@ -10,6 +10,7 @@ import type { TokenBudget } from '../utils/tokens.js';
 import type { CapabilityRegistry } from '../capabilities/registry.js';
 import type { ScheduledTaskManifest } from './scheduler.js';
 import { DeepSeekProvider } from '../providers/deepseek.js';
+import { MiMoProvider } from '../providers/mimo.js';
 import { Lifecycle } from './lifecycle.js';
 import { Scheduler } from './scheduler.js';
 import { logger } from '../utils/logger.js';
@@ -544,9 +545,11 @@ export class Agent {
 
       for (const provider of fallbackIterator) {
         try {
-          const deepseekProviderOptions = provider instanceof DeepSeekProvider && provider.isReasoner
-            ? { deepseek: { thinking: { type: 'enabled' as const } } }
-            : undefined;
+          const deepseekProviderOptions =
+            (provider instanceof DeepSeekProvider && provider.isReasoner) ||
+            (provider instanceof MiMoProvider && provider.isReasoner)
+              ? { deepseek: { thinking: { type: 'enabled' as const } } }
+              : undefined;
 
           logger.info({ provider: provider.name, model: provider.getModel(), steps: this.config.loopGuard?.maxSteps ?? MAX_STEPS, stream: canStream }, 'Generating agentic response');
 

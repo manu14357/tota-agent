@@ -1,10 +1,11 @@
-import { createOpenAI } from '@ai-sdk/openai';
+import { createDeepSeek } from '@ai-sdk/deepseek';
 import { BaseProvider } from './base.js';
 import type { ProviderConfig } from '../utils/config.js';
 
 export class MiMoProvider extends BaseProvider {
   readonly name: string;
   readonly model: string;
+  readonly isReasoner = true;
   private modelInstance: any;
 
   constructor(config: ProviderConfig) {
@@ -12,11 +13,14 @@ export class MiMoProvider extends BaseProvider {
     this.name = config.name;
     this.model = config.model;
 
-    const client = createOpenAI({
+    // MiMo uses thinking/reasoning mode that returns reasoning_content.
+    // createDeepSeek handles reasoning_content passthrough in message history;
+    // createOpenAI strips it, causing MiMo's API to reject with 400.
+    const client = createDeepSeek({
       apiKey: config.apiKey,
       baseURL: config.baseUrl,
     });
-    this.modelInstance = client.chat(config.model);
+    this.modelInstance = client(config.model);
   }
 
   async generateText(_prompt: string, _systemPrompt: string): Promise<never> {

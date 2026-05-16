@@ -1,3 +1,40 @@
+# Release v1.0.1
+
+## tota-agent v1.0.1 — Patch Release
+
+**Patch release** by [manu14357](https://github.com/manu14357). Fixes the MiMo provider crash in thinking mode and the CI port-conflict test failure.
+
+### Highlights
+
+- **MiMo `reasoning_content` fix** — `mimo-v2-omni` now works reliably. The provider was sending requests with `createOpenAI` which stripped `reasoning_content` from message history. MiMo's API requires it to be echoed back on every turn (same as DeepSeek-Reasoner). Switched to `createDeepSeek` with `thinking: enabled` provider options.
+- **CI fix** — `api.test.ts` no longer hard-codes port 34500. Uses OS-assigned port 0 via new `APIChannel.getPort()` method. Eliminates `EADDRINUSE` failures on CI.
+
+### Changes
+
+#### Providers
+
+| File | Change |
+|------|--------|
+| `src/providers/mimo.ts` | Replace `createOpenAI` with `createDeepSeek`; set `isReasoner = true` |
+| `src/core/agent.ts` | Include `MiMoProvider` in `deepseekProviderOptions` check (thinking enabled) |
+
+#### Tests / CI
+
+| File | Change |
+|------|--------|
+| `src/channels/api.ts` | Add `getPort()` method — reads actual bound port from `server.address()` |
+| `src/channels/api.test.ts` | Use port `0` (OS ephemeral); destructure `{ ch, port }` from `startChannel()` |
+
+### Migration from v1.0.0
+
+No breaking changes.
+
+```bash
+npm i -g tota-agent
+```
+
+---
+
 # Release v1.0.0
 
 ## tota-agent v1.0.0 — Stable Release

@@ -2,6 +2,15 @@
 
 All notable changes to tota-agent will be documented here.
 
+## 1.0.1 — (2026-05-16)
+
+### Bug Fixes
+
+- **MiMo `reasoning_content` crash** — Fixed `APICallError: Param Incorrect` (HTTP 400) when using MiMo (`mimo-v2-omni`). MiMo runs in thinking mode and requires `reasoning_content` to be passed back in every turn. Switched `MiMoProvider` from `createOpenAI` (which strips reasoning content) to `createDeepSeek` (which preserves and re-sends it). Agent loop now recognises MiMo as a reasoner and enables `deepseek: { thinking: { type: 'enabled' } }` provider options, identical to how DeepSeek-Reasoner is handled.
+- **CI port conflict** — `api.test.ts` now uses OS-assigned ephemeral port 0 instead of hardcoded 34500, eliminating `EADDRINUSE` failures on CI. Added `getPort()` to `APIChannel` to expose the actual bound port.
+
+---
+
 ## 1.0.0 — Stable Release (2026-05-16)
 
 First stable release of tota-agent. Production-ready milestone built on v0.0.4 with Windows reliability improvements, security hardening, complete documentation overhaul, and CI fixes.
