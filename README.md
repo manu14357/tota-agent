@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <strong>Soul-driven AI agent with permission-hardened tools, token budgets, and multi-channel access.</strong>
+  <strong>AI agent built for control: permissioned tools, safe execution, token budgets, and multi-channel access.</strong>
 </p>
 
 <p align="center">

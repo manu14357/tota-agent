@@ -49,7 +49,7 @@ export const metadata: Metadata = {
     siteName: 'tota',
     title: 'tota — Soul-driven AI agent',
     description:
-      'Permission-hardened tools. SQLite Second Brain. 9 AI providers with fallback. Runs 24/7 from CLI or Telegram.',
+      'AI agent built for control: permissioned tools, safe execution. SQLite Second Brain. 9 AI providers with fallback. Runs 24/7 from CLI or Telegram.',
     images: [
       {
         url: '/og.png',
@@ -63,7 +63,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'tota — Soul-driven AI agent',
     description:
-      'Permission-hardened tools. SQLite Second Brain. 9 AI providers with fallback. Runs 24/7 from CLI or Telegram.',
+      'AI agent built for control: permissioned tools, safe execution. SQLite Second Brain. 9 AI providers with fallback. Runs 24/7 from CLI or Telegram.',
     images: ['/og.png'],
     creator: '@manu14357',
   },
