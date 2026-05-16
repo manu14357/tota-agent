@@ -64,6 +64,7 @@ export const NAV: NavSection[] = [
       { title: 'Config: Soul', slug: 'reference/configuration/soul' },
       { title: 'Config: MCP Servers', slug: 'reference/configuration/mcp-servers' },
       { title: 'Permissions', slug: 'reference/permissions' },
+      { title: 'LLM Providers Guide', slug: 'reference/llm-providers-guide' },
       { title: 'Provider Fallback', slug: 'reference/provider-fallback' },
       { title: 'Scheduling', slug: 'reference/scheduling' },
       { title: 'Second Brain', slug: 'reference/second-brain' },

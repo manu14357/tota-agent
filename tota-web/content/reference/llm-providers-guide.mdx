@@ -2,102 +2,196 @@
 title: LLM Providers Guide
 ---
 
-tota supports multiple AI providers that can be connected using API keys or local setup. This guide explains how to create API keys, configure providers, and use models.
+tota supports multiple AI providers. You can configure one or more providers, select a default model, and use automatic fallback when the primary fails.
 
-## Supported providers
+## Quick setup (recommended)
 
-| Provider | API Key Required | Local Support |
-|-----------|-----------------|---------------|
-| OpenAI | Yes | No |
-| Gemini | Yes | No |
-| Anthropic | Yes | No |
-| Groq | Yes | No |
-| DeepSeek | Yes | No |
-| Ollama | No (local) | Yes |
-| OpenAI Compatible | Depends | Depends |
+1. Create an API key from your provider (links below).
+2. Run the interactive setup:
+	```bash
+	tota setup llm
+	```
+3. Paste the key when prompted and pick a model from the fetched list.
+4. Repeat for any extra providers you want in the fallback chain.
+5. Verify your configuration:
+	```bash
+	tota status
+	```
+
+If you need to change providers later, rerun `tota setup llm`.
 
 <Callout type="info">
-Configure providers during setup. API keys can also be stored in `~/.tota/config.json`.
+Keys are saved to `~/.tota/.env`. Provider order and model defaults are saved to `~/.tota/tota.yaml`.
 </Callout>
 
-## OpenAI
+## Supported providers and key links
 
-### Create API key
+| Provider | Key env var | Get API key | Local |
+|----------|-------------|-------------|-------|
+| OpenAI | `OPENAI_API_KEY` | https://platform.openai.com/api-keys | No |
+| Anthropic | `ANTHROPIC_API_KEY` | https://console.anthropic.com/settings/keys | No |
+| DeepSeek | `DEEPSEEK_API_KEY` | https://platform.deepseek.com/api_keys | No |
+| Grok (xAI) | `GROK_API_KEY` | https://console.x.ai/ | No |
+| Ollama Cloud | `OLLAMA_CLOUD_API_KEY` | https://ollama.com/settings | No |
+| Ollama Local | *(none)* | https://ollama.com/download | Yes |
+| NVIDIA NIM | `NVIDIA_API_KEY` | https://build.nvidia.com/settings/api-keys | No |
+| OpenRouter | `OPENROUTER_API_KEY` | https://openrouter.ai/keys | No |
+| MiMo (Xiaomi) | `MIMO_API_KEY` | https://api.xiaomimimo.com | No |
+| MiMo Token Plan | `MIMO_TOKEN_PLAN_API_KEY` | https://token-plan-cn.xiaomimimo.com | No |
+| OpenAI-compatible (custom) | `OPENAI_COMPAT_API_KEY` | Use your provider console | Depends |
 
-1. Sign in to OpenAI platform
-2. Open API Keys
-3. Click **Create API Key**
-4. Copy the generated key
+## Provider signup steps (official links)
 
-### Configuration
+Most pages require login. If a link redirects, sign in and look for **API keys** or **Developer settings** in the account menu.
+
+### OpenAI
+1. Open https://platform.openai.com/api-keys and sign in.
+2. Click **Create API Key**.
+3. Copy the key and store it safely.
+
+### Anthropic
+1. Open https://console.anthropic.com/settings/keys (redirects to Claude Console).
+2. Click **Create key** and copy it.
+
+### DeepSeek
+1. Open https://platform.deepseek.com/api_keys and sign in.
+2. Create a new key and copy it.
+
+### Grok (xAI)
+1. Open https://console.x.ai/ and sign in.
+2. Go to **API keys** and generate a key.
+
+### Ollama Cloud
+1. Open https://ollama.com/settings and sign in.
+2. Create an API key under **API Keys**.
+
+### Ollama Local
+1. Install Ollama from https://ollama.com/download.
+2. Pull a model (example below).
+
+### NVIDIA NIM
+1. Open https://build.nvidia.com/settings/api-keys and sign in.
+2. Create an API key in the settings page.
+
+### OpenRouter
+1. Open https://openrouter.ai/keys and sign in.
+2. Create a key in your workspace.
+
+### MiMo (Xiaomi)
+1. Sign in to the MiMo developer portal (start at https://api.xiaomimimo.com).
+2. Create an API key in your account settings.
+
+## Manual configuration (optional)
+
+If you prefer not to use the wizard, add keys and settings to `~/.tota/.env` and restart tota. Model names are examples; choose from your provider's model list.
 
 ```bash
-OPENAI_API_KEY=your_api_key
+# OpenAI
+OPENAI_API_KEY=sk-your-key
+OPENAI_MODEL=gpt-4o-mini
+
+# Anthropic
+ANTHROPIC_API_KEY=your-key
+ANTHROPIC_MODEL=claude-sonnet-4-20250514
+
+# DeepSeek
+DEEPSEEK_API_KEY=sk-your-key
+DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
+DEEPSEEK_MODEL=deepseek-chat
+
+# Grok (xAI)
+GROK_API_KEY=your-key
+GROK_BASE_URL=https://api.x.ai/v1
+GROK_MODEL=grok-4
+
+# Ollama Cloud
+OLLAMA_CLOUD_API_KEY=your-key
+OLLAMA_CLOUD_BASE_URL=https://ollama.com/v1
+OLLAMA_CLOUD_MODEL=gpt-oss:120b
+
+# Ollama Local (no key required)
+OLLAMA_LOCAL_BASE_URL=http://127.0.0.1:11434/v1
+OLLAMA_LOCAL_MODEL=qwen3.5:2b
+OLLAMA_LOCAL_ENABLED=true
+
+# OpenAI-compatible (custom)
+OPENAI_COMPAT_API_KEY=your-key
+OPENAI_COMPAT_BASE_URL=https://your-openai-compatible-host/v1
+OPENAI_COMPAT_MODEL=your-model
+OPENAI_COMPAT_ENABLED=true
+
+# NVIDIA NIM
+NVIDIA_API_KEY=nvapi-your-key
+NVIDIA_BASE_URL=https://integrate.api.nvidia.com/v1
+NVIDIA_MODEL=nvidia/nemotron-3-super-120b-a12b
+
+# OpenRouter
+OPENROUTER_API_KEY=sk-or-your-key
+OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+OPENROUTER_MODEL=openrouter/auto
+
+# MiMo (Xiaomi)
+MIMO_API_KEY=sk-your-key
+MIMO_BASE_URL=https://api.xiaomimimo.com/v1
+MIMO_MODEL=mimo-v2.5-pro
+
+# MiMo Token Plan
+MIMO_TOKEN_PLAN_API_KEY=tp-your-key
+MIMO_TOKEN_PLAN_BASE_URL=https://token-plan-cn.xiaomimimo.com/v1
+MIMO_TOKEN_PLAN_MODEL=mimo-v2.5-pro
+MIMO_TOKEN_PLAN_ENABLED=true
+
+# Default provider (optional)
+DEFAULT_PROVIDER=deepseek
 ```
 
-### Example
+## Provider-specific notes
 
-```bash
-Provider: OpenAI
-Model: gpt-4o
-```
+### OpenAI-compatible (custom)
 
----
+Use this when you have a self-hosted or third-party OpenAI-compatible endpoint.
 
-## Gemini
+1. Set `OPENAI_COMPAT_BASE_URL` to the provider base URL.
+2. Set `OPENAI_COMPAT_MODEL` to the model name they expose.
+3. Add `OPENAI_COMPAT_API_KEY` if the endpoint requires it.
 
-### Create API key
+### Ollama Local
 
-1. Open Google AI Studio
-2. Sign in
-3. Click **Get API Key**
-4. Copy generated key
+1. Install Ollama from https://ollama.com/download.
+   - macOS: download the DMG from the site.
+   - Linux: `curl -fsSL https://ollama.com/install.sh | sh`
+2. Pull a model:
+	```bash
+	ollama pull qwen3.5:2b
+	```
+3. Keep `OLLAMA_LOCAL_BASE_URL` pointed at `http://127.0.0.1:11434/v1` (or `/api`).
 
-### Configuration
+### Ollama Cloud
 
-```bash
-GEMINI_API_KEY=your_api_key
-```
+Ollama Cloud uses the OpenAI-compatible endpoint at `https://ollama.com/v1` and requires `OLLAMA_CLOUD_API_KEY`.
 
-### Example
+## Key format checks
 
-```bash
-Provider: Gemini
-Model: gemini-2.5-pro
-```
+tota validates API key formats before accepting them:
 
----
-
-## Ollama
-
-### Install Ollama
-
-Download and install Ollama locally.
-
-### Pull model
-
-```bash
-ollama pull llama3
-```
-
-### Example
-
-```bash
-Provider: Ollama
-Model: llama3
-```
-
----
+- OpenAI: `sk-`, `sk-proj-`, or `sk-svcacct-`
+- Anthropic: `sk-ant-`
+- DeepSeek: `sk-`
+- MiMo: `sk-`
+- MiMo Token Plan: `tp-`
+- NVIDIA NIM: `nvapi-`
+- OpenRouter: `sk-or-`
+- Grok and Ollama Cloud: long token, no spaces
 
 ## Common issues
 
-| Error | Solution |
-|---------|----------|
-| Invalid API key | Generate a new key |
-| Model not found | Verify model name |
-| Connection failed | Check configuration |
-| Rate limit exceeded | Retry later |
+| Error | Fix |
+|-------|-----|
+| Invalid API key | Recreate the key in the provider console and update `~/.tota/.env`. |
+| Model not found | Rerun `tota setup llm` and pick a model from the fetched list. |
+| Connection failed | Check the base URL and your network or proxy settings. |
+| Rate limit exceeded | Wait, then retry or add a fallback provider. |
 
 <Callout type="info">
-Ollama runs locally and does not require cloud API access.
+If you configure multiple providers, tota automatically falls back to the next available provider. See the Provider Fallback doc for details.
 </Callout>
