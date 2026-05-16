@@ -2,6 +2,41 @@
 
 All notable changes to tota-agent will be documented here.
 
+## 1.0.0 — Stable Release (2026-05-16)
+
+First stable release of tota-agent. Production-ready milestone built on v0.0.4 with Windows reliability improvements, security hardening, complete documentation overhaul, and CI fixes.
+
+### Windows Reliability
+
+- **npx daemon fix** — `autoDaemonize` now skips when run via `npx` (detects temp cache paths); post-setup shows `npx tota-agent start` and global install tip instead of bare `tota start`
+- **schtasks fix** — Removed `/rl` flag that caused Access Denied on restricted accounts; captures schtasks errors with `stdio:pipe`, bails early with Administrator instructions on failure
+- **`getDistPath` fix** — Handles Windows global npm paths correctly; removes stale `@manu14357/tota-agent` package name candidates
+
+### Security
+
+- **Excel CVE fix** — Replaced `xlsx` (SheetJS) with `exceljs` to eliminate two unpatched HIGH severity vulnerabilities:
+  - `GHSA-4r6h-8v6p-xvw6` — Prototype Pollution when parsing malicious files
+  - `GHSA-5pgg-2g8v-p4x9` — ReDoS (Regular Expression DoS)
+  - `npm audit --audit-level=high` now exits 0; CI security check passes cleanly
+
+### Documentation
+
+- **CLI reference** — Complete rewrite to accurately match all commands in the codebase
+- **Reference pages** — 5 pages corrected: built-in tools, second brain, provider fallback, permissions, skills
+- **LLM providers guide** — New dedicated guide with step-by-step setup for all 11 providers
+- README tagline and site layout improvements
+- Community docs contributions (PR #2 by @prasanna919)
+
+### CI / Tests
+
+- Fixed `clipboard_read` test timeout on headless Windows CI
+
+### npm
+
+- Keywords synced with GitHub topics for improved discoverability
+
+---
+
 ## 0.0.4 — (2026-05-13)
 
 ### New LLM Providers

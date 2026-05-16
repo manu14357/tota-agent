@@ -1,3 +1,63 @@
+# Release v1.0.0
+
+## tota-agent v1.0.0 — Stable Release
+
+**First stable release** by [manu14357](https://github.com/manu14357). tota-agent is now production-ready. This release delivers Windows reliability improvements, security hardening (Excel CVE elimination), a complete documentation overhaul, and a CI fix — building on the strong foundation of v0.0.4.
+
+### Highlights
+
+- **Stable milestone** — tota-agent graduates from pre-release to stable. All core features (60+ tools, 11 LLM providers, browser automation, computer-use, WhatsApp, Telegram, REST API, daemon mode, Second Brain) are production-ready.
+- **Windows reliability** — Fixed `npx` daemon mis-detection, `schtasks /rl` Access Denied, and `getDistPath` path resolution for Windows global npm installs.
+- **Excel CVE elimination** — Replaced `xlsx` (SheetJS) with `exceljs` to clear two unpatched HIGH severity CVEs; `npm audit --audit-level=high` now exits 0 cleanly.
+- **Complete docs overhaul** — CLI reference rewritten to match code; 5 reference pages corrected; new LLM providers guide; community contributions merged.
+- **CI stability** — Fixed `clipboard_read` timeout on headless Windows CI.
+
+### What's New Since v0.0.4
+
+#### Windows Fixes
+
+| Area | Fix |
+|------|-----|
+| npx daemon | Skip `autoDaemonize` when run via npx (temp cache path detection) |
+| Post-setup hints | Show `npx tota-agent start` + global install tip for npx users |
+| schtasks | Remove `/rl` flag (caused Access Denied); bail on create failure with admin instructions |
+| `getDistPath` | Handle Windows global npm paths; remove old scoped package name candidates |
+
+#### Security
+
+| CVE | Package | Fix |
+|-----|---------|-----|
+| `GHSA-4r6h-8v6p-xvw6` | xlsx (SheetJS) | Prototype Pollution — replaced with exceljs |
+| `GHSA-5pgg-2g8v-p4x9` | xlsx (SheetJS) | ReDoS — replaced with exceljs |
+
+#### Documentation
+
+- Full CLI reference rewrite — every command verified against code
+- 5 reference page corrections: built-in tools, second brain, provider fallback, permissions, skills
+- New LLM providers guide with all 11 providers documented
+- README tagline update and site layout improvements
+- Merged community PR #2 (docs updates by @prasanna919)
+
+#### CI / Tests
+
+- `clipboard_read` test no longer times out on headless Windows CI
+
+### Migration from v0.0.4
+
+No breaking changes.
+
+```bash
+npm i -g tota-agent
+```
+
+Or with npx:
+
+```bash
+npx tota-agent
+```
+
+---
+
 # Release v0.0.4
 
 ## tota-agent v0.0.4
