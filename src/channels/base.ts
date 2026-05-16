@@ -4,7 +4,7 @@ export type PermissionMode = 'allow-all' | 'ask-me';
 
 export interface Channel {
   readonly type: ChannelType;
-  start(): Promise<void>;
+  start(opts?: Record<string, unknown>): Promise<void>;
   stop(): Promise<void>;
   send(content: string, targetId?: string, elapsedMs?: number): Promise<void>;
   sendFile(filePath: string, targetId?: string): Promise<void>;
@@ -21,7 +21,7 @@ export abstract class BaseChannel implements Channel {
   protected messageHandler?: (msg: ChannelMessage) => void;
   protected ready = false;
 
-  abstract start(): Promise<void>;
+  abstract start(opts?: Record<string, unknown>): Promise<void>;
   abstract stop(): Promise<void>;
   abstract send(content: string, targetId?: string, elapsedMs?: number): Promise<void>;
   abstract sendFile(filePath: string, targetId?: string): Promise<void>;

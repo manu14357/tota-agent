@@ -58,11 +58,19 @@ export class WhatsAppChannel extends BaseChannel {
 
   // ─── Lifecycle ─────────────────────────────────────────────────────────────
 
-  async start(): Promise<void> {
+  async start(opts: { forLink?: boolean } = {}): Promise<void> {
     const { authDir, enabled } = this.config.channels.whatsapp;
     if (!enabled) return;
 
     fs.mkdirSync(authDir, { recursive: true });
+
+    // During normal `tota start`, skip connecting when there are no saved creds.
+    // This prevents Baileys from opening a WebSocket just to emit a QR nobody asked for.
+    // The `tota whatsapp link` command passes { forLink: true } to bypass this guard.
+    if (!opts.forLink) {
+      const hasCreds = fs.readdirSync(authDir).some(f => f.startsWith('creds'));
+      if (!hasCreds) return;
+    }
 
     // Suppress Baileys' libsignal console.log noise (Signal protocol internals
     // write directly to console, bypassing the pino logger we've silenced).
@@ -163,7 +171,6 @@ export class WhatsAppChannel extends BaseChannel {
           if (!this.hasEverConnected && !this.sessionExpiredPrinted) {
             this.sessionExpiredPrinted = true;
             logger.warn('WhatsApp session requires re-authentication. Run `tota whatsapp link` to re-link.');
-            console.log('\n[WhatsApp] Session expired — run `tota whatsapp link` to re-link your account.\n');
           }
         }
       }
@@ -197,10 +204,14 @@ export class WhatsAppChannel extends BaseChannel {
         if (code === DisconnectReason.loggedOut) {
           if (!this.sessionExpiredPrinted) {
             this.sessionExpiredPrinted = true;
-            logger.warn('WhatsApp session logged out. Run `tota whatsapp link` to re-link.');
-            console.log('\n[WhatsApp] Session expired — run `tota whatsapp link` to re-link your account.\n');
+            logger.warn('WhatsApp session logged out — clearing auth files. Run `tota whatsapp link` to re-link.');
           }
-          logger.warn('WhatsApp logged out — delete auth folder and restart to re-link');
+          // Delete stale auth files so the next startup does not attempt to
+          // reconnect with invalid credentials (which would immediately log out
+          // again and repeat the cycle).
+          try {
+            fs.rmSync(this.config.channels.whatsapp.authDir, { recursive: true, force: true });
+          } catch { /* best-effort */ }
           if (this.disconnectCallback) this.disconnectCallback('loggedOut', false);
           return;
         }

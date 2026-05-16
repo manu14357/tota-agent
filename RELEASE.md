@@ -1,3 +1,35 @@
+# Release v1.0.2
+
+## tota-agent v1.0.2 — Patch Release
+
+**Patch release** fixing a regression in `tota whatsapp link` introduced in v1.0.1, plus two additional WhatsApp startup improvements.
+
+### Bug Fixes
+
+#### `tota whatsapp link` QR code not shown (regression)
+v1.0.1 added a guard to skip connecting when no saved creds exist (to avoid spurious QR noise on `tota start`). That guard accidentally also blocked the explicit `tota whatsapp link` command — the whole point of which is to generate a QR on a fresh auth dir. Fixed by adding a `{ forLink: true }` option to `WhatsAppChannel.start()` that bypasses the creds check. The link command now passes this flag.
+
+**Files changed**: `src/channels/whatsapp.ts`, `src/channels/base.ts`, `src/index.ts`
+
+#### WhatsApp session-expiry `console.log` noise on startup
+Removed two `console.log('[WhatsApp] Session expired…')` calls that bypassed the silent pino logger and printed on every startup even when the user had never configured WhatsApp. The `logger.warn` path already handles it (silent by default).
+
+**Files changed**: `src/channels/whatsapp.ts`
+
+#### Stale auth auto-cleanup on `loggedOut`
+When WhatsApp revokes the session (`DisconnectReason.loggedOut`), the auth directory is now automatically deleted so the next `tota start` does not attempt to reconnect with invalid credentials and immediately crash/loop.
+
+**Files changed**: `src/channels/whatsapp.ts`
+
+### Migration from v1.0.1
+No breaking changes.
+
+```bash
+npm i -g tota-agent
+```
+
+---
+
 # Release v1.0.1
 
 ## tota-agent v1.0.1 — Patch Release

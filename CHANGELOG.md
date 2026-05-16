@@ -2,6 +2,16 @@
 
 All notable changes to tota-agent will be documented here.
 
+## 1.0.2 — (2026-05-16)
+
+### Bug Fixes
+
+- **WhatsApp QR code not shown on `tota whatsapp link`** — The guard introduced in v1.0.1 (skip connecting when no saved creds) also blocked fresh link sessions. Fixed by adding a `{ forLink: true }` option to `WhatsAppChannel.start()` that bypasses the guard. `tota whatsapp link` now passes this flag so the QR always appears.
+- **WhatsApp session-expiry noise on startup** — Removed `console.log` calls that printed `[WhatsApp] Session expired` on every startup even when the user had never configured WhatsApp. The silent `logger.warn` path already handles it; `console.log` bypassed the logger's silent level.
+- **Stale auth auto-cleanup on logout** — When WhatsApp revokes the session (`loggedOut`), the auth directory is now automatically deleted so the next `tota start` does not attempt to reconnect with invalid credentials and immediately error again.
+
+---
+
 ## 1.0.1 — (2026-05-16)
 
 ### Bug Fixes

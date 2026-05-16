@@ -2619,7 +2619,7 @@ whatsappCmd
     };
 
     try {
-      await channel.start();
+      await channel.start({ forLink: true });
     } catch (err: any) {
       console.log(chalk.red(`\n  Failed to start WhatsApp: ${err?.message ?? String(err)}`));
       console.log(chalk.dim('  Try deleting ~/.tota/whatsapp-auth/ and running `tota whatsapp link` again.'));
