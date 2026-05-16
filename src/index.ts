@@ -1967,7 +1967,7 @@ function isRunningViaNpx(): boolean {
 
 program
   .name('tota')
-  .description('tota — Soul-driven AI agent with permission-hardened tools, token budgets, and multi-channel access.')
+  .description('tota — An AI agent focused on safety, with permission‑based tooling, token budgets, and multi-channel access.')
   .version(pkgVersion)
   .option('-v, --verbose', 'Show debug logs')
   .action(async () => {

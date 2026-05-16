@@ -210,7 +210,7 @@ export default function Hero() {
           className="text-center text-base sm:text-lg max-w-2xl mx-auto mb-8 sm:mb-10 leading-relaxed font-medium px-4"
           style={{ color: 'var(--fg)' }}
         >
-          Permission-hardened tools, token budgets, and multi-channel access.
+          AI agent built for control: permissioned tools, safe execution, token budgets, and multi-channel access.
           <br className="hidden sm:block" />
           Sees your screen. Controls your desktop. Runs 24/7 from CLI, Telegram, WhatsApp, or REST API.
         </p>

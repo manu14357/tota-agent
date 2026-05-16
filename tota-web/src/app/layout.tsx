@@ -25,7 +25,7 @@ export const metadata: Metadata = {
     template: '%s | tota',
   },
   description:
-    'Soul-driven AI agent with permission-hardened tools, token budgets, and multi-channel access. Remembers what matters. Asks before it acts. Runs 24/7 from CLI or Telegram.',
+    'AI agent built for control: permissioned tools, safe execution, token budgets, and multi-channel access. Remembers what matters. Asks before it acts. Runs 24/7 from CLI or Telegram.',
   keywords: [
     'ai agent',
     'cli agent',
