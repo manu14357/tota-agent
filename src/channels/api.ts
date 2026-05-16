@@ -27,12 +27,17 @@ export class APIChannel extends BaseChannel {
     this.server = createServer((req, res) => this.handleRequest(req, res));
     await new Promise<void>((resolve, reject) => {
       this.server!.listen(this.port, () => {
-        logger.info({ port: this.port }, 'API channel listening');
+        logger.info({ port: this.getPort() }, 'API channel listening');
         this.ready = true;
         resolve();
       });
       this.server!.once('error', reject);
     });
+  }
+
+  getPort(): number {
+    const addr = this.server?.address();
+    return typeof addr === 'object' && addr !== null ? addr.port : this.port;
   }
 
   async stop(): Promise<void> {

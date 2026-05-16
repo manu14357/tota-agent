@@ -1,10 +1,10 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { describe, expect, it, afterEach } from 'vitest';
 import { APIChannel } from './api.js';
 
-async function startChannel(port: number, apiKey = '') {
+async function startChannel(port = 0, apiKey = '') {
   const ch = new APIChannel(port, apiKey);
   await ch.start();
-  return ch;
+  return { ch, port: ch.getPort() };
 }
 
 async function post(port: number, path: string, body: any, headers: Record<string, string> = {}) {
@@ -19,10 +19,6 @@ async function get(port: number, path: string, headers: Record<string, string> =
   return fetch(`http://localhost:${port}${path}`, { headers });
 }
 
-// Use a fresh port range to avoid conflicts
-let nextPort = 34500;
-function freshPort() { return nextPort++; }
-
 describe('APIChannel', () => {
   const channels: APIChannel[] = [];
 
@@ -34,15 +30,13 @@ describe('APIChannel', () => {
   });
 
   it('starts and reports ready', async () => {
-    const port = freshPort();
-    const ch = await startChannel(port);
+    const { ch } = await startChannel();
     channels.push(ch);
     expect(ch.isReady()).toBe(true);
   });
 
   it('GET /status returns ok', async () => {
-    const port = freshPort();
-    const ch = await startChannel(port);
+    const { ch, port } = await startChannel();
     channels.push(ch);
     const resp = await get(port, '/status');
     expect(resp.status).toBe(200);
@@ -51,24 +45,21 @@ describe('APIChannel', () => {
   });
 
   it('returns 404 for unknown routes', async () => {
-    const port = freshPort();
-    const ch = await startChannel(port);
+    const { ch, port } = await startChannel();
     channels.push(ch);
     const resp = await get(port, '/notexist');
     expect(resp.status).toBe(404);
   });
 
   it('POST /message returns 400 when content missing', async () => {
-    const port = freshPort();
-    const ch = await startChannel(port);
+    const { ch, port } = await startChannel();
     channels.push(ch);
     const resp = await post(port, '/message', { foo: 'bar' });
     expect(resp.status).toBe(400);
   });
 
   it('POST /message emits ChannelMessage and resolves with send()', async () => {
-    const port = freshPort();
-    const ch = await startChannel(port);
+    const { ch, port } = await startChannel();
     channels.push(ch);
 
     ch.onMessage(async (msg) => {
@@ -84,8 +75,7 @@ describe('APIChannel', () => {
   });
 
   it('emitted message has correct channelType = api', async () => {
-    const port = freshPort();
-    const ch = await startChannel(port);
+    const { ch, port } = await startChannel();
     channels.push(ch);
 
     const received: any[] = [];
@@ -100,16 +90,14 @@ describe('APIChannel', () => {
   });
 
   it('returns 401 when apiKey required but not provided', async () => {
-    const port = freshPort();
-    const ch = await startChannel(port, 'secret-key');
+    const { ch, port } = await startChannel(0, 'secret-key');
     channels.push(ch);
     const resp = await post(port, '/message', { content: 'test' });
     expect(resp.status).toBe(401);
   });
 
   it('accepts Bearer token auth', async () => {
-    const port = freshPort();
-    const ch = await startChannel(port, 'my-token');
+    const { ch, port } = await startChannel(0, 'my-token');
     channels.push(ch);
     ch.onMessage(async (msg) => { await ch.send('ok', msg.channelId); });
 
@@ -120,8 +108,7 @@ describe('APIChannel', () => {
   });
 
   it('accepts X-Api-Key header auth', async () => {
-    const port = freshPort();
-    const ch = await startChannel(port, 'my-token');
+    const { ch, port } = await startChannel(0, 'my-token');
     channels.push(ch);
     ch.onMessage(async (msg) => { await ch.send('ok', msg.channelId); });
 
@@ -132,8 +119,7 @@ describe('APIChannel', () => {
   });
 
   it('rejects wrong token with 401', async () => {
-    const port = freshPort();
-    const ch = await startChannel(port, 'my-token');
+    const { ch, port } = await startChannel(0, 'my-token');
     channels.push(ch);
     const resp = await post(port, '/message', { content: 'hi' }, {
       'Authorization': 'Bearer wrong-token',
@@ -142,8 +128,7 @@ describe('APIChannel', () => {
   });
 
   it('allows all requests when no apiKey configured', async () => {
-    const port = freshPort();
-    const ch = await startChannel(port, '');
+    const { ch, port } = await startChannel(0, '');
     channels.push(ch);
     ch.onMessage(async (msg) => { await ch.send('free', msg.channelId); });
 
@@ -154,8 +139,7 @@ describe('APIChannel', () => {
   });
 
   it('stream() collects chunks and resolves request', async () => {
-    const port = freshPort();
-    const ch = await startChannel(port);
+    const { ch, port } = await startChannel();
     channels.push(ch);
 
     ch.onMessage(async (msg) => {
@@ -169,8 +153,7 @@ describe('APIChannel', () => {
   });
 
   it('sendFile sends file path as text response', async () => {
-    const port = freshPort();
-    const ch = await startChannel(port);
+    const { ch, port } = await startChannel();
     channels.push(ch);
 
     ch.onMessage(async (msg) => {
