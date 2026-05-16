@@ -4,4 +4,5 @@ export default {
   'daemon-mode': 'Daemon Mode',
   integrations: 'Integrations',
   reference: 'Reference',
+  "llm-providers-guide": "LLM Providers Guide",
 }
