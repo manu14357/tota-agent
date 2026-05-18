@@ -39,10 +39,10 @@ vi.mock('@whiskeysockets/baileys', () => {
 // ─── Mock qrcode-terminal ─────────────────────────────────────────────────────
 vi.mock('qrcode-terminal', () => ({ default: { generate: vi.fn() } }));
 
-// ─── Mock fs (for mkdirSync / readFileSync) ───────────────────────────────────
+// ─── Mock fs (for mkdirSync / readdirSync / readFileSync) ─────────────────────
 vi.mock('node:fs', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:fs')>();
-  return { ...actual, default: { ...actual, mkdirSync: vi.fn(), readFileSync: vi.fn().mockReturnValue(Buffer.from('')) } };
+  return { ...actual, default: { ...actual, mkdirSync: vi.fn(), readdirSync: vi.fn().mockReturnValue(['creds.json']), readFileSync: vi.fn().mockReturnValue(Buffer.from('')) } };
 });
 
 // ─── Mock saveConfig ──────────────────────────────────────────────────────────
