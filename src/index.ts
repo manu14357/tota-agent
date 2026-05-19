@@ -289,6 +289,7 @@ const PROVIDER_OPTIONS: Array<{ key: ProviderName; label: string }> = [
   { key: 'openai', label: 'OpenAI' },
   { key: 'anthropic', label: 'Anthropic' },
   { key: 'grok', label: 'Grok (xAI)' },
+  { key: 'groq', label: 'Groq' },
   { key: 'ollamaCloud', label: 'Ollama Cloud' },
   { key: 'ollamaLocal', label: 'Ollama Local' },
   { key: 'openaiCompat', label: 'OpenAI Compilations' },
@@ -426,6 +427,12 @@ function validateApiKey(provider: ProviderName, value: string): string | null {
     return looksLikeToken(value)
       ? null
       : 'Grok keys must look like a real API token: long, no spaces, and not plain text.';
+  }
+
+  if (provider === 'groq') {
+    return /^gsk_[A-Za-z0-9_-]{20,}$/.test(value)
+      ? null
+      : 'Groq keys must start with `gsk_`.';
   }
 
   if (provider === 'ollamaCloud') {
@@ -912,6 +919,23 @@ async function configure(existingConfig?: TotaConfig, section?: string): Promise
           config.providers.grok.apiKey = result.apiKey;
           config.providers.grok.model = result.model;
           config.providers.grok.enabled = true;
+        }
+        continue;
+      }
+
+      if (provider === 'groq') {
+        const mask = isReconfig && config.providers.groq.apiKey ? ` [${maskKey(config.providers.groq.apiKey)}]` : '';
+        const result = await promptApiKeyWithModelSelection(
+          config,
+          'groq',
+          'Groq',
+          chalk.white(`  Groq API key${mask}${isReconfig ? '' : ' (Enter to skip)'}: `),
+          isReconfig,
+        );
+        if (!result.skipped && result.apiKey && result.model) {
+          config.providers.groq.apiKey = result.apiKey;
+          config.providers.groq.model = result.model;
+          config.providers.groq.enabled = true;
         }
         continue;
       }

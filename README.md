@@ -8,7 +8,7 @@
 
 <p align="center">
   Remembers what matters. Asks before it acts. Runs 24/7 from CLI, Telegram, WhatsApp, or REST API.<br>
-  60+ built-in tools · Web search · Vision · Code sandbox · Browser automation (36 tools) · Computer-use · Android control · Document readers · MCP plugins · Extensible skills · SQLite-backed Second Brain memory · 11 LLM providers (NVIDIA NIM, OpenRouter, DeepSeek, OpenAI, Anthropic, Grok, Ollama, MiMo…).
+  60+ built-in tools · Web search · Vision · Code sandbox · Browser automation (36 tools) · Computer-use · Android control · Document readers · MCP plugins · Extensible skills · SQLite-backed Second Brain memory · 12 LLM providers (NVIDIA NIM, OpenRouter, DeepSeek, OpenAI, Anthropic, Grok, Groq, Ollama, MiMo…).
 </p>
 
 <p align="center">
@@ -487,6 +487,7 @@ All runtime data lives in `~/.tota/`.
 | **OpenAI** | gpt-4o-mini | `OPENAI_API_KEY` |
 | **Anthropic** | claude-sonnet-4 | `ANTHROPIC_API_KEY` |
 | **Grok (xAI)** | grok-4 | `GROK_API_KEY` |
+| **Groq** | llama-3.3-70b-versatile | `GROQ_API_KEY` |
 | **Ollama Cloud** | gpt-oss:120b | `OLLAMA_CLOUD_API_KEY` |
 | **Ollama Local** | gpt-oss:20b | — |
 | **OpenAI-compat** | custom | `OPENAI_COMPAT_BASE_URL` |

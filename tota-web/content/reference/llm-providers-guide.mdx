@@ -32,6 +32,7 @@ Keys are saved to `~/.tota/.env`. Provider order and model defaults are saved to
 | Anthropic | `ANTHROPIC_API_KEY` | https://console.anthropic.com/settings/keys | No |
 | DeepSeek | `DEEPSEEK_API_KEY` | https://platform.deepseek.com/api_keys | No |
 | Grok (xAI) | `GROK_API_KEY` | https://console.x.ai/ | No |
+| Groq | `GROQ_API_KEY` | https://console.groq.com/keys | No |
 | Ollama Cloud | `OLLAMA_CLOUD_API_KEY` | https://ollama.com/settings | No |
 | Ollama Local | *(none)* | https://ollama.com/download | Yes |
 | NVIDIA NIM | `NVIDIA_API_KEY` | https://build.nvidia.com/settings/api-keys | No |
@@ -60,6 +61,10 @@ Most pages require login. If a link redirects, sign in and look for **API keys**
 ### Grok (xAI)
 1. Open https://console.x.ai/ and sign in.
 2. Go to **API keys** and generate a key.
+
+### Groq
+1. Open https://console.groq.com/keys and sign in.
+2. Click **Create API Key**, copy the key (starts with `gsk_`).
 
 ### Ollama Cloud
 1. Open https://ollama.com/settings and sign in.
@@ -103,6 +108,11 @@ DEEPSEEK_MODEL=deepseek-chat
 GROK_API_KEY=your-key
 GROK_BASE_URL=https://api.x.ai/v1
 GROK_MODEL=grok-4
+
+# Groq
+GROQ_API_KEY=gsk_your-key
+GROQ_BASE_URL=https://api.groq.com/openai/v1
+GROQ_MODEL=llama-3.3-70b-versatile
 
 # Ollama Cloud
 OLLAMA_CLOUD_API_KEY=your-key
@@ -182,6 +192,7 @@ tota validates API key formats before accepting them:
 - NVIDIA NIM: `nvapi-`
 - OpenRouter: `sk-or-`
 - Grok and Ollama Cloud: long token, no spaces
+- Groq: `gsk_`
 
 ## Common issues
 

@@ -51,6 +51,7 @@ export type ProviderName =
   | 'anthropic'
   | 'deepseek'
   | 'grok'
+  | 'groq'
   | 'ollamaCloud'
   | 'ollamaLocal'
   | 'openaiCompat'
@@ -118,6 +119,7 @@ export interface TotaConfig {
     anthropic: ProviderConfig;
     deepseek: ProviderConfig;
     grok: ProviderConfig;
+    groq: ProviderConfig;
     ollamaCloud: ProviderConfig;
     ollamaLocal: ProviderConfig;
     openaiCompat: ProviderConfig;
@@ -264,6 +266,13 @@ export function getDefaultConfig(): TotaConfig {
         baseUrl: getEnv('GROK_BASE_URL', 'https://api.x.ai/v1'),
         model: getEnv('GROK_MODEL', 'grok-4'),
         enabled: getEnvBool('GROK_ENABLED', true),
+      },
+      groq: {
+        name: 'groq',
+        apiKey: getEnv('GROQ_API_KEY', ''),
+        baseUrl: getEnv('GROQ_BASE_URL', 'https://api.groq.com/openai/v1'),
+        model: getEnv('GROQ_MODEL', 'llama-3.3-70b-versatile'),
+        enabled: getEnvBool('GROQ_ENABLED', true),
       },
       ollamaCloud: {
         name: 'ollamaCloud',

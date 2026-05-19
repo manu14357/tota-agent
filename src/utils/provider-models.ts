@@ -81,6 +81,15 @@ const OPENROUTER_PREFERRED_MODELS = [
   'deepseek-ai/deepseek-v4-pro',
 ] as const;
 
+const GROQ_PREFERRED_MODELS = [
+  'llama-3.3-70b-versatile',
+  'llama-3.1-8b-instant',
+  'qwen-qwq-32b',
+  'deepseek-r1-distill-llama-70b',
+  'gemma2-9b-it',
+  'mixtral-8x7b-32768',
+] as const;
+
 const OPENAI_COMPAT_PREFERRED_MODELS = [] as const;
 
 export class ProviderModelFetchError extends Error {
@@ -184,6 +193,7 @@ function chooseRecommendedModel(
     openai: OPENAI_PREFERRED_MODELS,
     anthropic: ANTHROPIC_PREFERRED_MODELS,
     grok: GROK_PREFERRED_MODELS,
+    groq: GROQ_PREFERRED_MODELS,
     ollamaCloud: OLLAMA_CLOUD_PREFERRED_MODELS,
     ollamaLocal: OLLAMA_LOCAL_PREFERRED_MODELS,
     openaiCompat: OPENAI_COMPAT_PREFERRED_MODELS,
@@ -222,6 +232,7 @@ export function buildModelCatalog(
     openai: OPENAI_PREFERRED_MODELS,
     anthropic: ANTHROPIC_PREFERRED_MODELS,
     grok: GROK_PREFERRED_MODELS,
+    groq: GROQ_PREFERRED_MODELS,
     ollamaCloud: OLLAMA_CLOUD_PREFERRED_MODELS,
     ollamaLocal: OLLAMA_LOCAL_PREFERRED_MODELS,
     openaiCompat: OPENAI_COMPAT_PREFERRED_MODELS,
@@ -463,6 +474,47 @@ async function fetchOpenRouterModels(config: ProviderConfig): Promise<ProviderMo
   return buildModelCatalog('openrouter', staticModels, config.model);
 }
 
+async function fetchGroqModels(config: ProviderConfig): Promise<ProviderModelCatalog> {
+  try {
+    const data = await fetchJson<OpenAIModelResponse>(
+      `${trimTrailingSlash(config.baseUrl)}/models`,
+      {
+        headers: {
+          Authorization: `Bearer ${config.apiKey}`,
+        },
+      },
+      'tota could not fetch models for this Groq API key. Please re-enter it.',
+    );
+
+    const ids = (data.data ?? [])
+      .map((model) => model.id?.trim() ?? '')
+      .filter((id) => {
+        const lower = id.toLowerCase();
+        // Exclude non-chat models
+        return id.length > 0
+          && !lower.includes('whisper')
+          && !lower.includes('tts')
+          && !lower.includes('guard');
+      });
+
+    if (ids.length > 0) {
+      return buildModelCatalog('groq', ids, config.model);
+    }
+  } catch {
+    // Fall through to static catalog
+  }
+
+  const staticModels = [
+    'llama-3.3-70b-versatile',
+    'llama-3.1-8b-instant',
+    'qwen-qwq-32b',
+    'deepseek-r1-distill-llama-70b',
+    'gemma2-9b-it',
+    'mixtral-8x7b-32768',
+  ];
+  return buildModelCatalog('groq', staticModels, config.model);
+}
+
 export async function fetchProviderModelCatalog(
   provider: ProviderName,
   config: ProviderConfig,
@@ -501,6 +553,10 @@ export async function fetchProviderModelCatalog(
 
   if (provider === 'openrouter') {
     return fetchOpenRouterModels(config);
+  }
+
+  if (provider === 'groq') {
+    return fetchGroqModels(config);
   }
 
   return fetchOpenAICompatModels(provider, config);

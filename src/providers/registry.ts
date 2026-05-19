@@ -5,6 +5,7 @@ import { OpenAICompatProvider } from './openai-compat.js';
 import { AnthropicProvider } from './anthropic.js';
 import { DeepSeekProvider } from './deepseek.js';
 import { MiMoProvider } from './mimo.js';
+import { GroqProvider } from './groq.js';
 import { logger } from '../utils/logger.js';
 
 export class ProviderRegistry {
@@ -20,6 +21,7 @@ export class ProviderRegistry {
       config.providers.openai,
       config.providers.anthropic,
       config.providers.grok,
+      config.providers.groq,
       config.providers.ollamaCloud,
       config.providers.ollamaLocal,
       config.providers.openaiCompat,
@@ -45,6 +47,8 @@ export class ProviderRegistry {
           provider = new OpenAICompatProvider(pc, { useChatApi: true });
         } else if (pc.name === 'mimo' || pc.name === 'mimoTokenPlan') {
           provider = new MiMoProvider(pc);
+        } else if (pc.name === 'groq') {
+          provider = new GroqProvider(pc);
         } else if (pc.name === 'nvidia') {
           provider = new OpenAICompatProvider(pc, { useChatApi: true });
         } else if (pc.name === 'openrouter') {
