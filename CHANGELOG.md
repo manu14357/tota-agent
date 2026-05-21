@@ -2,6 +2,24 @@
 
 All notable changes to tota-agent will be documented here.
 
+## 1.1.0 — (2026-05-19)
+
+### New Features
+
+- **Groq provider** (`groq`) — Native integration via `@ai-sdk/groq` (Vercel AI SDK). Groq's inference API runs open-source models at extremely high speed (hundreds of tokens/sec). Default model: `llama-3.3-70b-versatile`.
+  - Supported models: `llama-3.3-70b-versatile`, `llama-3.1-8b-instant`, `qwen-qwq-32b`, `deepseek-r1-distill-llama-70b`, `gemma2-9b-it`, `mixtral-8x7b-32768`
+  - Live model fetching from Groq `/models` endpoint with static fallback catalog
+  - CLI setup wizard (`tota setup llm`) includes Groq with interactive model selection
+  - API key validation enforces `gsk_` prefix
+  - Env vars: `GROQ_API_KEY`, `GROQ_BASE_URL`, `GROQ_MODEL`, `GROQ_ENABLED`
+- tota now supports **12 LLM providers** with automatic fallback chain
+
+### Bug Fixes
+
+- **WhatsApp CI test** — Mocked `readdirSync` in `whatsapp.test.ts` to prevent `ENOENT` errors on CI when the auth directory does not exist
+
+---
+
 ## 1.0.2 — (2026-05-16)
 
 ### Bug Fixes

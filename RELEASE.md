@@ -1,3 +1,65 @@
+# Release v1.1.0
+
+## tota-agent v1.1.0 — Groq Integration
+
+**Minor release** adding Groq as the 12th LLM provider, plus a WhatsApp CI reliability fix.
+
+### Highlights
+
+#### Groq — ultra-fast open-source inference
+[Groq](https://groq.com) runs open-source models on custom LPU hardware at speeds far exceeding standard GPU clouds. tota now integrates Groq natively via `@ai-sdk/groq`.
+
+**Supported models**
+
+| Model | Notes |
+|-------|-------|
+| `llama-3.3-70b-versatile` *(default)* | Best general-purpose |
+| `llama-3.1-8b-instant` | Fastest, lightweight |
+| `qwen-qwq-32b` | Extended reasoning |
+| `deepseek-r1-distill-llama-70b` | Reasoning distill |
+| `gemma2-9b-it` | Instruction-tuned |
+| `mixtral-8x7b-32768` | Large context MoE |
+
+**Setup**
+```bash
+tota setup llm
+# Select: Groq
+# Paste your GROQ_API_KEY (starts with gsk_)
+# Choose a model from the fetched list
+```
+
+Or manually in `~/.tota/.env`:
+```bash
+GROQ_API_KEY=gsk_your-key
+GROQ_MODEL=llama-3.3-70b-versatile
+```
+
+Get a free API key at https://console.groq.com/keys.
+
+**Files changed**
+
+| File | Change |
+|------|--------|
+| `src/providers/groq.ts` | New — `GroqProvider` using `createGroq` |
+| `src/providers/registry.ts` | Wire `GroqProvider` into provider registry |
+| `src/providers/index.ts` | Export `GroqProvider` |
+| `src/utils/config.ts` | Add `'groq'` to `ProviderName` union + `TotaConfig.providers.groq` |
+| `src/utils/provider-models.ts` | `GROQ_PREFERRED_MODELS`, `fetchGroqModels()`, catalog integration |
+| `src/index.ts` | `PROVIDER_OPTIONS`, `validateApiKey`, setup wizard block |
+| `package.json` | Add `@ai-sdk/groq ^3.0.39` |
+
+#### Bug Fix — WhatsApp CI test `ENOENT`
+Mocked `readdirSync` in `src/channels/whatsapp.test.ts` to prevent `ENOENT` on CI when the WhatsApp auth directory does not exist yet.
+
+### Migration from v1.0.x
+No breaking changes. Groq is disabled by default unless `GROQ_API_KEY` is set or configured via the wizard.
+
+```bash
+npm i -g tota-agent
+```
+
+---
+
 # Release v1.0.2
 
 ## tota-agent v1.0.2 — Patch Release
