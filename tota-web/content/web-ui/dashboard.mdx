@@ -1,0 +1,35 @@
+---
+title: Web UI — Dashboard
+---
+
+# Dashboard
+
+The Dashboard gives you a live at-a-glance view of the tota agent. It auto-refreshes every 8 seconds so you always see current state without manually reloading.
+
+## Stat cards
+
+| Card | What it shows |
+|------|---------------|
+| **Status** | Running / stopped badge, and the agent's display name |
+| **Model** | Active LLM model identifier (e.g. `claude-sonnet-4`, `gpt-4o-mini`) |
+| **Provider** | Which provider is currently in use |
+| **Uptime** | How long the agent has been running (formatted as `Xh Ym` or `Xm Ys`) |
+| **Token Budget** | Tokens used today vs. the configured daily limit |
+| **Permission Mode** | `allow-all` or `ask` — the current approval mode for tool calls |
+
+## Refresh behaviour
+
+The page polls `/api/status` every 8 s and updates all cards simultaneously. A **Refresh** button at the top right lets you trigger an immediate fetch. A spinning animation on the button indicates an in-flight request.
+
+If the agent is unreachable, an error banner appears with the HTTP error message. Cards retain the last successful values until connectivity is restored.
+
+## Status badge colours
+
+| Badge | Meaning |
+|-------|---------|
+| Green (`running`) | Agent is up and accepting messages |
+| Yellow (any other value) | Agent is starting, stopping, or in an error state |
+
+## Provider and model info
+
+The model and provider cards pull from the same `/api/status` endpoint that the CLI's `tota status` command uses. If you change the active provider or model while the UI is open (e.g. via `tota setup llm`), the Dashboard reflects the change on the next auto-refresh.

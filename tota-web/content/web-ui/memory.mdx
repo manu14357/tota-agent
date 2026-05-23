@@ -1,0 +1,47 @@
+---
+title: Web UI — Memory
+---
+
+# Memory
+
+The Memory page lets you browse and manage the entries stored in tota's Second Brain — the SQLite-backed persistent memory that the agent reads before every response.
+
+## Memory types
+
+tota stores two categories of memory, shown as separate sections:
+
+| Section | Description |
+|---------|-------------|
+| **Short-term** | Recent conversation context and episode summaries |
+| **Long-term** | Persistent facts extracted automatically — identity, preferences, goals, projects, habits, decisions, constraints, relationships, and reflections |
+
+Each entry shows:
+- **Content** — the stored fact or summary
+- **Tags** — optional labels for filtering and retrieval
+- **Type** — one of the 10 memory types
+- **Timestamp** — when the entry was created or last updated
+
+## Adding a memory entry
+
+Click **+ Add** to open the entry modal. Fill in:
+
+- **Content** — what the agent should remember (required)
+- **Tags** — comma-separated labels, e.g. `work, project-x` (optional)
+
+Click **Add** to save. The entry is written to the SQLite database immediately and will be available to the agent on its next response.
+
+## Editing an entry
+
+Click the **pencil icon** on any entry to open it in the edit modal. Update the content or tags and click **Update** to save changes.
+
+## Deleting an entry
+
+Click the **trash icon** on any entry. The entry is removed from the database immediately. Deletion is permanent.
+
+## Relationship to `/memory` in chat
+
+Changes you make in the Memory page are equivalent to what the agent does via the `/memory` CLI command. You can use either interface — they write to the same database.
+
+## Auto-extraction
+
+tota extracts 0–3 new memory facts automatically after each response. These appear in the Memory page without any manual action. See [Second Brain](/docs/reference/second-brain) for the full extraction and consolidation rules.

@@ -36,6 +36,7 @@ const links: FooterGroup[] = [
     heading: 'Reference',
     items: [
       { label: 'Built-in Tools', href: '/docs/reference/built-in-tools' },
+      { label: 'Web UI', href: '/docs/reference/web-ui' },
       { label: 'Second Brain', href: '/docs/reference/second-brain' },
       { label: 'Provider Fallback', href: '/docs/reference/provider-fallback' },
       { label: 'Permissions', href: '/docs/reference/permissions' },

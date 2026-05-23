@@ -1,7 +1,7 @@
 {
   "name": "tota-agent",
-  "version": "1.1.0",
-  "description": "Soul-driven AI agent with 60+ tools, web search, vision, 12 LLM providers with automatic fallback, browser/desktop/Android automation, MCP plugins, REST API, Second Brain memory, and multi-channel access (CLI, Telegram, WhatsApp, REST API).",
+  "version": "1.2.0",
+  "description": "Soul-driven AI agent with 60+ tools, web search, vision, 12 LLM providers, local web UI, browser/desktop/Android automation, MCP plugins, REST API, Second Brain memory, and multi-channel access (CLI, Telegram, WhatsApp, REST API).",
   "type": "module",
   "main": "dist/index.js",
   "exports": {
@@ -13,13 +13,15 @@
   },
   "scripts": {
     "build": "tsup",
+    "build:ui": "cp public/tota-agent.png src/ui-app/public/tota-agent.png && cp public/tota-agent-txt.png src/ui-app/public/tota-agent-txt.png && cd src/ui-app && npm install --prefer-offline && npm run build",
+    "build:all": "npm run build && cp public/tota-agent.png dist/tota-agent.png && cp public/tota-agent-txt.png dist/tota-agent-txt.png && npm run build:ui",
     "dev": "tsup --watch",
     "start": "node dist/index.js",
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build:all"
   },
   "keywords": [
     "ai-agent",
@@ -89,6 +91,7 @@
     "qrcode-terminal": "^0.12.0",
     "rehype-highlight": "^7.0.2",
     "remark-gfm": "^4.0.1",
+    "ws": "^8.18.0",
     "yaml": "^2.7.0",
     "zod": "^3.25.76"
   },
@@ -104,6 +107,7 @@
     "@types/pdf-parse": "^1.1.5",
     "@types/qrcode-terminal": "^0.12.2",
     "@types/react": "^18.3.0",
+    "@types/ws": "^8.5.14",
     "tsup": "^8.4.0",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"

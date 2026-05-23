@@ -1,0 +1,44 @@
+---
+title: Web UI — Logs
+---
+
+# Logs
+
+The Logs page streams the agent's runtime log output directly into the browser. New entries appear as they are emitted — no manual reload needed.
+
+## Severity filter
+
+Use the filter dropdown at the top of the page to show only entries at or above a chosen level:
+
+| Level | What it includes |
+|-------|-----------------|
+| **debug** | All messages — verbose internal state, tool inputs/outputs |
+| **info** | Normal operations — tool calls, message handling, startup events |
+| **warn** | Non-fatal issues — provider fallback, retries, config hints |
+| **error** | Failures — tool errors, crashed tasks, provider errors |
+
+The default filter is **info**, which hides debug noise while keeping all meaningful events visible.
+
+## How streaming works
+
+The Logs page opens a WebSocket connection to the agent and subscribes to log events. Each log line arrives as a JSON message containing:
+
+- `level` — severity (`debug`, `info`, `warn`, `error`)
+- `message` — the log text
+- `timestamp` — ISO 8601 timestamp
+
+Log entries are appended to the view as they arrive. The view auto-scrolls to the latest entry unless you have manually scrolled up (in which case auto-scroll pauses until you scroll back to the bottom).
+
+## Relationship to daemon logs
+
+The Logs page shows the same output as `tota logs -f` in the terminal. If tota is running as a daemon (`tota up`), both the terminal command and the Logs page stream from the same source.
+
+## Clearing logs
+
+Logs are not cleared from the UI. To clear the on-disk daemon log file:
+
+```bash
+tota logs --clear
+```
+
+The Logs page will continue streaming new entries after the file is cleared.

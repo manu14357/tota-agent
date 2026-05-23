@@ -10,6 +10,8 @@ const installSteps = [
   { comment: '', cmd: '' },
   { comment: '# First run — 30s setup wizard', cmd: 'tota' },
   { comment: '', cmd: '' },
+  { comment: '# Open the local web UI', cmd: 'tota ui' },
+  { comment: '', cmd: '' },
   { comment: '# Run as a 24/7 background daemon', cmd: 'tota up' },
 ]
 

@@ -46,6 +46,7 @@ import { getManual } from './utils/manual.js';
 import { startBackground, stopDaemon, showLogs, getDaemonStatus, restartDaemon, tryAutoDaemonize } from './cli/daemon.js';
 import { installService, uninstallService, showServiceStatus, isServiceInstalled } from './cli/service.js';
 import { runWithWatchdog } from './cli/watchdog.js';
+import { enableUIChannel, openBrowser } from './cli/ui-command.js';
 import { setGitHubToken } from './utils/github.js';
 import { selectWithArrowKeys } from './utils/arrow-select.js';
 import { ProviderModelFetchError, fetchProviderModelCatalog } from './utils/provider-models.js';
@@ -1763,6 +1764,14 @@ async function runAgent(isDaemon: boolean = false): Promise<void> {
       return;
     }
 
+    if (channelType === 'ui') {
+      const uiChannel = channels.get('ui');
+      if (uiChannel) {
+        await uiChannel.sendFile(filePath, channelId || undefined);
+        return;
+      }
+    }
+
     // CLI / internal / scheduled tasks without an active channel
     const cli = channels.get('cli');
     if (cli) {
@@ -1932,6 +1941,11 @@ async function runAgent(isDaemon: boolean = false): Promise<void> {
     console.log('');
     console.log(chalk.green(`  ${name} is live. Type a message and press Enter.`));
     console.log(chalk.dim('  Ctrl+C to exit  ·  /help for commands  ·  / for menu'));
+    const uiCh = channels.get('ui');
+    if (uiCh) {
+      const uiPort = config.channels.ui?.port ?? 3002;
+      console.log(chalk.cyan(`  Web UI: http://127.0.0.1:${uiPort}`));
+    }
     console.log('');
     cliChannel?.showPrompt();
   } else {
@@ -2854,6 +2868,91 @@ program
     }
 
     console.log('');
+  });
+
+program
+  .command('ui')
+  .description('Start tota with a local web UI at http://127.0.0.1:<port> (default 3002)')
+  .option('-p, --port <port>', 'Port to listen on (default 3002)', '3002')
+  .option('--no-open', 'Do not open the browser automatically')
+  .option('--attach', 'Attach UI to an existing running agent (via API channel on port 3001) instead of booting a new one')
+  .action(async (opts: { port: string; open: boolean; attach: boolean }) => {
+    if (!isSetupComplete()) {
+      console.log('');
+      console.log(chalk.yellow('  tota is not set up yet. Run `tota setup` first.'));
+      console.log('');
+      process.exit(1);
+    }
+
+    const port = parseInt(opts.port, 10) || 3002;
+
+    if (opts.attach) {
+      // Attach mode: spin up UI-only proxy to the existing API channel
+      const cfg = loadConfig();
+      const apiPort = cfg.channels.api?.port ?? 3001;
+
+      console.log('');
+      console.log(chalk.bold.cyan('  tota UI') + chalk.dim('  (attach mode)'));
+      console.log(chalk.dim(`  Proxying chat to agent on port ${apiPort}`));
+      console.log('');
+
+      const { UIChannel } = await import('./channels/ui-server.js');
+      const uiChannel = new UIChannel(port);
+
+      uiChannel.onMessage(async (msg) => {
+        try {
+          const res = await fetch(`http://127.0.0.1:${apiPort}/message`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content: msg.content }),
+          });
+          if (res.ok) {
+            const data = (await res.json()) as { response: string };
+            await uiChannel.send(data.response, msg.channelId);
+          } else {
+            await uiChannel.send(`[Error: agent returned ${res.status}]`, msg.channelId);
+          }
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          await uiChannel.send(`[Error: could not reach agent — ${message}]`, msg.channelId);
+        }
+      });
+
+      await uiChannel.start();
+      const url = `http://127.0.0.1:${uiChannel.getPort()}`;
+      console.log(chalk.green(`  ✓ UI running at ${chalk.bold(url)}`));
+      console.log(chalk.dim('  Press Ctrl+C to stop.'));
+      console.log('');
+
+      if (opts.open !== false) {
+        setTimeout(() => openBrowser(url), 800);
+      }
+
+      const stop = async () => {
+        console.log('');
+        console.log(chalk.dim('  Shutting down UI…'));
+        await uiChannel.stop();
+        process.exit(0);
+      };
+      process.once('SIGINT', () => { void stop(); });
+      process.once('SIGTERM', () => { void stop(); });
+      return;
+    }
+
+    // Standalone mode: enable UI channel and run the full agent
+    enableUIChannel(port);
+    const url = `http://127.0.0.1:${port}`;
+    console.log('');
+    console.log(chalk.bold.cyan('  tota UI'));
+    console.log(chalk.dim(`  Starting agent + UI at ${url}`));
+    console.log('');
+
+    if (opts.open !== false) {
+      // Open browser after 2 s to give the server time to bind
+      setTimeout(() => openBrowser(url), 2000);
+    }
+
+    await runAgent();
   });
 
 // Block usage if a newer version is available — skip only for `tota upgrade`

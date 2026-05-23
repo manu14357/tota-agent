@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  Remembers what matters. Asks before it acts. Runs 24/7 from CLI, Telegram, WhatsApp, or REST API.<br>
+  Remembers what matters. Asks before it acts. Runs 24/7 from CLI, Telegram, WhatsApp, REST API, or **local web UI**.<br>
   60+ built-in tools · Web search · Vision · Code sandbox · Browser automation (36 tools) · Computer-use · Android control · Document readers · MCP plugins · Extensible skills · SQLite-backed Second Brain memory · 12 LLM providers (NVIDIA NIM, OpenRouter, DeepSeek, OpenAI, Anthropic, Grok, Groq, Ollama, MiMo…).
 </p>
 
@@ -71,6 +71,7 @@ tota setup llm          # swap LLM provider
 tota setup browser      # install Chromium, Firefox, WebKit browser binaries
 tota setup computer     # enable computer-use & Android ADB tools
 tota setup api          # enable the REST API channel
+tota ui                 # open the local web UI (http://127.0.0.1:3001)
 ```
 
 ---
@@ -104,6 +105,7 @@ Every AI agent can read files and run commands. Most do it silently. **tota asks
 | **Voice TTS/STT** | Multi-provider TTS: OpenAI TTS-1, ElevenLabs, Google Cloud TTS. Multi-provider STT: OpenAI Whisper, Groq Whisper. Telegram voice messages auto-transcribed. |
 | **Google Calendar** | List, create, and delete events; check free/busy availability — full OAuth2 flow built in. |
 | **MCP plugins** | Connect any MCP-compatible tool server over HTTP — tools appear instantly in the agent. |
+| **Web UI** | Local dashboard at `http://127.0.0.1:3001` — chat, memory browser, scheduler, skills, logs, and settings. `tota ui` to launch. |
 | **REST API channel** | Control tota programmatically over HTTP with optional bearer-token auth. |
 | **WhatsApp channel** | Use tota from WhatsApp — no Meta Business API needed. Scan a QR code, manage access per phone number. |
 | **Extensible** | Install community skills with one command. Schedule skills as recurring tasks. |
@@ -149,10 +151,82 @@ tota service uninstall
 
 ---
 
+## Web UI
+
+tota ships a full browser-based dashboard that runs entirely on your machine — no cloud, no account, no data leaving localhost.
+
+```bash
+tota ui
+```
+
+Opens `http://127.0.0.1:3001` in your default browser. The server starts in seconds and streams responses over WebSocket in real time.
+
+### Options
+
+| Flag | Description |
+|------|-------------|
+| `--port <n>` | Custom port (default: `3001`) |
+| `--no-open` | Start server without opening a browser tab |
+| `--attach` | Proxy to an already-running tota daemon |
+
+```bash
+tota ui --port 4000          # custom port
+tota ui --no-open            # server only
+tota ui --attach             # connect to running daemon
+```
+
+### Pages
+
+| Page | Path | What you can do |
+|------|------|-----------------|
+| **Chat** | `/chat` | Full conversation interface with real-time token streaming, slash-command autocomplete (`/help`, `/status`, `/memory`, `/permissions`, `/exit`), file upload (drag or attach), voice input via browser mic, and rendered code blocks with copy button |
+| **Dashboard** | `/dashboard` | Live agent overview — status badge, active model, provider, uptime, token budget (used / daily limit), and current permission mode. Auto-refreshes every 8 s |
+| **Memory** | `/memory` | Browse and manage Second Brain entries (short-term and long-term). Add entries with tags, edit existing ones, and delete stale facts — all changes sync to the SQLite database immediately |
+| **Scheduler** | `/scheduler` | View all scheduled tasks with name, cron/interval, last run, next run, and status. Cancel any task with one click |
+| **Skills** | `/skills` | See every installed skill — name, description, version, and whether it is currently active |
+| **Settings** | `/settings` | Inspect provider configuration, API key status per provider, and active channel config |
+| **Logs** | `/logs` | Live log viewer with severity filter (debug / info / warn / error). Streams new entries in real time via WebSocket |
+| **Integrations** | `/integrations` | At-a-glance status of every channel (Telegram, WhatsApp, REST API, Web UI), configured GitHub and web-search settings, active providers, and tool category overview |
+
+### Enable via config (auto-start with daemon)
+
+```json
+// ~/.tota/config.json
+{
+  "channels": {
+    "ui": {
+      "enabled": true,
+      "port": 3001
+    }
+  }
+}
+```
+
+Or configure interactively:
+
+```bash
+tota setup ui
+```
+
+### Security
+
+The server binds to `127.0.0.1` (loopback) only — it is never exposed to the network. To access it from another machine, use an SSH tunnel:
+
+```bash
+ssh -L 3001:127.0.0.1:3001 user@your-server
+# then open http://127.0.0.1:3001 locally
+```
+
+---
+
 ## CLI Commands
 
 | Command | Description |
 |---------|-------------|
+| `tota ui` | Launch the local web UI at `http://127.0.0.1:3001` |
+| `tota ui --port <n>` | Use a custom port for the web UI |
+| `tota ui --no-open` | Start the UI server without opening a browser |
+| `tota ui --attach` | Attach to an already-running tota instance via its API |
 | `tota up` | Install service + start daemon + confirm running |
 | `tota` | Start the agent |
 | `tota start` | Start in foreground |
@@ -209,6 +283,7 @@ Configure a single section without touching everything else. The agent keeps run
 | `voice` | TTS/STT providers (OpenAI / ElevenLabs / Google / Groq) |
 | `vault` | Show secrets vault backend and usage info |
 | `api` | REST API channel (port, auth key) |
+| `ui` | Web UI channel (port) |
 | `budget` | Daily token budget |
 
 ---

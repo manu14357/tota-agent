@@ -1,0 +1,69 @@
+---
+title: Web UI — Chat
+---
+
+# Chat
+
+The Chat page is the primary interface for talking to tota. It streams responses token-by-token via WebSocket and supports file attachments, voice input, slash commands, and rendered code blocks.
+
+## Starting a conversation
+
+Navigate to `/chat` (the default route after launch). Type a message and press **Enter** or click the send button. Responses stream in real time — you see each word as the model generates it.
+
+The agent avatar, timestamps, and per-message copy button appear on every message.
+
+## Slash commands
+
+Type `/` to open the autocomplete menu. The following built-in slash commands are available:
+
+| Command | Description |
+|---------|-------------|
+| `/help` | Show all available commands and capabilities |
+| `/status` | Show agent status: provider, budget, skills |
+| `/memory` | View and manage long-term memory |
+| `/permissions` | Switch between Allow All and Ask Me permission modes |
+| `/exit` | Shutdown the tota agent |
+
+These commands are processed locally — they do not consume API tokens.
+
+## File upload
+
+Click the **paperclip icon** (or drag a file onto the chat window) to attach a file to your message. The agent receives the file path and can use any of its file-reading tools to process it immediately.
+
+Supported types include text files, source code, PDFs, images, audio, video, and ZIP archives.
+
+## Voice input
+
+Click the **microphone icon** to record a voice message. The browser captures audio, sends it to the configured speech-to-text provider (OpenAI Whisper or Groq Whisper), and inserts the transcription into the input field. You can review and edit the text before sending.
+
+> Voice input requires a configured STT provider. Run `tota setup voice` to configure one.
+
+## Tool call display
+
+When the agent uses a tool (e.g. reading a file, running a shell command, searching the web), the UI shows a collapsible **tool step row** inline in the conversation. Expand it to see the tool name, input parameters, and raw output.
+
+A **shield-alert icon** appears next to any tool call that required your permission approval.
+
+## Code blocks
+
+Responses containing fenced code blocks are rendered with:
+
+- Syntax language label
+- Monospace pre-formatted display with horizontal scroll
+- **Copy** button (switches to a checkmark for 1.5 s after copying)
+
+Inline code and **bold** text are also rendered inline.
+
+## Permission prompts
+
+When tota is running in **Ask Me** mode, the agent may pause mid-response and display a permission prompt in the chat asking whether to allow a specific tool call. Approve or deny directly from the chat window.
+
+## Keyboard shortcuts
+
+| Key | Action |
+|-----|--------|
+| `Enter` | Send message |
+| `Shift + Enter` | Insert newline |
+| `/` at start of input | Open slash-command autocomplete |
+| `↑` / `↓` in autocomplete | Navigate suggestions |
+| `Escape` | Close autocomplete |

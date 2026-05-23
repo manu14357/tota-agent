@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { BookOpen, Terminal, Layers, Puzzle, Book, ChevronRight } from 'lucide-react'
+import { BookOpen, Terminal, Layers, Puzzle, Book, Monitor, ChevronRight } from 'lucide-react'
 import { NAV } from '@/lib/nav'
 
 const SECTION_ICONS: Record<string, React.ReactNode> = {
@@ -10,6 +10,7 @@ const SECTION_ICONS: Record<string, React.ReactNode> = {
   'CLI Commands':    <Terminal size={13} strokeWidth={2} />,
   'Daemon Mode':     <Layers size={13} strokeWidth={2} />,
   'Integrations':    <Puzzle size={13} strokeWidth={2} />,
+  'Web UI':          <Monitor size={13} strokeWidth={2} />,
   'Reference':       <Book size={13} strokeWidth={2} />,
 }
 

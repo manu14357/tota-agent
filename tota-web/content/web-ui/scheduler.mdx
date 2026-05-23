@@ -1,0 +1,39 @@
+---
+title: Web UI — Scheduler & Tasks
+---
+
+# Scheduler & Tasks
+
+The Scheduler page shows every task that tota has been asked to run on a recurring or one-off schedule. You can inspect task details and cancel any task with one click.
+
+## What is a scheduled task?
+
+Scheduled tasks are created by the agent using the `schedule_task` tool — either because you asked it to ("remind me every Monday at 9am to review my goals") or because a skill registered a recurring job. Tasks are stored in `~/.tota/schedules.yaml` and survive restarts.
+
+## Task list columns
+
+| Column | Description |
+|--------|-------------|
+| **Name** | Human-readable label for the task |
+| **Schedule** | Cron expression or interval string (e.g. `0 9 * * 1`, `every 1h`) |
+| **Last Run** | Timestamp of the most recent execution, or "never" |
+| **Next Run** | Timestamp of the next scheduled execution |
+| **Status** | `active`, `paused`, or `failed` |
+
+## Cancelling a task
+
+Click the **Cancel** (trash) button on any task row. The task is removed from `schedules.yaml` immediately and will not run again.
+
+## Creating tasks
+
+Tasks are created through the agent — ask it in Chat:
+
+```
+Schedule a task to summarize my inbox every weekday at 8am.
+```
+
+The `schedule_task` tool handles parsing and persisting the schedule. The Scheduler page then reflects the new entry on its next load.
+
+## Relationship to in-chat `/tasks`
+
+The `/tasks` slash command in Chat shows the same list. The Scheduler UI page is a richer view with timestamps and cancel controls.

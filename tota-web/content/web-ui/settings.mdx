@@ -1,0 +1,50 @@
+---
+title: Web UI — Settings
+---
+
+# Settings
+
+The Settings page shows the current tota configuration as seen by the running agent. It is read-only — use `tota setup <feature>` or edit `~/.tota/tota.yaml` to make changes, then reload the page.
+
+## What you can inspect
+
+### Providers
+
+A list of every configured LLM provider with:
+
+| Field | Description |
+|-------|-------------|
+| **Name** | Provider identifier (e.g. `anthropic`, `openai`, `deepseek`) |
+| **Status** | Enabled / disabled based on whether a valid API key is present |
+| **Model** | The model currently configured for this provider |
+| **Base URL** | Custom base URL, if configured (e.g. for OpenAI-compatible endpoints) |
+
+The active provider (the one tota is currently using) is highlighted.
+
+### Channels
+
+Shows the enabled state and port for each channel:
+
+| Channel | What it shows |
+|---------|---------------|
+| **Telegram** | Enabled / disabled, bot token presence |
+| **WhatsApp** | Enabled / disabled, auth directory |
+| **REST API** | Enabled / disabled, port |
+| **Web UI** | Enabled / disabled, port |
+
+### API key status
+
+For each provider, Settings indicates whether the required API key environment variable is set — useful for quickly spotting a missing key without opening a terminal.
+
+## Making configuration changes
+
+Settings are changed outside the UI:
+
+```bash
+tota setup llm          # change provider / model
+tota setup api          # change REST API port or auth key
+tota setup ui           # change Web UI port
+tota doctor             # reconfigure everything
+```
+
+After making changes, reload the Settings page to see the updated values.

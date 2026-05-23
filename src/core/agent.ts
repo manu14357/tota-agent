@@ -536,7 +536,7 @@ export class Agent {
       const loopAbortController = new AbortController();
       let loopWarningSent = false;
 
-      const canStream = msg.channelType === 'cli' || (msg.channelType === 'telegram' && this.telegramStreaming);
+const canStream = msg.channelType === 'cli' || msg.channelType === 'ui' || (msg.channelType === 'telegram' && this.telegramStreaming);
 
       const tgChannel = this.channels.get('telegram');
       if (msg.channelType === 'telegram' && tgChannel) {

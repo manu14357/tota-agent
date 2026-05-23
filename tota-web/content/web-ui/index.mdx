@@ -1,0 +1,95 @@
+---
+title: Web UI — Overview
+---
+
+# Web UI
+
+tota ships a full browser-based dashboard that runs entirely on your machine. No cloud account, no telemetry, no data leaving `127.0.0.1`.
+
+## Quick start
+
+```bash
+tota ui
+```
+
+Opens `http://127.0.0.1:3001` in your default browser. The React SPA is bundled into the package — no separate install needed.
+
+## Options
+
+| Flag | Description |
+|------|-------------|
+| `--port <n>` | Custom port (default: `3001`) |
+| `--no-open` | Start the server without opening a browser tab |
+| `--attach` | Proxy to an already-running tota daemon instead of booting a new instance |
+
+```bash
+tota ui --port 4000          # custom port
+tota ui --no-open            # server only, no browser
+tota ui --attach             # connect to existing daemon
+```
+
+## How it works
+
+`tota ui` starts the agent with the UI channel enabled. The channel:
+
+1. Starts an HTTP server on the configured port
+2. Serves the built-in React SPA (bundled at build time into `dist/`)
+3. Exposes a REST API the SPA communicates with
+4. Opens a WebSocket connection for real-time message and log streaming
+
+When you use `--attach`, the UI proxies to the agent's existing API rather than booting a new agent process — useful when tota is already running as a daemon.
+
+## Pages at a glance
+
+| Page | URL | Description |
+|------|-----|-------------|
+| [Chat](/docs/web-ui/chat) | `/chat` | Full conversation interface with streaming, slash commands, file upload, voice input |
+| [Dashboard](/docs/web-ui/dashboard) | `/dashboard` | Agent status, model, uptime, token budget |
+| [Memory](/docs/web-ui/memory) | `/memory` | Browse and manage Second Brain facts |
+| [Scheduler](/docs/web-ui/scheduler) | `/scheduler` | View and cancel scheduled tasks |
+| [Skills](/docs/web-ui/skills) | `/skills` | Installed skills list |
+| [Settings](/docs/web-ui/settings) | `/settings` | Provider and API key status |
+| [Logs](/docs/web-ui/logs) | `/logs` | Live log viewer with severity filter |
+| [Integrations](/docs/web-ui/integrations) | `/integrations` | Channel status, tools, and provider overview |
+
+## Enable via config (auto-start with daemon)
+
+Pre-enable the UI channel in `~/.tota/config.json` so it starts automatically when the daemon boots:
+
+```json
+{
+  "channels": {
+    "ui": {
+      "enabled": true,
+      "port": 3001
+    }
+  }
+}
+```
+
+Or configure it interactively:
+
+```bash
+tota setup ui
+```
+
+## Security
+
+The server binds to `127.0.0.1` (loopback only) — it is **never** exposed to the network.
+
+If you run tota on a remote server and want to reach the UI from your local machine, use an SSH tunnel:
+
+```bash
+ssh -L 3001:127.0.0.1:3001 user@your-server
+# then open http://127.0.0.1:3001 in your local browser
+```
+
+## Tech stack
+
+| Layer | Technology |
+|-------|-----------|
+| Frontend | React 18 + React Router + Tailwind CSS |
+| Build | Vite (output served from `dist/ui-app/`) |
+| API | Node.js `http.createServer` (no Express) |
+| Real-time | WebSocket (`ws`) — one persistent connection per browser tab |
+| Icons | Lucide React |

@@ -1,0 +1,63 @@
+---
+title: Web UI — Integrations
+---
+
+# Integrations
+
+The Integrations page gives you a unified overview of every external system tota is connected to — channels, providers, development integrations, and tool categories — all in one place.
+
+## Channel status
+
+Each channel is shown as a card with an **Active** / **Inactive** status pill:
+
+| Channel | What it tracks |
+|---------|---------------|
+| **Telegram** | Whether the bot token is configured and the channel is enabled |
+| **WhatsApp** | Whether the Baileys session is configured and the channel is enabled |
+| **REST API** | Whether the HTTP API channel is enabled and on which port |
+| **Web UI** | Whether the UI channel itself is active |
+
+Click the **Settings** link on any channel card to jump to the Settings page where you can see the full configuration.
+
+## Tool categories
+
+A grid of tool categories gives you a high-level picture of what the agent can do:
+
+| Category | Tools |
+|----------|-------|
+| Shell | Run commands and scripts |
+| Filesystem | Read, write, edit, find files |
+| Memory | Store and recall Second Brain facts |
+| Web | Search the web, fetch pages, browser automation |
+| Git & GitHub | Commit, push, create PRs and issues |
+| Scheduler | Schedule tasks and reminders |
+| Vision | Analyze images with vision AI |
+| Computer | Screen capture, mouse/keyboard control, ADB |
+| Messaging | Send Telegram and WhatsApp messages |
+| MCP Tools | Model Context Protocol integrations |
+
+## Configured integrations
+
+The page also surfaces at-a-glance status for:
+
+| Integration | What it shows |
+|-------------|---------------|
+| **GitHub** | Configured username, default owner/repo |
+| **Web Search** | Active provider (Brave / Serper / Tavily) |
+| **LLM Providers** | List of providers with enabled state and active model |
+
+## Refreshing
+
+Click the **Refresh** button to re-fetch all integration status from the agent. The page does not auto-refresh, so use this after making configuration changes.
+
+## Making changes
+
+Integration settings are changed via the setup wizard:
+
+```bash
+tota setup telegram     # configure Telegram
+tota setup whatsapp     # configure WhatsApp
+tota setup api          # configure REST API
+tota setup websearch    # configure web search provider
+tota setup github       # configure GitHub
+```

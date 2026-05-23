@@ -42,6 +42,20 @@ export const NAV: NavSection[] = [
     ],
   },
   {
+    title: 'Web UI',
+    items: [
+      { title: 'Overview', slug: 'web-ui' },
+      { title: 'Chat', slug: 'web-ui/chat' },
+      { title: 'Dashboard', slug: 'web-ui/dashboard' },
+      { title: 'Memory', slug: 'web-ui/memory' },
+      { title: 'Scheduler & Tasks', slug: 'web-ui/scheduler' },
+      { title: 'Skills', slug: 'web-ui/skills' },
+      { title: 'Settings', slug: 'web-ui/settings' },
+      { title: 'Logs', slug: 'web-ui/logs' },
+      { title: 'Integrations', slug: 'web-ui/integrations' },
+    ],
+  },
+  {
     title: 'Reference',
     items: [
       { title: 'Built-in Tools', slug: 'reference/built-in-tools' },

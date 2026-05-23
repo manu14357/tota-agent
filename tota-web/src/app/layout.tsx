@@ -25,11 +25,13 @@ export const metadata: Metadata = {
     template: '%s | tota',
   },
   description:
-    'AI agent built for control: permissioned tools, safe execution, token budgets, and multi-channel access. Remembers what matters. Asks before it acts. Runs 24/7 from CLI or Telegram.',
+    'AI agent built for control: permissioned tools, safe execution, token budgets, and multi-channel access. Local web UI, CLI, Telegram, WhatsApp. Remembers what matters. Asks before it acts. Runs 24/7.',
   keywords: [
     'ai agent',
     'cli agent',
     'telegram bot',
+    'whatsapp bot',
+    'web ui',
     'second brain',
     'permission hardened',
     'soul driven',
@@ -37,6 +39,7 @@ export const metadata: Metadata = {
     'openai',
     'anthropic',
     'ollama',
+    'groq',
     'token budget',
     'daemon mode',
   ],

@@ -158,6 +158,10 @@ export interface TotaConfig {
       approved: WhatsAppApprovedUser[];
       pending: WhatsAppPendingRequest[];
     };
+    ui: {
+      enabled: boolean;
+      port: number;
+    };
   };
   loopGuard: LoopGuardConfig;
   webSearch: WebSearchConfig;
@@ -353,6 +357,10 @@ export function getDefaultConfig(): TotaConfig {
         allowGroups: getEnvBool('WHATSAPP_ALLOW_GROUPS', false),
         approved: [],
         pending: [],
+      },
+      ui: {
+        enabled: getEnvBool('UI_ENABLED', true),
+        port: getEnvNum('UI_PORT', 3002),
       },
     },
     loopGuard: {

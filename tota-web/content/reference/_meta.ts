@@ -1,6 +1,7 @@
 export default {
   'built-in-tools': 'Built-in Tools',
   configuration: 'Configuration',
+  'web-ui': 'Web UI',
   'web-search': 'Web Search',
   permissions: 'Permissions',
   'provider-fallback': 'Provider Fallback',

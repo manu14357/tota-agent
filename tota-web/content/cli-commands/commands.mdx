@@ -4,6 +4,10 @@ title: Full Command Reference
 
 | Command | Description |
 |---------|-------------|
+| `tota ui` | Open the local web UI at `http://127.0.0.1:3001` |
+| `tota ui --port <n>` | Use a custom port for the web UI |
+| `tota ui --no-open` | Start the UI server without opening the browser |
+| `tota ui --attach` | Attach the web UI to an already-running tota API instance |
 | `tota up` | **Recommended.** Start tota as a persistent daemon — installs the system service if needed, shows PID if already running |
 | `tota` | Start the agent (same as `tota start`) |
 | `tota start` | Start as background daemon (default) |

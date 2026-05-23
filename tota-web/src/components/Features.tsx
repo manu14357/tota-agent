@@ -23,9 +23,19 @@ import {
   Globe,
   Monitor,
   Smartphone,
+  LayoutDashboard,
 } from 'lucide-react'
 
 const features = [
+  {
+    icon: LayoutDashboard,
+    title: 'Local Web UI',
+    description:
+      'Browser-based dashboard at http://127.0.0.1:3001. Chat, memory browser, scheduler, skills, live logs, and settings — all local, no cloud. Just run `tota ui`.',
+    accent: 'text-sky-300',
+    bg: 'rgba(125,211,252,0.08)',
+    borderColor: 'rgba(125,211,252,0.18)',
+  },
   {
     icon: ShieldCheck,
     title: 'Permission-Hardened',

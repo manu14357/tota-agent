@@ -1,0 +1,50 @@
+---
+title: Web UI — Skills
+---
+
+# Skills
+
+The Skills page lists every skill currently installed in tota. Skills are community or custom packages that extend the agent with new tools and capabilities.
+
+## What each entry shows
+
+| Field | Description |
+|-------|-------------|
+| **Name** | Skill identifier (e.g. `tota-skill-pomodoro`) |
+| **Description** | What the skill does |
+| **Version** | Installed version |
+| **Active** | Whether the skill is currently loaded and available to the agent |
+
+## Installing a skill
+
+Skills are installed through the agent or via the CLI — not from the Skills UI page directly. Ask tota in Chat:
+
+```
+Install the pomodoro skill.
+```
+
+The agent uses the `install_skill` tool to fetch and install the package. The Skills page updates on next load.
+
+Or install from the terminal:
+
+```bash
+tota install-skill tota-skill-pomodoro
+```
+
+## Using a skill
+
+Once installed, skills are invoked through natural conversation:
+
+```
+Start a 25-minute focus session.
+```
+
+The agent selects the appropriate skill tool automatically.
+
+## Listing skills from chat
+
+Use the `/skills` slash command in Chat for a quick inline list without leaving the conversation.
+
+## Learn more
+
+See [Skills](/docs/reference/skills) in the Reference section for authoring, publishing, and scheduling skills.
