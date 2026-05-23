@@ -2,6 +2,36 @@
 
 All notable changes to tota-agent will be documented here.
 
+## 1.2.0 — (2026-05-23)
+
+### New Features
+
+- **Local Web UI** (`tota ui`) — Full browser-based dashboard running entirely on your machine at `http://127.0.0.1:3001`. No cloud, no account, no data leaving localhost.
+  - **Real-time Chat** — Streams responses token-by-token via WebSocket. Slash-command autocomplete (`/help`, `/status`, `/memory`, `/permissions`, `/exit`), file attachment (drag-and-drop + paperclip), voice input via browser mic (STT), tool-step display with expand/collapse, code blocks with copy button, permission prompt handling.
+  - **Dashboard** — Live stat cards: agent status, active model, provider, uptime, token budget (used / daily limit), permission mode. Auto-refreshes every 8 s with status-badge colour coding.
+  - **Memory Browser** — Browse and manage Second Brain entries (short-term + long-term). Add entries with tags, edit existing ones, delete stale facts — all synced to SQLite immediately.
+  - **Scheduler** — View all scheduled tasks with cron/interval, last run, next run, and status. Cancel any task with one click.
+  - **Skills** — Installed skill list with name, description, version, and active state.
+  - **Settings** — Inspect provider config, API key status per provider, and active channel config (read-only).
+  - **Logs** — Live log viewer with severity filter (debug / info / warn / error). Streams new entries via WebSocket with auto-scroll and manual-scroll pause.
+  - **Integrations** — At-a-glance status of every channel (Telegram, WhatsApp, REST API, Web UI), tool category overview, GitHub and web-search config.
+  - **CLI flags**: `--port <n>` (default 3001), `--no-open` (server only), `--attach` (proxy to running daemon)
+  - **Security**: binds to `127.0.0.1` loopback only; never exposed to the network
+  - **Tech stack**: Vite + React 18 + React Router + Tailwind CSS SPA; served from `dist/ui-app/` by Node.js HTTP + WebSocket server (`src/channels/ui-server.ts`)
+  - Configure to auto-start with daemon via `channels.ui.enabled: true` in `~/.tota/config.json` or run `tota setup ui`
+- **Web UI docs section** — Dedicated 9-page `/docs/web-ui/` section on the tota documentation site covering all pages, options, security, and config
+
+### Internal
+
+- `src/channels/ui-server.ts` — new HTTP + WebSocket server; REST endpoints: `/api/status`, `/api/messages`, `/api/memory`, `/api/schedules`, `/api/skills`, `/api/logs`, `/api/config`; file upload support; static SPA serving
+- `src/cli/ui-command.ts` — `tota ui` CLI command with `--port`, `--no-open`, `--attach` flags; auto-opens browser on start
+- `src/channels/registry.ts` — registers `UiServerChannel`
+- `src/types/channel.ts` — adds `'ui'` to `ChannelType` union
+- `src/utils/config.ts` — UI channel config schema (port, enabled)
+- `package.json` — `build:ui` script (copies brand assets + builds React SPA), `build:all` script, `prepublishOnly` includes UI build
+
+---
+
 ## 1.1.0 — (2026-05-19)
 
 ### New Features

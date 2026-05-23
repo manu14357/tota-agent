@@ -1,58 +1,84 @@
-# Release v1.1.0
+# Release v1.2.0
 
-## tota-agent v1.1.0 — Groq Integration
+## tota-agent v1.2.0 — Local Web UI
 
-**Minor release** adding Groq as the 12th LLM provider, plus a WhatsApp CI reliability fix.
+**Minor release** shipping a full browser-based dashboard (`tota ui`) with 8 live pages, real-time WebSocket streaming, and a dedicated 9-page documentation section.
 
 ### Highlights
 
-#### Groq — ultra-fast open-source inference
-[Groq](https://groq.com) runs open-source models on custom LPU hardware at speeds far exceeding standard GPU clouds. tota now integrates Groq natively via `@ai-sdk/groq`.
+#### Web UI — local dashboard in your browser
 
-**Supported models**
-
-| Model | Notes |
-|-------|-------|
-| `llama-3.3-70b-versatile` *(default)* | Best general-purpose |
-| `llama-3.1-8b-instant` | Fastest, lightweight |
-| `qwen-qwq-32b` | Extended reasoning |
-| `deepseek-r1-distill-llama-70b` | Reasoning distill |
-| `gemma2-9b-it` | Instruction-tuned |
-| `mixtral-8x7b-32768` | Large context MoE |
-
-**Setup**
 ```bash
-tota setup llm
-# Select: Groq
-# Paste your GROQ_API_KEY (starts with gsk_)
-# Choose a model from the fetched list
+tota ui
+# Opens http://127.0.0.1:3001
 ```
 
-Or manually in `~/.tota/.env`:
+Or with options:
 ```bash
-GROQ_API_KEY=gsk_your-key
-GROQ_MODEL=llama-3.3-70b-versatile
+tota ui --port 4000       # custom port
+tota ui --no-open         # server-only, no browser tab
+tota ui --attach          # proxy to already-running daemon
 ```
 
-Get a free API key at https://console.groq.com/keys.
+All data stays on your machine. The server binds to `127.0.0.1` loopback only.
 
-**Files changed**
+#### 8 built-in pages
+
+| Page | Path | What you get |
+|------|------|-------------|
+| **Chat** | `/chat` | Real-time streaming chat; slash-command autocomplete; file upload; voice input (browser mic); tool-step display; code blocks with copy button |
+| **Dashboard** | `/dashboard` | Live status badge, active model, provider, uptime, token budget, permission mode — auto-refreshes every 8 s |
+| **Memory** | `/memory` | Browse and manage Second Brain entries; add/edit/delete; instant SQLite sync |
+| **Scheduler** | `/scheduler` | All scheduled tasks with cron, last/next run, status; one-click cancel |
+| **Skills** | `/skills` | Installed skill list — name, description, version, active state |
+| **Settings** | `/settings` | Provider config, API key status, channel config (read-only) |
+| **Logs** | `/logs` | Live log stream with severity filter (debug/info/warn/error); WebSocket push |
+| **Integrations** | `/integrations` | Channel status pills; tool category grid; GitHub, web-search, provider overview |
+
+#### Auto-start with daemon
+
+```json
+// ~/.tota/config.json
+{
+  "channels": {
+    "ui": {
+      "enabled": true,
+      "port": 3001
+    }
+  }
+}
+```
+
+Or run `tota setup ui` interactively.
+
+#### Remote access via SSH tunnel
+
+```bash
+ssh -L 3001:127.0.0.1:3001 user@your-server
+# then open http://127.0.0.1:3001 locally
+```
+
+### Files changed
 
 | File | Change |
 |------|--------|
-| `src/providers/groq.ts` | New — `GroqProvider` using `createGroq` |
-| `src/providers/registry.ts` | Wire `GroqProvider` into provider registry |
-| `src/providers/index.ts` | Export `GroqProvider` |
-| `src/utils/config.ts` | Add `'groq'` to `ProviderName` union + `TotaConfig.providers.groq` |
-| `src/utils/provider-models.ts` | `GROQ_PREFERRED_MODELS`, `fetchGroqModels()`, catalog integration |
-| `src/index.ts` | `PROVIDER_OPTIONS`, `validateApiKey`, setup wizard block |
-| `package.json` | Add `@ai-sdk/groq ^3.0.39` |
+| `src/channels/ui-server.ts` | **New** — HTTP + WebSocket server; 8 REST API endpoints; file upload; loopback-only binding; static SPA serving |
+| `src/cli/ui-command.ts` | **New** — `tota ui` CLI command with `--port`, `--no-open`, `--attach` flags |
+| `src/ui-app/` | **New** — React 18 + Vite + React Router + Tailwind SPA (18 source files) |
+| `src/channels/registry.ts` | Register `UiServerChannel` |
+| `src/types/channel.ts` | Add `'ui'` to `ChannelType` union |
+| `src/utils/config.ts` | UI channel config schema |
+| `src/index.ts` | Wire `tota ui` command + `tota setup ui` |
+| `package.json` | `build:ui`, `build:all`, `prepublishOnly` scripts |
+| `README.md` | New `## Web UI` section with options, pages table, config, security |
+| `tota-web/content/web-ui/` | **New** — 9-page dedicated docs section |
+| `tota-web/src/lib/nav.ts` | Add Web UI section (9 slugs) to sidebar nav |
+| `tota-web/src/components/docs/Sidebar.tsx` | Monitor icon for Web UI section |
+| `tota-web/content/index.mdx` | Updated landing page cards linking to new docs |
 
-#### Bug Fix — WhatsApp CI test `ENOENT`
-Mocked `readdirSync` in `src/channels/whatsapp.test.ts` to prevent `ENOENT` on CI when the WhatsApp auth directory does not exist yet.
+### Migration from v1.1.x
 
-### Migration from v1.0.x
-No breaking changes. Groq is disabled by default unless `GROQ_API_KEY` is set or configured via the wizard.
+No breaking changes. The Web UI is opt-in — `tota ui` starts it on demand. No config changes required to continue using tota as before.
 
 ```bash
 npm i -g tota-agent
