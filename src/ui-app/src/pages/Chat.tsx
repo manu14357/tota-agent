@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { ArrowUp, Loader2, User, Copy, Check, ChevronDown, Wrench, ShieldAlert, Paperclip, Mic } from 'lucide-react';
+import { ArrowUp, Loader2, User, Copy, Check, ChevronDown, Wrench, ShieldAlert, Paperclip, Mic, Square, WifiOff } from 'lucide-react';
 import { api, socket, type ChatMessage, type WSMessage } from '../api';
 
 // Extend ChatMessage to allow step/tool rows and file media locally
@@ -196,6 +196,15 @@ function CommandPalette({ filter, activeIdx, onSelect }: {
 // ── Hint chips ────────────────────────────────────────────────────────────────
 const HINTS = ['Write some code', 'Search the web', 'List my files', 'Schedule a task'];
 
+// ── Upload a File via POST /api/upload ────────────────────────────────────────
+async function uploadFile(file: File): Promise<{ path: string; filename: string; size: number }> {
+  const form = new FormData();
+  form.append('file', file, file.name);
+  const res = await fetch('/api/upload', { method: 'POST', body: form });
+  if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
+  return res.json();
+}
+
 // ── Main ChatPage ─────────────────────────────────────────────────────────────
 export default function ChatPage() {
   const [messages, setMessages]           = useState<LocalMsg[]>([]);
@@ -203,6 +212,7 @@ export default function ChatPage() {
   const [sending, setSending]             = useState(false);
   const [agentStatus, setAgentStatus]     = useState<string | null>(null);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
+  const [wsConnected, setWsConnected]     = useState(true);
 
   // Slash command palette state
   const [showCmdPalette, setShowCmdPalette] = useState(false);
@@ -212,6 +222,14 @@ export default function ChatPage() {
   // Permission request state
   const [permRequest, setPermRequest] = useState<{ requestId: string } | null>(null);
 
+  // File upload state
+  const [uploading, setUploading] = useState(false);
+
+  // Audio recording state
+  const [recording, setRecording]         = useState(false);
+  const mediaRecorderRef                  = useRef<MediaRecorder | null>(null);
+  const audioChunksRef                    = useRef<Blob[]>([]);
+
   const bottomRef   = useRef<HTMLDivElement>(null);
   const threadRef   = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -220,7 +238,18 @@ export default function ChatPage() {
   // Load chat history on mount
   useEffect(() => {
     api.get<ChatMessage[]>('/api/memory/short-term')
-      .then((h) => { if (Array.isArray(h)) setMessages(h); })
+      .then((h) => {
+        if (Array.isArray(h)) {
+          // Normalise entries from ShortTermMemory — may lack id/timestamp
+          const normalised = h.map((e: any, idx: number) => ({
+            id: e.id ?? `hist-${idx}-${Date.now()}`,
+            role: e.role === 'assistant' ? 'agent' as const : e.role === 'user' ? 'user' as const : 'agent' as const,
+            content: e.content ?? '',
+            timestamp: e.timestamp ?? Date.now(),
+          }));
+          setMessages(normalised);
+        }
+      })
       .catch(() => {});
   }, []);
 
@@ -234,18 +263,17 @@ export default function ChatPage() {
   // ── WebSocket messages ────────────────────────────────────────────────────
   useEffect(() => {
     const unsub = socket.subscribe((msg: WSMessage) => {
+      // Track connection
+      setWsConnected(true);
 
       if (msg.type === 'status') {
         if (msg.status === 'thinking') setAgentStatus('thinking');
         else if (msg.status === 'typing') setAgentStatus('typing');
         else setAgentStatus(null);
 
-      } else if ((msg as { type: string }).type === 'file') {
+      } else if (msg.type === 'file') {
         // Agent sent a file — show it inline in the chat
-        const { targetId, filePath, name, mimeType, isImage, size } = msg as {
-          type: string; targetId: string; filePath: string;
-          name: string; mimeType: string; isImage: boolean; size: number;
-        };
+        const { targetId, filePath, name, mimeType, isImage, size } = msg;
         setAgentStatus(null);
         setSending(false);
         setMessages((prev) => [
@@ -259,13 +287,13 @@ export default function ChatPage() {
           },
         ]);
 
-      } else if ((msg as { type: string }).type === 'askPermission') {
+      } else if (msg.type === 'askPermission') {
         // Backend wants user to choose permission mode
-        setPermRequest({ requestId: (msg as { type: string; targetId: string }).targetId });
+        setPermRequest({ requestId: msg.targetId });
 
       } else if (msg.type === 'step') {
         // Intermediate tool step
-        const { targetId, content } = msg as { type: string; targetId: string; content: string };
+        const { targetId, content } = msg;
         setAgentStatus(null);
         setMessages((prev) => [
           ...prev,
@@ -280,7 +308,7 @@ export default function ChatPage() {
 
       } else if (msg.type === 'chunk') {
         // Streaming chunk — build up the agent bubble
-        const { targetId: streamId, chunk } = msg as { type: string; targetId: string; chunk: string };
+        const { targetId: streamId, chunk } = msg;
         setAgentStatus(null);
         setMessages((prev) => {
           const existing = prev.find((m) => m.id === streamId && m.streaming);
@@ -297,7 +325,7 @@ export default function ChatPage() {
 
       } else if (msg.type === 'done') {
         // Conversation complete — finalize streaming bubble or add fresh message
-        const { requestId: reqId, response } = msg as { type: string; requestId: string; response: string };
+        const { requestId: reqId, response } = msg;
         setAgentStatus(null);
         setSending(false);
         setMessages((prev) => {
@@ -321,7 +349,7 @@ export default function ChatPage() {
 
       } else if (msg.type === 'message') {
         // Non-streaming final message
-        const { targetId, content } = msg as { type: string; targetId: string; content: string };
+        const { targetId, content } = msg;
         setAgentStatus(null);
         setSending(false);
         setMessages((prev) => {
@@ -335,7 +363,13 @@ export default function ChatPage() {
         });
       }
     });
-    return unsub;
+
+    // Track WS disconnection
+    const checkConnection = setInterval(() => {
+      setWsConnected(socket.isConnected());
+    }, 3000);
+
+    return () => { unsub(); clearInterval(checkConnection); };
   }, []);
 
   // Auto-scroll on new messages
@@ -374,14 +408,78 @@ export default function ChatPage() {
     textareaRef.current?.focus();
   };
 
-  // Attach file — inserts the local path as a message so the agent can use send_file
-  const handleFileAttach = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // ── File attach — upload to server, then send message with file path ────
+  const handleFileAttach = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    // Provide the path hint in the input so the user can send it
-    setInput((prev) => prev + (prev ? ' ' : '') + file.name);
-    textareaRef.current?.focus();
     e.target.value = '';
+
+    setUploading(true);
+    try {
+      const result = await uploadFile(file);
+      // Send a message to the agent describing the uploaded file
+      const mimeType = file.type || 'application/octet-stream';
+      const sizeStr = file.size > 1024 * 1024
+        ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
+        : `${Math.round(file.size / 1024)} KB`;
+      const content = `[User sent a file]\nFile saved to: ${result.path}\nFilename: ${result.filename}\nType: ${mimeType}\nSize: ${sizeStr}\n\nYou can now read, analyze, or process this file using the appropriate tool (read_pdf, read_excel, read_docx, read_file, analyze_image, etc.), then use send_file to send results back.`;
+      await send(content);
+    } catch (err: any) {
+      setMessages((prev) => [
+        ...prev,
+        { id: `err-${Date.now()}`, role: 'agent', content: `❌ File upload failed: ${err.message}`, timestamp: Date.now() },
+      ]);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // ── Audio recording ─────────────────────────────────────────────────────
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      audioChunksRef.current = [];
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+      mediaRecorder.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        if (audioBlob.size < 100) return; // too small, ignore
+        // Upload the recorded audio
+        const file = new File([audioBlob], `voice-${Date.now()}.webm`, { type: 'audio/webm' });
+        setUploading(true);
+        try {
+          const result = await uploadFile(file);
+          const content = `[User sent a voice message]\nFile saved to: ${result.path}\nFilename: ${result.filename}\nType: audio/webm\n\nPlease transcribe this audio using the transcribe_audio tool, then respond to what the user said.`;
+          await send(content);
+        } catch (err: any) {
+          setMessages((prev) => [
+            ...prev,
+            { id: `err-${Date.now()}`, role: 'agent', content: `❌ Voice upload failed: ${err.message}`, timestamp: Date.now() },
+          ]);
+        } finally {
+          setUploading(false);
+        }
+      };
+      mediaRecorder.start();
+      mediaRecorderRef.current = mediaRecorder;
+      setRecording(true);
+    } catch (err) {
+      setMessages((prev) => [
+        ...prev,
+        { id: `err-${Date.now()}`, role: 'agent', content: '❌ Could not access microphone. Please allow microphone access in your browser.', timestamp: Date.now() },
+      ]);
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current = null;
+    }
+    setRecording(false);
   };
 
   const filteredCmds = SLASH_COMMANDS.filter(
@@ -454,6 +552,14 @@ export default function ChatPage() {
 
   return (
     <div className="chat-shell">
+      {/* WebSocket disconnect banner */}
+      {!wsConnected && (
+        <div className="ws-disconnect-banner">
+          <WifiOff size={14} />
+          <span>Connection lost — reconnecting…</span>
+        </div>
+      )}
+
       {/* Thread */}
       <div className="chat-thread" ref={threadRef} onScroll={handleScroll}>
 
@@ -559,15 +665,16 @@ export default function ChatPage() {
             ref={fileInputRef}
             type="file"
             hidden
-            accept="image/*,.pdf,.doc,.docx,.txt,.zip"
-            onChange={handleFileAttach}
+            accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.txt,.zip,.csv,.xlsx,.xls,.json,.py,.js,.ts,.tsx,.jsx,.md,.html,.css,.xml,.yaml,.yml,.sh,.bat,.log,.sql,.r,.go,.rs,.java,.c,.cpp,.h,.rb,.php,.swift,.kt"
+            onChange={(e) => void handleFileAttach(e)}
           />
           <button
             className="compose-action-btn"
             title="Attach file"
             onClick={() => fileInputRef.current?.click()}
+            disabled={uploading || sending}
           >
-            <Paperclip size={17} />
+            {uploading ? <Loader2 size={17} style={{ animation: 'spin 1s linear infinite' }} /> : <Paperclip size={17} />}
           </button>
 
           {/* Textarea */}
@@ -581,12 +688,14 @@ export default function ChatPage() {
             className="compose-textarea"
           />
 
-          {/* Right actions */}
+          {/* Right actions — Mic / Stop */}
           <button
-            className="compose-action-btn"
-            title="Voice message (coming soon)"
+            className={`compose-action-btn${recording ? ' compose-action-btn--recording' : ''}`}
+            title={recording ? 'Stop recording' : 'Record voice message'}
+            onClick={recording ? stopRecording : () => void startRecording()}
+            disabled={uploading || sending}
           >
-            <Mic size={17} />
+            {recording ? <Square size={15} /> : <Mic size={17} />}
           </button>
 
           <button

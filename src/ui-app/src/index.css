@@ -1575,3 +1575,244 @@ body {
   .sidebar-item:hover { background: var(--bg-hover); color: var(--text-strong); }
   .sidebar-item.active { background: var(--accent-subtle); color: var(--accent); }
 }
+
+/* ============================================================
+   WEBSOCKET DISCONNECT BANNER
+   ============================================================ */
+.ws-disconnect-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: linear-gradient(135deg, var(--warn-sub), rgba(245,158,11,0.05));
+  border-bottom: 1px solid rgba(245,158,11,0.3);
+  color: var(--warn);
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+  animation: banner-pulse 2s ease-in-out infinite;
+}
+
+@keyframes banner-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.7; }
+}
+
+/* ============================================================
+   RECORDING STATE
+   ============================================================ */
+.compose-action-btn--recording {
+  color: var(--danger) !important;
+  background: var(--danger-sub) !important;
+  animation: recording-pulse 1s ease-in-out infinite;
+}
+
+@keyframes recording-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+  50%      { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+}
+
+/* ============================================================
+   MEDIA BUBBLES (file/image display in chat)
+   ============================================================ */
+.media-bubble {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 320px;
+}
+
+.media-img {
+  max-width: 300px;
+  max-height: 280px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  object-fit: cover;
+  cursor: pointer;
+  transition: transform 150ms var(--ease-out), box-shadow 150ms;
+}
+.media-img:hover {
+  transform: scale(1.02);
+  box-shadow: var(--shadow-md);
+}
+
+.media-caption {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 0 2px;
+}
+
+.media-file-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  text-decoration: none;
+  color: var(--text);
+  transition: border-color 150ms, background 150ms, box-shadow 150ms;
+  font-size: 13px;
+}
+.media-file-chip:hover {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.media-file-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.media-file-name {
+  font-weight: 600;
+  color: var(--text-strong);
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.media-file-size {
+  font-size: 11px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   PERMISSION BANNER
+   ============================================================ */
+.permission-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, var(--warn-sub), rgba(245,158,11,0.03));
+  border: 1px solid rgba(245,158,11,0.25);
+  border-radius: var(--r-lg);
+  margin-bottom: 12px;
+  animation: fade-in 0.2s var(--ease-out) both;
+}
+
+.permission-banner__text {
+  flex: 1;
+  font-size: 12.5px;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.permission-banner__actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.btn--allow-all {
+  padding: 6px 12px;
+  border-radius: var(--r-md);
+  background: var(--ok-sub);
+  color: var(--ok);
+  border: 1px solid rgba(34,197,94,0.3);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 120ms, border-color 120ms;
+  font-family: var(--font-sans);
+}
+.btn--allow-all:hover {
+  background: rgba(34,197,94,0.2);
+  border-color: var(--ok);
+}
+
+.btn--ask-me {
+  padding: 6px 12px;
+  border-radius: var(--r-md);
+  background: var(--bg-elevated);
+  color: var(--text);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 120ms, border-color 120ms;
+  font-family: var(--font-sans);
+}
+.btn--ask-me:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+}
+
+/* ============================================================
+   ENHANCED ANIMATIONS
+   ============================================================ */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Smooth hover lift for cards */
+.card {
+  transition: border-color 140ms, box-shadow 200ms, transform 200ms;
+}
+.card:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Glassmorphism for compose bar */
+.compose-bar {
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter: blur(16px) saturate(1.5);
+  -webkit-backdrop-filter: blur(16px) saturate(1.5);
+}
+
+/* Stat card hover enhancement */
+.stat-card {
+  transition: border-color 140ms, box-shadow 200ms, transform 200ms;
+}
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--accent);
+}
+
+/* Nav item active indicator glow */
+.nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 25%;
+  height: 50%;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+
+/* Button press animation */
+.btn--primary:active {
+  transform: scale(0.97);
+}
+
+/* Chat hint chip hover glow */
+.chat-hint-chip {
+  transition: all 200ms var(--ease-out);
+}
+
+/* Compose send button enhanced */
+.compose-send {
+  transition: background 150ms, transform 100ms, box-shadow 150ms;
+}
+.compose-send:not(:disabled):hover {
+  box-shadow: 0 0 0 4px var(--accent-glow);
+}
+.compose-send:active {
+  transform: scale(0.93);
+}
+
+/* Agent bubble subtle left border accent */
+.msg-bubble--agent {
+  border-left: 2px solid var(--accent-subtle);
+}

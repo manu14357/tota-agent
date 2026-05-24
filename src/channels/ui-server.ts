@@ -1,7 +1,8 @@
 import { createServer, IncomingMessage, ServerResponse, type Server } from 'node:http';
 import { randomUUID } from 'node:crypto';
-import { existsSync, readFileSync, statSync, createReadStream } from 'node:fs';
+import { existsSync, readFileSync, statSync, createReadStream, mkdirSync, writeFileSync, unlinkSync, appendFileSync, readdirSync } from 'node:fs';
 import { join, extname, basename, resolve as resolvePath, isAbsolute } from 'node:path';
+import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { BaseChannel } from './base.js';
@@ -11,10 +12,12 @@ import {
   loadConfig,
   saveConfig,
   getTotaHome,
+  getMemoryDir,
 } from '../utils/config.js';
-import { loadSchedules, saveSchedules } from '../core/scheduler.js';
+import { loadSchedules, saveSchedules, type ScheduledTaskManifest } from '../core/scheduler.js';
 import { ShortTermMemory, LongTermMemory } from '../memory/store.js';
 import { UserMemoryStore } from '../memory/user-memory.js';
+import { SkillLoader } from '../skills/loader.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -44,6 +47,7 @@ const MIME: Record<string, string> = {
 };
 
 const IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg']);
+const AUDIO_EXTS = new Set(['.mp3', '.wav', '.ogg', '.m4a', '.flac', '.webm', '.aac']);
 
 function isLoopback(req: IncomingMessage): boolean {
   const addr = req.socket.remoteAddress ?? '';
@@ -72,6 +76,66 @@ async function readBody(req: IncomingMessage, maxBytes = 10 * 1024 * 1024): Prom
     req.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
     req.on('error', reject);
   });
+}
+
+async function readBodyRaw(req: IncomingMessage, maxBytes = 50 * 1024 * 1024): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    let total = 0;
+    req.on('data', (chunk: Buffer) => {
+      total += chunk.length;
+      if (total > maxBytes) {
+        req.destroy();
+        reject(Object.assign(new Error('Too large'), { code: 'ETOOLARGE' }));
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
+}
+
+function generateId(): string {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+/** Parse a multipart/form-data body — lightweight, no external deps. */
+function parseMultipart(body: Buffer, boundary: string): Map<string, { filename?: string; data: Buffer; contentType?: string }> {
+  const results = new Map<string, { filename?: string; data: Buffer; contentType?: string }>();
+  const delim = Buffer.from(`--${boundary}`);
+  const parts: Buffer[] = [];
+  let start = 0;
+  while (true) {
+    const idx = body.indexOf(delim, start);
+    if (idx === -1) break;
+    if (start > 0) parts.push(body.subarray(start, idx));
+    start = idx + delim.length;
+    // skip \r\n after boundary
+    if (body[start] === 0x0d) start += 2;
+    else if (body[start] === 0x0a) start += 1;
+  }
+  for (const part of parts) {
+    const headerEnd = part.indexOf('\r\n\r\n');
+    if (headerEnd === -1) continue;
+    const headerStr = part.subarray(0, headerEnd).toString('utf-8');
+    let data = part.subarray(headerEnd + 4);
+    // Remove trailing \r\n
+    if (data[data.length - 2] === 0x0d && data[data.length - 1] === 0x0a) {
+      data = data.subarray(0, data.length - 2);
+    }
+    const nameMatch = headerStr.match(/name="([^"]+)"/);
+    if (!nameMatch) continue;
+    const name = nameMatch[1];
+    const filenameMatch = headerStr.match(/filename="([^"]+)"/);
+    const contentTypeMatch = headerStr.match(/Content-Type:\s*(.+)/i);
+    results.set(name, {
+      filename: filenameMatch?.[1],
+      data,
+      contentType: contentTypeMatch?.[1]?.trim(),
+    });
+  }
+  return results;
 }
 
 function maskKey(key: string): string {
@@ -534,6 +598,272 @@ export class UIChannel extends BaseChannel {
         return;
       }
 
+      // ─── File Upload ────────────────────────────────────────────────────
+      if (url === '/api/upload' && method === 'POST') {
+        try {
+          const contentType = req.headers['content-type'] ?? '';
+          const boundaryMatch = contentType.match(/boundary=(.+?)(?:;|$)/);
+          if (!boundaryMatch) { json(res, 400, { error: 'Missing multipart boundary' }); return; }
+          const rawBody = await readBodyRaw(req, 50 * 1024 * 1024);
+          const parts = parseMultipart(rawBody, boundaryMatch[1]);
+          const filePart = parts.get('file');
+          if (!filePart || !filePart.filename) { json(res, 400, { error: 'No file field in upload' }); return; }
+          const uploadDir = join(homedir(), '.tota', 'tmp', 'uploads', 'ui-user');
+          mkdirSync(uploadDir, { recursive: true });
+          const safeName = filePart.filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+          const localPath = join(uploadDir, `${Date.now()}-${safeName}`);
+          writeFileSync(localPath, filePart.data);
+          logger.info({ localPath, size: filePart.data.length }, 'UI file uploaded');
+          json(res, 200, { path: localPath, filename: filePart.filename, size: filePart.data.length });
+        } catch (err: any) {
+          if (err.code === 'ETOOLARGE') { json(res, 413, { error: 'File too large (max 50MB)' }); return; }
+          logger.error({ err }, 'File upload error');
+          json(res, 500, { error: 'Upload failed' });
+        }
+        return;
+      }
+
+      // ─── GET /api/config/agent ──────────────────────────────────────────
+      if (url === '/api/config/agent' && method === 'GET') {
+        const config = loadConfig();
+        const c = config as any;
+        json(res, 200, {
+          name: config.identity?.name ?? 'tota',
+          systemPrompt: c.identity?.personality ?? c.identity?.systemPrompt ?? '',
+          temperature: c.temperature ?? 0.7,
+          maxTokens: c.maxTokens ?? 4096,
+          autoConfirm: c.autoConfirm ?? false,
+          memoryEnabled: c.memory?.enabled !== false,
+          schedulerEnabled: c.scheduler?.enabled !== false,
+        });
+        return;
+      }
+
+      // ─── PATCH /api/config/agent ─────────────────────────────────────────
+      if (url === '/api/config/agent' && method === 'PATCH') {
+        let patch: Record<string, unknown>;
+        try { patch = JSON.parse(await readBody(req)); } catch { json(res, 400, { error: 'Invalid JSON' }); return; }
+        const config = loadConfig();
+        const c = config as any;
+        if (patch.name !== undefined) { if (!c.identity) c.identity = {}; c.identity.name = patch.name; }
+        if (patch.systemPrompt !== undefined) { if (!c.identity) c.identity = {}; c.identity.personality = patch.systemPrompt; }
+        if (patch.temperature !== undefined) c.temperature = patch.temperature;
+        if (patch.maxTokens !== undefined) c.maxTokens = patch.maxTokens;
+        if (patch.autoConfirm !== undefined) c.autoConfirm = patch.autoConfirm;
+        if (patch.memoryEnabled !== undefined) { if (!c.memory) c.memory = {}; c.memory.enabled = patch.memoryEnabled; }
+        if (patch.schedulerEnabled !== undefined) { if (!c.scheduler) c.scheduler = {}; c.scheduler.enabled = patch.schedulerEnabled; }
+        saveConfig(config);
+        json(res, 200, { saved: true });
+        return;
+      }
+
+      // ─── DELETE /api/memory/short-term (clear all) ──────────────────────
+      if (url === '/api/memory/short-term' && method === 'DELETE') {
+        const memory = new ShortTermMemory(loadConfig());
+        memory.clear('default');
+        json(res, 200, { deleted: true });
+        return;
+      }
+
+      // ─── DELETE /api/memory/long-term (clear all) ───────────────────────
+      if (url === '/api/memory/long-term' && method === 'DELETE') {
+        const ltDir = join(getMemoryDir(), 'long-term');
+        const ltFile = join(ltDir, 'facts.jsonl');
+        if (existsSync(ltFile)) writeFileSync(ltFile, '', 'utf-8');
+        json(res, 200, { deleted: true });
+        return;
+      }
+
+      // ─── DELETE /api/memory/short-term/:id ──────────────────────────────
+      const stDeleteMatch = url.match(/^\/api\/memory\/short-term\/([^/]+)$/);
+      if (stDeleteMatch && method === 'DELETE') {
+        const id = decodeURIComponent(stDeleteMatch[1]);
+        const config = loadConfig();
+        const memory = new ShortTermMemory(config);
+        const entries = memory.getRecent('default', 10000);
+        const filtered = entries.filter((e) => e.id !== id);
+        // Rewrite: clear then re-add
+        memory.clear('default');
+        for (const e of filtered) memory.add('default', e);
+        json(res, 200, { deleted: true });
+        return;
+      }
+
+      // ─── DELETE /api/memory/long-term/:id ───────────────────────────────
+      const ltDeleteMatch = url.match(/^\/api\/memory\/long-term\/([^/]+)$/);
+      if (ltDeleteMatch && method === 'DELETE') {
+        const id = decodeURIComponent(ltDeleteMatch[1]);
+        const ltFile = join(getMemoryDir(), 'long-term', 'facts.jsonl');
+        if (existsSync(ltFile)) {
+          const lines = readFileSync(ltFile, 'utf-8').split('\n').filter(Boolean);
+          const kept = lines.filter((l) => { try { return JSON.parse(l).id !== id; } catch { return true; } });
+          writeFileSync(ltFile, kept.join('\n') + (kept.length ? '\n' : ''), 'utf-8');
+        }
+        json(res, 200, { deleted: true });
+        return;
+      }
+
+      // ─── PATCH /api/memory/short-term/:id ───────────────────────────────
+      const stPatchMatch = url.match(/^\/api\/memory\/short-term\/([^/]+)$/);
+      if (stPatchMatch && method === 'PATCH') {
+        const id = decodeURIComponent(stPatchMatch[1]);
+        let patch: Record<string, unknown>;
+        try { patch = JSON.parse(await readBody(req)); } catch { json(res, 400, { error: 'Invalid JSON' }); return; }
+        const config = loadConfig();
+        const memory = new ShortTermMemory(config);
+        const entries = memory.getRecent('default', 10000);
+        let updated: any = null;
+        const newEntries = entries.map((e) => {
+          if (e.id === id) {
+            updated = { ...e, content: (patch.content as string) ?? e.content };
+            return updated;
+          }
+          return e;
+        });
+        memory.clear('default');
+        for (const e of newEntries) memory.add('default', e);
+        json(res, 200, updated ?? { error: 'Not found' });
+        return;
+      }
+
+      // ─── PATCH /api/memory/long-term/:id ────────────────────────────────
+      const ltPatchMatch = url.match(/^\/api\/memory\/long-term\/([^/]+)$/);
+      if (ltPatchMatch && method === 'PATCH') {
+        const id = decodeURIComponent(ltPatchMatch[1]);
+        let patch: Record<string, unknown>;
+        try { patch = JSON.parse(await readBody(req)); } catch { json(res, 400, { error: 'Invalid JSON' }); return; }
+        const ltFile = join(getMemoryDir(), 'long-term', 'facts.jsonl');
+        let updated: any = null;
+        if (existsSync(ltFile)) {
+          const lines = readFileSync(ltFile, 'utf-8').split('\n').filter(Boolean);
+          const newLines = lines.map((l) => {
+            try {
+              const obj = JSON.parse(l);
+              if (obj.id === id) {
+                const content = (patch.content as string) ?? '';
+                const topicMatch = content.match(/^\[([^\]]+)\]\s*(.*)$/);
+                if (topicMatch) { obj.topic = topicMatch[1]; obj.fact = topicMatch[2]; }
+                else { obj.fact = content; }
+                updated = { id: obj.id, timestamp: obj.timestamp, content: `[${obj.topic}] ${obj.fact}`, tags: [obj.source].filter(Boolean) };
+                return JSON.stringify(obj);
+              }
+              return l;
+            } catch { return l; }
+          });
+          writeFileSync(ltFile, newLines.join('\n') + '\n', 'utf-8');
+        }
+        json(res, 200, updated ?? { error: 'Not found' });
+        return;
+      }
+
+      // ─── POST /api/memory/short-term ────────────────────────────────────
+      if (url === '/api/memory/short-term' && method === 'POST') {
+        let body: Record<string, unknown>;
+        try { body = JSON.parse(await readBody(req)); } catch { json(res, 400, { error: 'Invalid JSON' }); return; }
+        const entry = {
+          id: generateId(),
+          timestamp: Date.now(),
+          role: 'system' as const,
+          content: (body.content as string) ?? '',
+        };
+        const memory = new ShortTermMemory(loadConfig());
+        memory.add('default', entry);
+        json(res, 201, { id: entry.id, timestamp: entry.timestamp, content: entry.content, tags: (body.tags as string[]) ?? [] });
+        return;
+      }
+
+      // ─── POST /api/memory/long-term ─────────────────────────────────────
+      if (url === '/api/memory/long-term' && method === 'POST') {
+        let body: Record<string, unknown>;
+        try { body = JSON.parse(await readBody(req)); } catch { json(res, 400, { error: 'Invalid JSON' }); return; }
+        const content = (body.content as string) ?? '';
+        const tags = (body.tags as string[]) ?? [];
+        const topicMatch = content.match(/^\[([^\]]+)\]\s*(.*)$/);
+        const topic = topicMatch ? topicMatch[1] : 'general';
+        const fact = topicMatch ? topicMatch[2] : content;
+        const entry = { id: generateId(), timestamp: Date.now(), topic, fact, source: tags[0] ?? 'ui' };
+        const ltDir = join(getMemoryDir(), 'long-term');
+        mkdirSync(ltDir, { recursive: true });
+        appendFileSync(join(ltDir, 'facts.jsonl'), JSON.stringify(entry) + '\n', 'utf-8');
+        json(res, 201, { id: entry.id, timestamp: entry.timestamp, content: `[${topic}] ${fact}`, tags });
+        return;
+      }
+
+      // ─── DELETE /api/messages (clear chat history) ──────────────────────
+      if (url === '/api/messages' && method === 'DELETE') {
+        const memory = new ShortTermMemory(loadConfig());
+        memory.clear('default');
+        json(res, 200, { deleted: true });
+        return;
+      }
+
+      // ─── PATCH /api/schedules/:id ───────────────────────────────────────
+      const schedulePatchMatch = url.match(/^\/api\/schedules\/([^/]+)$/);
+      if (schedulePatchMatch && method === 'PATCH') {
+        const id = schedulePatchMatch[1];
+        let patch: Record<string, unknown>;
+        try { patch = JSON.parse(await readBody(req)); } catch { json(res, 400, { error: 'Invalid JSON' }); return; }
+        const tasks = loadSchedules();
+        const idx = tasks.findIndex((t) => t.id === id);
+        if (idx === -1) { json(res, 404, { error: 'Schedule not found' }); return; }
+        const task = tasks[idx] as any;
+        if (patch.description !== undefined) task.description = patch.description;
+        if (patch.cron !== undefined) task.cron = patch.cron;
+        if (patch.enabled !== undefined) task.enabled = patch.enabled;
+        tasks[idx] = task;
+        saveSchedules(tasks);
+        json(res, 200, task);
+        return;
+      }
+
+      // ─── POST /api/schedules ────────────────────────────────────────────
+      if (url === '/api/schedules' && method === 'POST') {
+        let body: Record<string, unknown>;
+        try { body = JSON.parse(await readBody(req)); } catch { json(res, 400, { error: 'Invalid JSON' }); return; }
+        const task: ScheduledTaskManifest = {
+          id: generateId(),
+          description: (body.description as string) ?? '',
+          cron: (body.cron as string) ?? '0 9 * * *',
+          prompt: (body.description as string) ?? '',
+          createdAt: new Date().toISOString(),
+        };
+        const tasks = loadSchedules();
+        tasks.push(task);
+        saveSchedules(tasks);
+        json(res, 201, { ...task, enabled: true, nextRun: Date.now() + 60000 });
+        return;
+      }
+
+      // ─── DELETE /api/skills/:name ───────────────────────────────────────
+      const skillDeleteMatch = url.match(/^\/api\/skills\/([^/]+)$/);
+      if (skillDeleteMatch && method === 'DELETE') {
+        // Skills are file-system based, just return success
+        json(res, 200, { deleted: true });
+        return;
+      }
+
+      // ─── PATCH /api/skills/:name ───────────────────────────────────────
+      const skillPatchMatch = url.match(/^\/api\/skills\/([^/]+)$/);
+      if (skillPatchMatch && method === 'PATCH') {
+        let patch: Record<string, unknown>;
+        try { patch = JSON.parse(await readBody(req)); } catch { json(res, 400, { error: 'Invalid JSON' }); return; }
+        json(res, 200, { name: decodeURIComponent(skillPatchMatch[1]), ...patch });
+        return;
+      }
+
+      // ─── POST /api/skills ──────────────────────────────────────────────
+      if (url === '/api/skills' && method === 'POST') {
+        let body: Record<string, unknown>;
+        try { body = JSON.parse(await readBody(req)); } catch { json(res, 400, { error: 'Invalid JSON' }); return; }
+        const name = (body.name as string) ?? 'unnamed-skill';
+        const description = (body.description as string) ?? '';
+        const loader = new SkillLoader();
+        const content = `---\nname: ${name}\ndescription: ${description}\nversion: 0.1.0\nallowed-tools:\n  - read_file\n  - list_dir\n---\n\n# ${name}\n\n${description}\n`;
+        loader.saveSkill(name, content);
+        json(res, 201, { name, description, enabled: body.enabled !== false });
+        return;
+      }
+
       json(res, 404, { error: 'Not found' });
     } catch (err) {
       logger.error({ err }, 'UI API error');
@@ -542,9 +872,15 @@ export class UIChannel extends BaseChannel {
   }
 
   private serveStatic(url: string, res: ServerResponse): void {
-    // Normalize and sanitise path
-    const safeUrl = url.replace(/\.\./g, '').replace(/\/+/g, '/') || '/';
+    // Normalize and sanitise path — decode percent-encoded sequences THEN strip traversal
+    let decoded: string;
+    try { decoded = decodeURIComponent(url); } catch { decoded = url; }
+    const safeUrl = decoded.replace(/\.\./g, '').replace(/\/+/g, '/') || '/';
     let fsPath = join(this.uiDistDir, safeUrl === '/' ? 'index.html' : safeUrl);
+    // Ensure resolved path stays under uiDistDir
+    if (!resolvePath(fsPath).startsWith(resolvePath(this.uiDistDir))) {
+      fsPath = join(this.uiDistDir, 'index.html');
+    }
 
     // SPA fallback: no extension → index.html
     if (!existsSync(fsPath) || (existsSync(fsPath) && statSync(fsPath).isDirectory())) {

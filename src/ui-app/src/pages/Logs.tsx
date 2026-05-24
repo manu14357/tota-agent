@@ -16,7 +16,11 @@ export default function LogsPage() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    const id = setInterval(load, 5000);
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView();

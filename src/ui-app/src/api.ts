@@ -30,6 +30,8 @@ export type WSMessage =
   | { type: 'step'; targetId: string; content: string }
   | { type: 'status'; status: string; requestId?: string }
   | { type: 'done'; requestId: string; response: string }
+  | { type: 'file'; targetId: string; filePath: string; name: string; mimeType: string; isImage: boolean; size: number }
+  | { type: 'askPermission'; targetId: string }
   | { type: 'pong' }
   | { type: 'error'; message: string };
 
@@ -91,6 +93,10 @@ class SocketClient {
   subscribe(listener: Listener): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
+  }
+
+  isConnected(): boolean {
+    return this.ws?.readyState === WebSocket.OPEN;
   }
 }
 
