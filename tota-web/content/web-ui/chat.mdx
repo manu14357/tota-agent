@@ -28,15 +28,19 @@ These commands are processed locally — they do not consume API tokens.
 
 ## File upload
 
-Click the **paperclip icon** (or drag a file onto the chat window) to attach a file to your message. The agent receives the file path and can use any of its file-reading tools to process it immediately.
+Click the **paperclip icon** (or drag a file onto the chat window) to attach a file to your message. The file is uploaded to the server via `POST /api/upload` and the agent receives the path, filename, and MIME type — it can then use any of its file-reading tools to process it immediately.
 
-Supported types include text files, source code, PDFs, images, audio, video, and ZIP archives.
+Supported types include text files, source code, PDFs, images, audio, video, ZIP archives, and common code file extensions. Maximum file size is **50 MB**.
 
 ## Voice input
 
-Click the **microphone icon** to record a voice message. The browser captures audio, sends it to the configured speech-to-text provider (OpenAI Whisper or Groq Whisper), and inserts the transcription into the input field. You can review and edit the text before sending.
+Click the **microphone icon** to start recording. The browser captures audio using the `MediaRecorder` API, uploads the WebM blob via `/api/upload`, and the agent auto-transcribes it with the `transcribe_audio` tool. A red pulse animation shows while recording is active; click the **square icon** to stop and send.
 
 > Voice input requires a configured STT provider. Run `tota setup voice` to configure one.
+
+## Connection status
+
+If the WebSocket connection to the server drops, a **WifiOff banner** appears at the top of the chat window. The input is disabled until the connection is restored.
 
 ## Tool call display
 

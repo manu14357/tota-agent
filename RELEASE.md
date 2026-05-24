@@ -1,3 +1,88 @@
+# Release v1.2.1
+
+## tota-agent v1.2.1 — Web UI Bug Fix Patch
+
+**Patch release** resolving 20 bugs in the Web UI introduced in v1.2.0 — including non-functional file upload, broken audio recording, 13+ missing API endpoints, and multiple CRUD operations that silently did nothing.
+
+### What's fixed
+
+#### File upload — now actually works
+The Chat page's paperclip button was wired to a `POST /api/upload` endpoint that didn't exist in v1.2.0. v1.2.1 implements that endpoint with multipart/form-data parsing (no extra deps), saves the file to a temp path, and tells the agent `[User sent a file: ...]` with the path, filename, and MIME type. Supports up to 50 MB.
+
+#### Audio/mic recording — now actually works
+The mic button silently failed in v1.2.0. v1.2.1 implements `MediaRecorder` capture in the browser, uploads the WebM blob via `/api/upload`, and the agent auto-transcribes it with the `transcribe_audio` tool. A red pulse animation shows while recording; the square icon stops it.
+
+#### 13+ missing API endpoints
+The UI called these routes — the server returned 404 for all of them. Now implemented:
+
+| Endpoint | Action |
+|----------|--------|
+| `GET /api/config/agent` | Read agent behaviour config |
+| `PATCH /api/config/agent` | Save agent behaviour config |
+| `POST /api/memory/short-term` | Add short-term memory entry |
+| `DELETE /api/memory/short-term` | Clear all short-term memory |
+| `DELETE /api/memory/short-term/:id` | Delete one short-term entry |
+| `PATCH /api/memory/short-term/:id` | Edit one short-term entry |
+| `POST /api/memory/long-term` | Add long-term memory entry |
+| `DELETE /api/memory/long-term` | Clear all long-term memory |
+| `DELETE /api/memory/long-term/:id` | Delete one long-term entry |
+| `PATCH /api/memory/long-term/:id` | Edit one long-term entry |
+| `DELETE /api/messages` | Clear chat history |
+| `POST /api/schedules` | Create a new schedule |
+| `PATCH /api/schedules/:id` | Edit or toggle a schedule |
+| `DELETE /api/skills/:name` | Delete a skill |
+| `PATCH /api/skills/:name` | Edit a skill |
+| `POST /api/skills` | Create a new skill |
+
+#### Other bugs fixed
+
+| # | Bug | Fix |
+|---|-----|-----|
+| BUG-4 | `'file'` and `'askPermission'` missing from `WSMessage` union | Added to `api.ts` |
+| BUG-5 | Sending state locked permanently after dropped response | 90-second safety timeout |
+| BUG-6 | Chat history blank on load | Normalise `MemoryEntry` → `ChatMessage` shape |
+| BUG-7 | Settings Agent tab couldn't save | Now uses working `/api/config/agent` |
+| BUG-8 | Scheduler changes not persisted | CRUD writes to `schedules.yaml` |
+| BUG-9 | Memory changes not persisted | CRUD writes to disk immediately |
+| BUG-10 | Skills changes not persisted | CRUD via `SkillLoader` |
+| BUG-11 | Danger Zone clear/reset did nothing | Buttons now delete the data files |
+| BUG-13 | Path traversal in upload handler | Decode percent-encoding before sanitising |
+| BUG-14 | No WebSocket disconnect feedback | `WifiOff` banner + `isConnected()` on `SocketClient` |
+| BUG-19 | Logs page stale without refresh | Auto-polls every 5 seconds |
+| BUG-12/20 | File input rejected audio/video/code | Accept attribute expanded |
+
+### UI enhancements
+
+- WebSocket disconnect banner with pulse animation
+- Recording pulse animation on mic button
+- Media bubbles for inline file/image preview in chat
+- Permission request banner with **Allow All** / **Ask Me** buttons
+- Enhanced card hover-lift animations (Dashboard, Memory pages)
+- Glassmorphism compose bar with `backdrop-filter` blur
+- Active nav-item glow-bar indicator
+- Agent message bubble accent left border
+- Button press scale animations
+
+### Files changed
+
+| File | Change |
+|------|--------|
+| `src/channels/ui-server.ts` | 13+ new REST endpoints; multipart file upload (`readBodyRaw`); path-traversal fix |
+| `src/ui-app/src/api.ts` | `'file'`/`'askPermission'` in `WSMessage` union; `isConnected()` on `SocketClient` |
+| `src/ui-app/src/pages/Chat.tsx` | File upload via `FormData`; mic recording via `MediaRecorder`; connection status banner |
+| `src/ui-app/src/pages/Logs.tsx` | 5-second auto-refresh polling |
+| `src/ui-app/src/index.css` | New component styles; enhanced animations |
+
+### Migration from v1.2.0
+
+No breaking changes. Drop-in upgrade.
+
+```bash
+npm i -g tota-agent
+```
+
+---
+
 # Release v1.2.0
 
 ## tota-agent v1.2.0 — Local Web UI

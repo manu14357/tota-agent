@@ -2,6 +2,56 @@
 
 All notable changes to tota-agent will be documented here.
 
+## 1.2.1 — (2026-05-24)
+
+### Bug Fixes
+
+- **File upload now functional** — Added `POST /api/upload` endpoint with multipart/form-data parsing (no external dependencies). Chat UI uploads files via `FormData` + `fetch()`, sends the file path to the agent. Supports files up to 50 MB.
+- **Audio/mic recording now works** — Implemented `MediaRecorder` API for browser microphone recording. Records to WebM format, uploads via `/api/upload`, and the agent auto-transcribes via the `transcribe_audio` tool. Red pulse animation on recording state; square icon to stop.
+- **13+ missing API endpoints added** — All CRUD operations the UI called but the server never implemented:
+  - `GET`/`PATCH /api/config/agent` — agent behaviour settings
+  - `DELETE /api/memory/short-term` / `DELETE /api/memory/long-term` — clear all memory
+  - `DELETE /api/memory/short-term/:id` / `DELETE /api/memory/long-term/:id` — delete individual entries
+  - `PATCH /api/memory/short-term/:id` / `PATCH /api/memory/long-term/:id` — edit memory entries
+  - `POST /api/memory/short-term` / `POST /api/memory/long-term` — add new memory entries
+  - `DELETE /api/messages` — clear chat history
+  - `PATCH /api/schedules/:id` — edit/toggle schedule; `POST /api/schedules` — create schedule
+  - `DELETE /api/skills/:name`, `PATCH /api/skills/:name`, `POST /api/skills` — skill CRUD
+- **Sending-state race condition fixed** — 90-second safety timeout prevents the input being permanently locked after a dropped response.
+- **Chat history normalised** — `MemoryEntry` shape is now mapped to `ChatMessage` correctly so history loads without blank messages.
+- **Settings Agent tab** — now fetches and saves via the new working `/api/config/agent` endpoint.
+- **Scheduler CRUD** — create, edit, toggle, and delete now persist to `schedules.yaml`.
+- **Memory CRUD** — add, edit, and delete now persist to disk immediately.
+- **Skills CRUD** — add, edit, and delete now persist via `SkillLoader`.
+- **Danger Zone clear/reset** — buttons now actually delete the relevant data files.
+- **Path traversal hardened** — percent-encoded sequences are decoded before sanitising file paths in the upload handler.
+- **WebSocket connection status** — `WifiOff` banner shown when the UI loses its WebSocket connection; `isConnected()` method added to `SocketClient`.
+- **Logs auto-refresh** — Logs page now polls every 5 seconds automatically.
+- **File input expanded** — accept attribute now covers `audio/*`, `video/*`, and common code file extensions in addition to the previous set.
+
+### UI Enhancements
+
+- WebSocket disconnect banner with pulse animation
+- Recording pulse animation on mic button while capturing audio
+- Media bubbles for inline file/image preview inside the chat thread
+- Permission request banner with **Allow All** / **Ask Me** buttons
+- Enhanced card hover-lift animations across Dashboard and Memory pages
+- Glassmorphism compose bar with `backdrop-filter` blur
+- Active nav-item glow-bar indicator
+- Agent message bubble with subtle accent left border
+- Button press scale animations
+- `isConnected()` method on `SocketClient` for connection-state tracking
+
+### Internal
+
+- `src/channels/ui-server.ts` — 13+ new REST endpoints, multipart file upload (`readBodyRaw`), path-traversal fix
+- `src/ui-app/src/api.ts` — `'file'` and `'askPermission'` added to `WSMessage` union; `isConnected()` on `SocketClient`
+- `src/ui-app/src/pages/Chat.tsx` — file upload via `FormData`, mic recording via `MediaRecorder`, WebSocket connection status banner
+- `src/ui-app/src/pages/Logs.tsx` — 5-second auto-refresh polling
+- `src/ui-app/src/index.css` — new component styles, enhanced animations
+
+---
+
 ## 1.2.0 — (2026-05-23)
 
 ### New Features

@@ -43,13 +43,13 @@ When you use `--attach`, the UI proxies to the agent's existing API rather than 
 
 | Page | URL | Description |
 |------|-----|-------------|
-| [Chat](/docs/web-ui/chat) | `/chat` | Full conversation interface with streaming, slash commands, file upload, voice input |
+| [Chat](/docs/web-ui/chat) | `/chat` | Full conversation interface with streaming, slash commands, file upload (up to 50 MB), voice recording with auto-transcription, inline media preview |
 | [Dashboard](/docs/web-ui/dashboard) | `/dashboard` | Agent status, model, uptime, token budget |
-| [Memory](/docs/web-ui/memory) | `/memory` | Browse and manage Second Brain facts |
-| [Scheduler](/docs/web-ui/scheduler) | `/scheduler` | View and cancel scheduled tasks |
-| [Skills](/docs/web-ui/skills) | `/skills` | Installed skills list |
-| [Settings](/docs/web-ui/settings) | `/settings` | Provider and API key status |
-| [Logs](/docs/web-ui/logs) | `/logs` | Live log viewer with severity filter |
+| [Memory](/docs/web-ui/memory) | `/memory` | Browse, add, edit, and delete Second Brain facts |
+| [Scheduler](/docs/web-ui/scheduler) | `/scheduler` | Create, edit, toggle, and cancel scheduled tasks |
+| [Skills](/docs/web-ui/skills) | `/skills` | Installed skills list; add, edit, or delete skills |
+| [Settings](/docs/web-ui/settings) | `/settings` | Agent behaviour config, provider and API key status |
+| [Logs](/docs/web-ui/logs) | `/logs` | Live log viewer with severity filter; auto-refreshes every 5 s |
 | [Integrations](/docs/web-ui/integrations) | `/integrations` | Channel status, tools, and provider overview |
 
 ## Enable via config (auto-start with daemon)

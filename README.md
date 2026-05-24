@@ -179,13 +179,13 @@ tota ui --attach             # connect to running daemon
 
 | Page | Path | What you can do |
 |------|------|-----------------|
-| **Chat** | `/chat` | Full conversation interface with real-time token streaming, slash-command autocomplete (`/help`, `/status`, `/memory`, `/permissions`, `/exit`), file upload (drag or attach), voice input via browser mic, and rendered code blocks with copy button |
+| **Chat** | `/chat` | Full conversation interface with real-time token streaming, slash-command autocomplete (`/help`, `/status`, `/memory`, `/permissions`, `/exit`), file upload up to 50 MB (drag or attach), voice input via browser mic with auto-transcription, inline media preview, and rendered code blocks with copy button |
 | **Dashboard** | `/dashboard` | Live agent overview — status badge, active model, provider, uptime, token budget (used / daily limit), and current permission mode. Auto-refreshes every 8 s |
 | **Memory** | `/memory` | Browse and manage Second Brain entries (short-term and long-term). Add entries with tags, edit existing ones, and delete stale facts — all changes sync to the SQLite database immediately |
-| **Scheduler** | `/scheduler` | View all scheduled tasks with name, cron/interval, last run, next run, and status. Cancel any task with one click |
-| **Skills** | `/skills` | See every installed skill — name, description, version, and whether it is currently active |
-| **Settings** | `/settings` | Inspect provider configuration, API key status per provider, and active channel config |
-| **Logs** | `/logs` | Live log viewer with severity filter (debug / info / warn / error). Streams new entries in real time via WebSocket |
+| **Scheduler** | `/scheduler` | View all scheduled tasks with name, cron/interval, last run, next run, and status. Create, edit, toggle, or cancel any task |
+| **Skills** | `/skills` | See every installed skill — name, description, version, and whether it is currently active. Add, edit, or delete skills |
+| **Settings** | `/settings` | Inspect and update agent behaviour config, provider configuration, API key status per provider, and active channel config |
+| **Logs** | `/logs` | Live log viewer with severity filter (debug / info / warn / error). Auto-refreshes every 5 s and streams new entries via WebSocket |
 | **Integrations** | `/integrations` | At-a-glance status of every channel (Telegram, WhatsApp, REST API, Web UI), configured GitHub and web-search settings, active providers, and tool category overview |
 
 ### Enable via config (auto-start with daemon)
