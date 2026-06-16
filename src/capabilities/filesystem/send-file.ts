@@ -1,6 +1,6 @@
 import { tool, zodSchema } from 'ai';
 import { z } from 'zod';
-import { existsSync, statSync } from 'node:fs';
+import { existsSync, statSync, realpathSync } from 'node:fs';
 import { resolve, basename, isAbsolute } from 'node:path';
 import type { PermissionManager } from '../permissions.js';
 
@@ -27,9 +27,24 @@ export function createSendFileTool(
         return `Error: File not found: ${resolved}`;
       }
 
-      const stat = statSync(resolved);
+      // C5: Re-validate symlink target to prevent leaking files outside the
+      // granted read scope.
+      let realPath: string;
+      try {
+        realPath = realpathSync(resolved);
+      } catch {
+        return `Error: File not found: ${resolved}`;
+      }
+      if (realPath !== resolved) {
+        const recheck = await permissions.checkFsAccess(realPath, 'read');
+        if (!recheck.allowed) {
+          return `Error: Permission denied — symlink target ${realPath} is outside the allowed scope.`;
+        }
+      }
+
+      const stat = statSync(realPath);
       if (stat.isDirectory()) {
-        return `Error: ${resolved} is a directory, not a file. Use list_dir to show its contents.`;
+        return `Error: ${realPath} is a directory, not a file. Use list_dir to show its contents.`;
       }
 
       if (stat.size > 50 * 1024 * 1024) {
@@ -37,8 +52,8 @@ export function createSendFileTool(
       }
 
       try {
-        await sendFile(resolved);
-        const filename = basename(resolved);
+        await sendFile(realPath);
+        const filename = basename(realPath);
         const sizeStr =
           stat.size > 1024 * 1024
             ? `${(stat.size / (1024 * 1024)).toFixed(1)}MB`

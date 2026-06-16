@@ -1,6 +1,6 @@
 import { tool, zodSchema } from 'ai';
 import { z } from 'zod';
-import { existsSync, writeFileSync, readFileSync } from 'node:fs';
+import { existsSync, writeFileSync, readFileSync, realpathSync } from 'node:fs';
 import { resolve, dirname, isAbsolute } from 'node:path';
 import { mkdirSync } from 'node:fs';
 import type { PermissionManager } from '../permissions.js';
@@ -24,8 +24,24 @@ export function createWriteFileTool(permissions: PermissionManager, getCwd: () =
         return `Error: File not found: ${resolved}. Use create_file to create new files.`;
       }
 
+      // C5: Re-validate the symlink target to prevent TOCTOU escape. If the
+      // requested path resolves through a symlink to a location outside the
+      // granted scope, refuse the write.
+      let realPath: string;
       try {
-        writeFileSync(resolved, content, 'utf-8');
+        realPath = realpathSync(resolved);
+      } catch {
+        return `Error: File not found: ${resolved}`;
+      }
+      if (realPath !== resolved) {
+        const recheck = await permissions.checkFsAccess(realPath, 'write');
+        if (!recheck.allowed) {
+          return `Error: Permission denied — symlink target ${realPath} is outside the allowed scope.`;
+        }
+      }
+
+      try {
+        writeFileSync(realPath, content, 'utf-8');
         return `Successfully wrote ${content.length} bytes to ${resolved}`;
       } catch (err: any) {
         return `Error writing file: ${err.message}`;

@@ -1,6 +1,7 @@
 import { createServer, IncomingMessage, ServerResponse, type Server } from 'node:http';
 import { randomUUID } from 'node:crypto';
-import { existsSync, readFileSync, statSync, createReadStream, mkdirSync, writeFileSync, unlinkSync, appendFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, statSync, createReadStream, mkdirSync, writeFileSync, unlinkSync, appendFileSync, readdirSync, realpathSync } from 'node:fs';
+import { sep } from 'node:path';
 import { join, extname, basename, resolve as resolvePath, isAbsolute } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -141,6 +142,40 @@ function parseMultipart(body: Buffer, boundary: string): Map<string, { filename?
 function maskKey(key: string): string {
   if (!key || key.length < 8) return '***';
   return '***' + key.slice(-4);
+}
+
+// Restrict /api/file to these roots. Any other path returns 403.
+const FILE_API_ROOTS = (() => {
+  const totaHome = getTotaHome();
+  return [
+    totaHome,
+    join(totaHome, 'memory'),
+    join(totaHome, 'skills'),
+    join(totaHome, 'tmp'),
+    join(totaHome, 'tmp', 'uploads'),
+    '/tmp',
+    process.cwd(),
+  ];
+})();
+
+function isPathAllowed(filePath: string): boolean {
+  let real: string;
+  try {
+    real = realpathSync(filePath);
+  } catch {
+    return false;
+  }
+  for (const root of FILE_API_ROOTS) {
+    let realRoot: string;
+    try {
+      realRoot = realpathSync(root);
+    } catch {
+      continue;
+    }
+    const prefix = realRoot.endsWith(sep) ? realRoot : realRoot + sep;
+    if (real === realRoot || real.startsWith(prefix)) return true;
+  }
+  return false;
 }
 
 // ---------------------------------------------------------------------------
@@ -351,7 +386,14 @@ export class UIChannel extends BaseChannel {
         if (!rawPath) { json(res, 400, { error: 'Missing path' }); return; }
         const filePath = isAbsolute(rawPath) ? rawPath : resolvePath(rawPath);
         if (!existsSync(filePath)) { res.writeHead(404); res.end(); return; }
-        const stat = statSync(filePath);
+        if (!isPathAllowed(filePath)) {
+          logger.warn({ filePath }, 'Blocked /api/file request outside allowed roots');
+          json(res, 403, { error: 'Forbidden: path is not in an allowed root' });
+          return;
+        }
+        // Re-stat the realpath to defeat symlink races between existsSync and the stream open
+        let stat;
+        try { stat = statSync(realpathSync(filePath)); } catch { res.writeHead(404); res.end(); return; }
         if (stat.isDirectory()) { res.writeHead(400); res.end(); return; }
         const ext = extname(filePath).toLowerCase();
         const mimeType = MIME[ext] ?? 'application/octet-stream';
@@ -361,7 +403,7 @@ export class UIChannel extends BaseChannel {
           'Cache-Control': 'private, max-age=60',
           'Content-Disposition': `inline; filename="${basename(filePath)}"`,
         });
-        createReadStream(filePath).pipe(res);
+        createReadStream(realpathSync(filePath)).pipe(res);
         return;
       }
 
@@ -845,9 +887,14 @@ export class UIChannel extends BaseChannel {
       // ─── PATCH /api/skills/:name ───────────────────────────────────────
       const skillPatchMatch = url.match(/^\/api\/skills\/([^/]+)$/);
       if (skillPatchMatch && method === 'PATCH') {
+        const name = decodeURIComponent(skillPatchMatch[1]);
+        if (!/^[a-zA-Z0-9._-]+$/.test(name)) {
+          json(res, 400, { error: 'Invalid skill name in URL.' });
+          return;
+        }
         let patch: Record<string, unknown>;
         try { patch = JSON.parse(await readBody(req)); } catch { json(res, 400, { error: 'Invalid JSON' }); return; }
-        json(res, 200, { name: decodeURIComponent(skillPatchMatch[1]), ...patch });
+        json(res, 200, { name, ...patch });
         return;
       }
 
@@ -856,6 +903,10 @@ export class UIChannel extends BaseChannel {
         let body: Record<string, unknown>;
         try { body = JSON.parse(await readBody(req)); } catch { json(res, 400, { error: 'Invalid JSON' }); return; }
         const name = (body.name as string) ?? 'unnamed-skill';
+        if (!/^[a-zA-Z0-9._-]+$/.test(name)) {
+          json(res, 400, { error: 'Invalid skill name. Use only letters, digits, ".", "_", "-" (no separators or "..").' });
+          return;
+        }
         const description = (body.description as string) ?? '';
         const loader = new SkillLoader();
         const content = `---\nname: ${name}\ndescription: ${description}\nversion: 0.1.0\nallowed-tools:\n  - read_file\n  - list_dir\n---\n\n# ${name}\n\n${description}\n`;
@@ -903,8 +954,28 @@ export class UIChannel extends BaseChannel {
 
   // --- BaseChannel contract ---
 
+  /**
+   * H5: Resolve a targetId for send/sendFile/stream. The agent should pass
+   * an explicit targetId. Without one, we ONLY fall back when exactly one
+   * request is pending; otherwise we drop with a warning to avoid routing
+   * a message to the wrong concurrent request.
+   */
+  private resolveTargetId(targetId?: string): string | null {
+    if (targetId) return targetId;
+    if (this.pending.size === 1) {
+      return this.pending.keys().next().value ?? null;
+    }
+    if (this.pending.size > 1) {
+      logger.warn(
+        { pendingCount: this.pending.size },
+        'send() called without targetId while multiple requests are pending — message dropped to prevent cross-request mix-up',
+      );
+    }
+    return null;
+  }
+
   async send(content: string, targetId?: string): Promise<void> {
-    const id = targetId ?? this.currentChannelId;
+    const id = this.resolveTargetId(targetId);
     if (!id) return;
 
     // Only treat [Using: tool_name] formatted messages as intermediate tool steps.
@@ -927,7 +998,8 @@ export class UIChannel extends BaseChannel {
   }
 
   async sendFile(filePath: string, targetId?: string): Promise<void> {
-    const id = targetId ?? this.currentChannelId;
+    const id = this.resolveTargetId(targetId);
+    if (!id) return;
     const name = basename(filePath);
     const ext = extname(filePath).toLowerCase();
     const mimeType = MIME[ext] ?? 'application/octet-stream';
@@ -946,20 +1018,22 @@ export class UIChannel extends BaseChannel {
   }
 
   async stream(content: AsyncIterable<string>, targetId?: string): Promise<string> {
-    const id = targetId ?? this.currentChannelId ?? '';
+    const id = this.resolveTargetId(targetId);
     const chunks: string[] = [];
     for await (const chunk of content) {
       chunks.push(chunk);
-      this.broadcast({ type: 'chunk', targetId: id, chunk });
+      if (id) this.broadcast({ type: 'chunk', targetId: id, chunk });
     }
     const full = chunks.join('');
     // Resolve pending directly → sends 'done' without an extra 'message' broadcast
     // (the UI already has all the text from the chunk stream)
-    const pending = this.pending.get(id);
-    if (pending) {
-      clearTimeout(pending.timer);
-      this.pending.delete(id);
-      pending.resolve(full);
+    if (id) {
+      const pending = this.pending.get(id);
+      if (pending) {
+        clearTimeout(pending.timer);
+        this.pending.delete(id);
+        pending.resolve(full);
+      }
     }
     return full;
   }
@@ -973,7 +1047,7 @@ export class UIChannel extends BaseChannel {
   }
 
   async askPermissionMode(targetId?: string): Promise<import('./base.js').PermissionMode> {
-    const id = targetId ?? this.currentChannelId;
+    const id = this.resolveTargetId(targetId);
     if (!id) return 'ask-me';
     return new Promise((resolve) => {
       this.broadcast({ type: 'askPermission', targetId: id });

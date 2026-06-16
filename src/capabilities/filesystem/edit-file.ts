@@ -1,6 +1,6 @@
 import { tool, zodSchema } from 'ai';
 import { z } from 'zod';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, realpathSync } from 'node:fs';
 import { resolve, isAbsolute } from 'node:path';
 import type { PermissionManager } from '../permissions.js';
 
@@ -21,8 +21,22 @@ export function createEditFileTool(permissions: PermissionManager, getCwd: () =>
         return `Error: Permission denied for write access to ${resolved}. Use the approve_scope tool with path="${parentDir}" and mode="write" to request access from the user.`;
       }
 
+      // C5: Re-validate symlink target before reading and writing.
+      let realPath: string;
       try {
-        const content = readFileSync(resolved, 'utf-8');
+        realPath = realpathSync(resolved);
+      } catch {
+        return `Error: File not found: ${path}.`;
+      }
+      if (realPath !== resolved) {
+        const recheck = await permissions.checkFsAccess(realPath, 'write');
+        if (!recheck.allowed) {
+          return `Error: Permission denied — symlink target ${realPath} is outside the allowed scope.`;
+        }
+      }
+
+      try {
+        const content = readFileSync(realPath, 'utf-8');
 
         const count = content.split(old_string).length - 1;
         if (count === 0) {
@@ -33,7 +47,7 @@ export function createEditFileTool(permissions: PermissionManager, getCwd: () =>
         }
 
         const newContent = content.replace(old_string, new_string);
-        writeFileSync(resolved, newContent, 'utf-8');
+        writeFileSync(realPath, newContent, 'utf-8');
 
         const linesAdded = new_string.split('\n').length;
         const linesRemoved = old_string.split('\n').length;

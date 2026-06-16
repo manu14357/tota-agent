@@ -24,10 +24,15 @@ export class APIChannel extends BaseChannel {
   }
 
   async start(): Promise<void> {
+    // H1: Default-bind to 127.0.0.1 instead of 0.0.0.0. Previously the server
+    // listened on all interfaces with no auth when API_CHANNEL_KEY was empty,
+    // exposing the REST API to anyone on the same LAN. The loopback-only
+    // auth bypass in isAuthorized() still applies for the no-key case, but
+    // it's now only reachable from the local machine.
     this.server = createServer((req, res) => this.handleRequest(req, res));
     await new Promise<void>((resolve, reject) => {
-      this.server!.listen(this.port, () => {
-        logger.info({ port: this.getPort() }, 'API channel listening');
+      this.server!.listen(this.port, '127.0.0.1', () => {
+        logger.info({ port: this.getPort() }, 'API channel listening on 127.0.0.1');
         this.ready = true;
         resolve();
       });
@@ -173,8 +178,30 @@ export class APIChannel extends BaseChannel {
     return this.notFound(res);
   }
 
+  /**
+   * H5: Resolve a targetId for a send/stream/sendFile call. The agent should
+   * always pass an explicit targetId, but we keep a small fallback for
+   * internal flows that don't. To prevent cross-request message mix-up when
+   * multiple requests are in flight, we ONLY fall back to currentChannelId
+   * when exactly one request is pending. If multiple are in flight, we drop
+   * with a warning rather than risk routing to the wrong request.
+   */
+  private resolveTargetId(targetId?: string): string | null {
+    if (targetId) return targetId;
+    if (this.pending.size === 1) {
+      return this.pending.keys().next().value ?? null;
+    }
+    if (this.pending.size > 1) {
+      logger.warn(
+        { pendingCount: this.pending.size },
+        'send() called without targetId while multiple requests are pending — message dropped to prevent cross-request mix-up',
+      );
+    }
+    return null;
+  }
+
   async send(content: string, targetId?: string): Promise<void> {
-    const id = targetId ?? this.currentChannelId;
+    const id = this.resolveTargetId(targetId);
     if (!id) return;
 
     const pending = this.pending.get(id);
@@ -182,20 +209,25 @@ export class APIChannel extends BaseChannel {
       clearTimeout(pending.timer);
       this.pending.delete(id);
       pending.resolve(content);
+    } else {
+      logger.warn({ targetId: id }, 'send() called for unknown/expired request — message dropped');
     }
   }
 
   async sendFile(filePath: string, targetId?: string): Promise<void> {
-    await this.send(`[File: ${filePath}]`, targetId);
+    const id = this.resolveTargetId(targetId);
+    if (!id) return;
+    await this.send(`[File: ${filePath}]`, id);
   }
 
   async stream(content: AsyncIterable<string>, targetId?: string): Promise<string> {
+    const id = this.resolveTargetId(targetId);
     const chunks: string[] = [];
     for await (const chunk of content) {
       chunks.push(chunk);
     }
     const full = chunks.join('');
-    await this.send(full, targetId);
+    if (id) await this.send(full, id);
     return full;
   }
 

@@ -107,6 +107,14 @@ export class SkillLoader {
   }
 
   saveSkill(name: string, content: string): string {
+    // C3: Reject names that contain path separators, traversal, or anything
+    // other than a safe subset. A name like "../config" would otherwise escape
+    // the skills directory.
+    if (!/^[a-zA-Z0-9._-]+$/.test(name)) {
+      throw new Error(
+        `Invalid skill name "${name}". Use only letters, digits, '.', '_', '-' (no path separators or '..').`,
+      );
+    }
     const skillDir = join(this.skillsDir, name);
     if (!existsSync(skillDir)) {
       mkdirSync(skillDir, { recursive: true });
@@ -115,6 +123,28 @@ export class SkillLoader {
     logger.info({ skill: name }, 'Skill saved');
     this.discover();
     return skillDir;
+  }
+
+  /**
+   * Delete a skill by name. Returns true if the skill existed and was deleted,
+   * false if it was not found. The name must be a valid safe name (same
+   * validation as saveSkill) so a user can't pass "../config" to escape the
+   * skills dir.
+   */
+  deleteSkill(name: string): boolean {
+    if (!/^[a-zA-Z0-9._-]+$/.test(name)) {
+      throw new Error(
+        `Invalid skill name "${name}". Use only letters, digits, '.', '_', '-' (no path separators or '..').`,
+      );
+    }
+    const skillDir = join(this.skillsDir, name);
+    if (!existsSync(skillDir)) {
+      return false;
+    }
+    rmSync(skillDir, { recursive: true, force: true });
+    logger.info({ skill: name }, 'Skill deleted');
+    this.discover();
+    return true;
   }
 
   private seedTemplate(): void {

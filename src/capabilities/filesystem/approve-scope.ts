@@ -12,11 +12,17 @@ export function createApproveScopeTool(permissions: PermissionManager, getCwd: (
     })),
     execute: async ({ path, mode }) => {
       const resolved = isAbsolute(path) ? resolve(path) : resolve(getCwd(), path);
-      const result = await permissions.requestScopeExternal(resolved, mode);
-      if (result.allowed) {
-        return `Access approved for ${mode} access to ${resolved}. You can now retry the file operation.`;
+      try {
+        const result = await permissions.requestScopeExternal(resolved, mode);
+        if (result.allowed) {
+          return `Access approved for ${mode} access to ${resolved}. You can now retry the file operation.`;
+        }
+        return `Access denied for ${mode} access to ${resolved}. The user did not approve scope access.`;
+      } catch (err: any) {
+        // C4: Catches the dangerous-path denylist error from PermissionManager
+        // and returns it as a tool-level error rather than crashing the agent.
+        return `Error: ${err?.message ?? String(err)}`;
       }
-      return `Access denied for ${mode} access to ${resolved}. The user did not approve scope access.`;
     },
   });
 }

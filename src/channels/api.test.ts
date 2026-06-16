@@ -8,7 +8,7 @@ async function startChannel(port = 0, apiKey = '') {
 }
 
 async function post(port: number, path: string, body: any, headers: Record<string, string> = {}) {
-  return fetch(`http://localhost:${port}${path}`, {
+  return fetch(`http://127.0.0.1:${port}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...headers },
     body: JSON.stringify(body),
@@ -16,7 +16,7 @@ async function post(port: number, path: string, body: any, headers: Record<strin
 }
 
 async function get(port: number, path: string, headers: Record<string, string> = {}) {
-  return fetch(`http://localhost:${port}${path}`, { headers });
+  return fetch(`http://127.0.0.1:${port}${path}`, { headers });
 }
 
 describe('APIChannel', () => {

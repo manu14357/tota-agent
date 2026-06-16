@@ -1,9 +1,109 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
-import { homedir } from 'node:os';
+import { homedir, platform } from 'node:os';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { getTotaHome } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
+
+// C4: Paths that should never be grantable via approve_scope. These are
+// system-level locations where accidental write access can brick the host,
+// exfiltrate data, or be used for privilege escalation. The LLM cannot
+// grant itself access to these — a user must edit permissions.yaml manually.
+const DANGEROUS_LINUX_PATHS = [
+  '/proc',
+  '/proc/sys',
+  '/sys',
+  '/sys/firmware',
+  '/dev',
+  '/dev/shm',
+  '/etc',
+  '/etc/passwd',
+  '/etc/shadow',
+  '/etc/sudoers',
+  '/etc/sudoers.d',
+  '/boot',
+  '/var/log',
+  '/var/lib',
+  '/usr/bin',
+  '/usr/sbin',
+  '/usr/lib',
+  '/lib',
+  '/lib64',
+  '/sbin',
+  '/bin',
+  '/root',
+];
+
+// On macOS, /etc, /tmp, /var are all symlinks under /private. The agent
+// could be invoked with /etc directly, so we block the public AND the
+// private paths. Note: /var is NOT blanket-blocked because /var/folders
+// is the per-user temp dir (real path: /private/var/folders).
+const DANGEROUS_MACOS_PATHS = [
+  '/System',
+  '/Library',
+  '/.Spotlight-V100',
+  '/.fseventsd',
+  '/etc',
+  '/private/etc',
+  '/private/etc/passwd',
+  '/private/etc/sudoers',
+  '/private/etc/sudoers.d',
+  '/var/log',
+  '/var/db',
+  '/private/var/log',
+  '/private/var/db',
+  '/private/var/audit',
+  '/usr/bin',
+  '/usr/sbin',
+  '/usr/lib',
+  '/sbin',
+  '/bin',
+  '/cores',
+  '/dev',
+];
+
+const DANGEROUS_WINDOWS_PATHS = [
+  'C:\\Windows',
+  'C:\\Windows\\System32',
+  'C:\\Windows\\SysWOW64',
+  'C:\\Program Files',
+  'C:\\Program Files (x86)',
+  'C:\\ProgramData',
+  'C:\\Boot',
+];
+
+/**
+ * Returns true if the given resolved path is a system-sensitive directory
+ * that should not be grantable via the in-conversation approval flow.
+ *
+ * The denylist is a UNION of platform-specific lists. On any Unix-like
+ * host, both the Linux and macOS lists are checked (the agent could be
+ * asked to write to a Linux path even on a Mac — the write would fail
+ * later, but the permission check should fail first).
+ */
+export function isDangerousSystemPath(resolvedPath: string): boolean {
+  const p = resolvedPath.replace(/\\/g, '/').replace(/\/+$/, '');
+  const os = platform();
+
+  let denylist: string[];
+  if (os === 'win32') {
+    denylist = DANGEROUS_WINDOWS_PATHS.map(s => s.replace(/\\/g, '/').replace(/\/+$/, ''));
+  } else {
+    // Union Linux and macOS denylists — both are POSIX-style and the agent
+    // shouldn't be able to write to either set of paths.
+    const union = new Set<string>([
+      ...DANGEROUS_LINUX_PATHS,
+      ...DANGEROUS_MACOS_PATHS,
+    ]);
+    denylist = [...union].map(s => s.replace(/\/+$/, ''));
+  }
+
+  for (const danger of denylist) {
+    if (p === danger) return true;
+    if (p.startsWith(danger + '/')) return true;
+  }
+  return false;
+}
 
 export interface FileScope {
   path: string;
@@ -327,9 +427,16 @@ export class PermissionManager {
     const trimmed = command.trim();
     const baseCmd = trimmed.split(/\s+/)[0];
 
-    for (const pattern of shell.blocked) {
-      if (this.matchPattern(trimmed, pattern)) {
-        return { allowed: false, reason: `Blocked command: matches "${pattern}"`, needsApproval: false };
+    // C2: Defend against shell-injection chains. Blocklist patterns are anchored
+    // by ^...$ and only check the leading token. A command like
+    // `echo hello; sudo rm -rf /` bypasses the blocklist. Split the command on
+    // shell metacharacters and check EACH segment against the blocklist.
+    const segments = this.splitShellSegments(trimmed);
+    for (const seg of segments) {
+      for (const pattern of shell.blocked) {
+        if (this.matchPattern(seg, pattern)) {
+          return { allowed: false, reason: `Blocked command: matches "${pattern}" in segment "${seg}"`, needsApproval: false };
+        }
       }
     }
 
@@ -382,6 +489,18 @@ export class PermissionManager {
     return { allowed: false, reason: 'Command not in auto-approve list — requires approval', needsApproval: true };
   }
 
+  /**
+   * Split a shell command on metacharacters (`;`, `&&`, `||`, `|`, newlines)
+   * so each subcommand can be matched against the blocklist independently.
+   * Does not attempt to fully parse shell — that would require a parser.
+   */
+  private splitShellSegments(command: string): string[] {
+    return command
+      .split(/[;&|\n]+/)
+      .map(s => s.trim())
+      .filter(Boolean);
+  }
+
   isGitReadAllowed(): boolean {
     return this.manifest.capabilities.git.enabled && this.manifest.capabilities.git.autoApproveRead;
   }
@@ -392,6 +511,14 @@ export class PermissionManager {
 
   addScope(path: string, read: boolean, write: boolean): void {
     const resolved = resolve(path);
+    // C4: Refuse to add scopes for dangerous system paths. Approving write to
+    // /proc/sysrq-trigger or /etc would be catastrophic. The LLM cannot use
+    // approve_scope to bypass this.
+    if (isDangerousSystemPath(resolved)) {
+      throw new Error(
+        `Refusing to grant access to ${resolved}: this is a sensitive system path. Manual edit of permissions.yaml required.`,
+      );
+    }
     const existing = this.findScope(resolved);
     if (existing) {
       existing.read = existing.read || read;
@@ -442,6 +569,13 @@ export class PermissionManager {
 
   addTempScope(path: string, read: boolean, write: boolean): void {
     const resolved = resolve(path);
+    // C4: Same denylist for session-only scopes — these still grant
+    // read/write access to dangerous paths during the session.
+    if (isDangerousSystemPath(resolved)) {
+      throw new Error(
+        `Refusing to grant session access to ${resolved}: this is a sensitive system path.`,
+      );
+    }
     this.tempScopes.push({ path: resolved, read, write });
     logger.info({ path: resolved, read, write }, 'Temp permission scope added (session only)');
   }

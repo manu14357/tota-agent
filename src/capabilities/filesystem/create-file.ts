@@ -1,6 +1,6 @@
 import { tool, zodSchema } from 'ai';
 import { z } from 'zod';
-import { existsSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, writeFileSync, mkdirSync, realpathSync } from 'node:fs';
 import { resolve, dirname, isAbsolute } from 'node:path';
 import type { PermissionManager } from '../permissions.js';
 
@@ -23,10 +23,26 @@ export function createCreateFileTool(permissions: PermissionManager, getCwd: () 
         return `Error: File already exists: ${resolved}. Use write_file to modify existing files.`;
       }
 
+      // C5: Validate that the parent directory is not a symlink to an
+      // out-of-scope location. Without this, a user could `ln -s /etc /tmp/etc`
+      // and the LLM would happily `create_file` through that symlink.
+      const parentDir = dirname(resolved);
+      let realParent: string;
       try {
-        const dir = dirname(resolved);
-        if (!existsSync(dir)) {
-          mkdirSync(dir, { recursive: true });
+        realParent = realpathSync(parentDir);
+      } catch {
+        return `Error: Parent directory does not exist: ${parentDir}`;
+      }
+      if (realParent !== parentDir) {
+        const recheck = await permissions.checkFsAccess(realParent, 'write');
+        if (!recheck.allowed) {
+          return `Error: Permission denied — parent directory resolves via symlink to ${realParent} which is outside the allowed scope.`;
+        }
+      }
+
+      try {
+        if (!existsSync(realParent)) {
+          mkdirSync(realParent, { recursive: true });
         }
         writeFileSync(resolved, content, 'utf-8');
         return `Successfully created ${resolved} (${content.length} bytes)`;

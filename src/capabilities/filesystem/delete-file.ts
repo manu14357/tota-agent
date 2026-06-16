@@ -1,6 +1,6 @@
 import { tool, zodSchema } from 'ai';
 import { z } from 'zod';
-import { existsSync, unlinkSync } from 'node:fs';
+import { existsSync, unlinkSync, realpathSync, statSync } from 'node:fs';
 import { resolve, isAbsolute } from 'node:path';
 import type { PermissionManager } from '../permissions.js';
 
@@ -22,12 +22,27 @@ export function createDeleteFileTool(permissions: PermissionManager, getCwd: () 
         return `Error: File not found: ${resolved}`;
       }
 
+      // C5: Re-validate symlink target. Without this, `ln -s /etc/passwd /tmp/p`
+      // followed by `delete_file(/tmp/p)` would erase the real file.
+      let realPath: string;
       try {
-        const stat = await import('node:fs').then(m => m.statSync(resolved));
-        if (stat.isDirectory()) {
-          return `Error: ${resolved} is a directory. Cannot delete directories for safety.`;
+        realPath = realpathSync(resolved);
+      } catch {
+        return `Error: File not found: ${resolved}`;
+      }
+      if (realPath !== resolved) {
+        const recheck = await permissions.checkFsAccess(realPath, 'write');
+        if (!recheck.allowed) {
+          return `Error: Permission denied — symlink target ${realPath} is outside the allowed scope.`;
         }
-        unlinkSync(resolved);
+      }
+
+      try {
+        const stat = statSync(realPath);
+        if (stat.isDirectory()) {
+          return `Error: ${realPath} is a directory. Cannot delete directories for safety.`;
+        }
+        unlinkSync(realPath);
         return `Successfully deleted ${resolved}`;
       } catch (err: any) {
         return `Error deleting file: ${err.message}`;
