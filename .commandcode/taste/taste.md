@@ -8,6 +8,7 @@
 
 # code-style
 - For filesystem-backed resources that accept a user-supplied name in a URL, validate the name against `/^[a-zA-Z0-9._-]+$/` to block path traversal (e.g. `../config`). Apply this in both the storage layer (e.g. `SkillLoader.saveSkill`/`deleteSkill`) and the HTTP route handler. Confidence: 0.85
+- Tag code blocks (comments above methods, doc comments, or inline notes) with the originating ticket ID (e.g. `H7`, `M8`) so future readers can trace implementation back to the issue tracker. Apply this when the change is part of a numbered ticket set. Confidence: 0.70
 
 # architecture
 - For shared mutable state exposed to concurrent writers (e.g. short-term / long-term memory), use a per-resource-key async mutex around read-modify-write instead of the read → clear → re-add pattern, which loses concurrent writes. Confidence: 0.80

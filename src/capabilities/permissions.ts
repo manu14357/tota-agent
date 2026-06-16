@@ -72,6 +72,47 @@ const DANGEROUS_WINDOWS_PATHS = [
   'C:\\Boot',
 ];
 
+// H10: Sensitive (not blocked, but warn loudly) paths. Granting the agent
+// read/write access to these would expose credentials or private data. The
+// approval flow must surface this warning to the user before they confirm.
+const SENSITIVE_LINUX_PATHS = [
+  '/root/.ssh',
+  '/home/*/.ssh',
+  '/root/.aws',
+  '/home/*/.aws',
+  '/root/.gnupg',
+  '/home/*/.gnupg',
+  '/root/.config',
+  '/home/*/.config',
+  '/root/.kube',
+  '/home/*/.kube',
+  '/root/.docker',
+  '/home/*/.docker',
+];
+
+const SENSITIVE_MACOS_PATHS = [
+  '/Users/*/.ssh',
+  '/Users/*/.aws',
+  '/Users/*/.gnupg',
+  '/Users/*/.config',
+  '/Users/*/.kube',
+  '/Users/*/.docker',
+  '/Users/*/Library/Keychains',
+  '/Users/*/Library/Application Support/Google/Chrome',
+  '/Users/*/Library/Application Support/Firefox',
+  '/Users/*/.zsh_history',
+  '/Users/*/.bash_history',
+];
+
+const SENSITIVE_WINDOWS_PATHS = [
+  'C:\\Users\\*\\.ssh',
+  'C:\\Users\\*\\.aws',
+  'C:\\Users\\*\\.gnupg',
+  'C:\\Users\\*\\.kube',
+  'C:\\Users\\*\\.docker',
+  'C:\\Users\\*\\AppData\\Roaming',
+];
+
 /**
  * Returns true if the given resolved path is a system-sensitive directory
  * that should not be grantable via the in-conversation approval flow.
@@ -105,6 +146,53 @@ export function isDangerousSystemPath(resolvedPath: string): boolean {
   return false;
 }
 
+/**
+ * H10: Returns true if the given path is "sensitive" — granting the agent
+ * access would expose credentials, secrets, or private data. Unlike the
+ * dangerous-path denylist, sensitive paths are allowed but the approval
+ * prompt must show a clear warning. Returns a label describing WHY it's
+ * sensitive (e.g. "SSH keys", "AWS credentials") so the UI can present it.
+ */
+export function getSensitivePathWarning(resolvedPath: string): string | null {
+  const p = resolvedPath.replace(/\\/g, '/').replace(/\/+$/, '');
+  const os = platform();
+  const sensitiveList = os === 'win32' ? SENSITIVE_WINDOWS_PATHS
+    : os === 'darwin' ? SENSITIVE_MACOS_PATHS
+    : SENSITIVE_LINUX_PATHS;
+
+  // Match against glob patterns (e.g. /home/*/.ssh) by converting to regex.
+  for (const pattern of sensitiveList) {
+    const normalized = pattern.replace(/\\/g, '/').replace(/\/+$/, '');
+    if (matchesGlob(p, normalized)) {
+      return labelForSensitivePath(normalized);
+    }
+  }
+  return null;
+}
+
+function matchesGlob(path: string, glob: string): boolean {
+  // Convert glob (* and ?) to regex. * matches any chars except '/'.
+  const escaped = glob
+    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+    .replace(/\*/g, '[^/]*')
+    .replace(/\?/g, '.');
+  const re = new RegExp('^' + escaped + '(/.*)?$');
+  return re.test(path);
+}
+
+function labelForSensitivePath(pattern: string): string {
+  if (pattern.includes('.ssh')) return 'SSH keys';
+  if (pattern.includes('.aws')) return 'AWS credentials';
+  if (pattern.includes('.gnupg')) return 'GPG keys';
+  if (pattern.includes('.kube')) return 'Kubernetes config';
+  if (pattern.includes('.docker')) return 'Docker config';
+  if (pattern.includes('.zsh_history') || pattern.includes('.bash_history')) return 'shell history';
+  if (pattern.includes('Keychains')) return 'macOS Keychain';
+  if (pattern.includes('Chrome') || pattern.includes('Firefox')) return 'browser profile data';
+  if (pattern.includes('AppData') || pattern.includes('.config')) return 'application config (may contain secrets)';
+  return 'sensitive credentials or private data';
+}
+
 export interface FileScope {
   path: string;
   read: boolean;
@@ -117,6 +205,15 @@ export interface ShellPermissions {
   autoApproved: string[];
   needsApproval: string[];
   cwdOnly: boolean;
+  /**
+   * H12: Patterns to REMOVE from the default blocklist. Lets a user
+   * intentionally allow a command that's blocked by default (e.g. for a
+   * dev VM where `shutdown *` is fine). Note: this is the ONLY way to
+   * override the defaults — the regular `blocked` array is a UNION with
+   * the defaults, so a user cannot remove a default by simply omitting it.
+   */
+  removeFromBlocked?: string[];
+  removeFromNeedsApproval?: string[];
 }
 
 export interface FsPermissions {
@@ -174,6 +271,17 @@ const DEFAULT_MANIFEST: PermissionsManifest = {
         'netsh *',
         'reg delete *',
         'cmd /c rd /s /q *',
+        // M12: additional Windows / cross-platform coverage
+        'cmd.exe *',
+        'cmd.exe /c *',
+        'C:\\Windows\\System32\\cmd.exe *',
+        'C:\\Windows\\System32\\cmd.exe /c *',
+        'powershell *',
+        'powershell.exe *',
+        'pwsh *',
+        'pwsh.exe *',
+        'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe *',
+        'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -Command *',
       ],
       autoApproved: [
         'ls *',
@@ -271,37 +379,65 @@ export class PermissionManager {
     return this.currentChannelType;
   }
 
+  /**
+   * H11: Switch the active channel context. The autoApproveAll flag is now
+   * interpreted as "the CURRENT channel is in allow-all mode" — it is
+   * automatically synced to the stored mode for the new channel. This way
+   * /permissions on CLI does not leak to Telegram or WhatsApp.
+   */
   setCurrentChannelId(id: string): void {
     this.currentChannelId = id;
+    // Sync the global flag to the new channel's stored mode. The flag is now
+    // effectively a cache of the per-channel mode for the current channel.
+    this.autoApproveAll = this.channelModes.get(id) === 'allow-all';
   }
 
   getCurrentChannelId(): string {
     return this.currentChannelId;
   }
 
-  /** Set the permission mode for a specific channel session (overrides global autoApproveAll). */
+  /** Set the permission mode for a specific channel session. */
   setChannelMode(channelId: string, mode: 'allow-all' | 'ask-me'): void {
     this.channelModes.set(channelId, mode);
+    // If this is the currently active channel, update the cached flag too.
+    if (channelId === this.currentChannelId) {
+      this.autoApproveAll = mode === 'allow-all';
+    }
   }
 
   getChannelMode(channelId: string): 'allow-all' | 'ask-me' {
     return this.channelModes.get(channelId) ?? 'ask-me';
   }
 
-  /** True if the current channel OR the global flag says approve-all. */
+  /**
+   * H11: Backwards-compat shim. The flag is now scoped to the current
+   * channel. Setting it true for one channel does NOT affect others —
+   * they keep their own stored mode and the flag will be re-synced the
+   * next time setCurrentChannelId is called for them.
+   */
   private isEffectiveAutoApprove(): boolean {
-    if (this.autoApproveAll) return true;
-    return this.channelModes.get(this.currentChannelId) === 'allow-all';
+    return this.autoApproveAll;
   }
 
   onAsk(handler: (prompt: string) => Promise<string>): void {
     this.askHandler = handler;
   }
 
+  /**
+   * H11: Per-channel alias for backwards compat. Affects ONLY the current
+   * channel (the one last set via setCurrentChannelId). Other channels keep
+   * their own mode.
+   */
   setAutoApproveAll(value: boolean): void {
+    const mode = value ? 'allow-all' : 'ask-me';
+    this.channelModes.set(this.currentChannelId, mode);
     this.autoApproveAll = value;
   }
 
+  /**
+   * H11: Returns true if the CURRENT channel is in allow-all mode. Other
+   * channels may have a different mode — this is no longer a global flag.
+   */
   isAutoApproveAll(): boolean {
     return this.autoApproveAll;
   }
@@ -551,7 +687,13 @@ export class PermissionManager {
       return { allowed: false, reason: `Permission denied for ${mode} access to ${path}` };
     }
 
-    const prompt = `tota needs ${mode} access to:\n${path}\n\nAllow access?`;
+    // H10: If the path is sensitive, augment the approval prompt with a
+    // clear warning so the user knows they're exposing credentials.
+    const sensitive = getSensitivePathWarning(path);
+    const basePrompt = `tota needs ${mode} access to:\n${path}\n\nAllow access?`;
+    const prompt = sensitive
+      ? `⚠ This path contains ${sensitive}.\n\n${basePrompt}`
+      : basePrompt;
     const response = await this.askHandler(prompt);
 
     if (response === 'always') {
@@ -637,9 +779,16 @@ export class PermissionManager {
   }
 
   private mergeDefaults(parsed: Partial<PermissionsManifest>): PermissionsManifest {
-    const mergeArray = (existing: string[] | undefined, defaults: string[]): string[] => {
-      if (!existing) return [...defaults];
-      const combined = new Set([...defaults, ...existing]);
+    /**
+     * H12: Union the user's array with defaults, then apply the
+     * `removeFrom*` lists to let the user opt out of specific defaults.
+     */
+    const mergeArray = (existing: string[] | undefined, defaults: string[], removals?: string[]): string[] => {
+      let combined = existing ? new Set([...defaults, ...existing]) : new Set(defaults);
+      if (removals && removals.length > 0) {
+        const removeSet = new Set(removals);
+        combined = new Set([...combined].filter((p) => !removeSet.has(p)));
+      }
       return [...combined];
     };
 
@@ -651,10 +800,20 @@ export class PermissionManager {
         },
         shell: {
           enabled: parsed.capabilities?.shell?.enabled ?? DEFAULT_MANIFEST.capabilities.shell.enabled,
-          blocked: mergeArray(parsed.capabilities?.shell?.blocked, DEFAULT_MANIFEST.capabilities.shell.blocked),
+          blocked: mergeArray(
+            parsed.capabilities?.shell?.blocked,
+            DEFAULT_MANIFEST.capabilities.shell.blocked,
+            parsed.capabilities?.shell?.removeFromBlocked,
+          ),
           autoApproved: mergeArray(parsed.capabilities?.shell?.autoApproved, DEFAULT_MANIFEST.capabilities.shell.autoApproved),
-          needsApproval: mergeArray(parsed.capabilities?.shell?.needsApproval, DEFAULT_MANIFEST.capabilities.shell.needsApproval),
+          needsApproval: mergeArray(
+            parsed.capabilities?.shell?.needsApproval,
+            DEFAULT_MANIFEST.capabilities.shell.needsApproval,
+            parsed.capabilities?.shell?.removeFromNeedsApproval,
+          ),
           cwdOnly: parsed.capabilities?.shell?.cwdOnly ?? DEFAULT_MANIFEST.capabilities.shell.cwdOnly,
+          removeFromBlocked: parsed.capabilities?.shell?.removeFromBlocked ?? [],
+          removeFromNeedsApproval: parsed.capabilities?.shell?.removeFromNeedsApproval ?? [],
         },
         git: {
           enabled: parsed.capabilities?.git?.enabled ?? DEFAULT_MANIFEST.capabilities.git.enabled,
