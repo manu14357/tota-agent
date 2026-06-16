@@ -32,7 +32,7 @@ import {
   saveConfig,
 } from '../utils/config.js';
 
-class ToolCallLoopDetector {
+export class ToolCallLoopDetector {
   private recentCalls: Array<{ tool: string; params: string; failed: boolean }> = [];
   private totalCalls = 0;
   private hardAborted = false;
@@ -170,6 +170,37 @@ class ToolCallLoopDetector {
     return null;
   }
 
+  /**
+   * M9: Detect two-tool alternation patterns (e.g. A B A B A B) that
+   * `detectIdentical` misses because the LAST call is not preceded by N
+   * consecutive identical calls. A common failure mode is the model
+   * ping-ponging between a "check status" tool and a "fix it" tool.
+   */
+  detectAlternation(): { toolA: string; toolB: string; count: number; message: string } | null {
+    if (this.recentCalls.length < 6) return null;
+
+    // Check the last 6 calls: if they alternate between exactly two tools,
+    // that's a hard loop regardless of which one is "last".
+    const window = this.recentCalls.slice(-6);
+    const toolsInWindow = new Set(window.map(c => c.tool));
+    if (toolsInWindow.size !== 2) return null;
+
+    const [t0, t1] = [...toolsInWindow];
+    // Expected pattern: t0,t1,t0,t1,t0,t1 (or t1,t0,t1,t0,t1,t0)
+    const isAlternating = (a: string, b: string) =>
+      window.every((c, i) => c.tool === (i % 2 === 0 ? a : b));
+    const alternating = isAlternating(t0, t1) || isAlternating(t1, t0);
+    if (!alternating) return null;
+
+    this.hardAborted = true;
+    return {
+      toolA: t0,
+      toolB: t1,
+      count: window.length,
+      message: `[SYSTEM] You are alternating between "${t0}" and "${t1}" without making progress. This is a ping-pong loop — stop immediately and try a different approach.`,
+    };
+  }
+
   detectTextRepetition(): { pattern: string; count: number } | null {
     if (this.recentStepTexts.length < this.textRepeatThreshold) return null;
 
@@ -298,7 +329,183 @@ export class Agent {
   private enqueueMessage(msg: ChannelMessage): void {
     logger.info({ from: msg.channelType, content: msg.content.slice(0, 50) }, 'Message enqueued');
     this.messageQueue.push(msg);
-    this.processQueue();
+    this.scheduleQueueDrain();
+  }
+
+  /**
+   * H7: Schedule a processQueue() call on the next microtask. This avoids
+   * re-entering processQueue synchronously from inside another enqueueMessage
+   * (which could cause stack growth with back-to-back message arrivals), and
+   * gives the lifecycle a chance to settle to 'idle' if a message arrives
+   * during a state transition.
+   */
+  private scheduleQueueDrain(): void {
+    queueMicrotask(() => this.processQueue());
+  }
+
+  /**
+   * H8: Single source of truth for the AI SDK `onStepFinish` callback. Both
+   * `streamText` and `generateText` use this. Centralises the loop detection
+   * checks, warning emission, channel-specific tool feedback, and the
+   * abort-on-loop logic so a fix applied here applies to both code paths.
+   */
+  private async handleStepFinish(ctx: {
+    step: { toolCalls?: any[]; toolResults?: any[]; text?: string };
+    channel: any;
+    msg: ChannelMessage;
+    loopDetector: ToolCallLoopDetector;
+    loopAbortController: AbortController;
+    loopWarningSentRef: { get value(): boolean; set value(v: boolean); };
+  }): Promise<void> {
+    const { step, channel, msg, loopDetector, loopAbortController, loopWarningSentRef } = ctx;
+    const setWarn = (v: boolean) => { loopWarningSentRef.value = v; };
+    const getWarn = (): boolean => loopWarningSentRef.value;
+
+    const toolCalls = step.toolCalls;
+    const toolResults = step.toolResults;
+    const stepText = step.text ?? '';
+
+    if (toolCalls && toolResults && toolCalls.length > 0) {
+      const names = toolCalls.map((tc: any) => tc.toolName).join(', ');
+      logger.info({ tools: names }, 'Tool call step');
+      for (let i = 0; i < toolCalls.length; i++) {
+        const tc = toolCalls[i];
+        const tr = toolResults[i] as any;
+        const resultStr = typeof tr?.result === 'string' ? tr.result : JSON.stringify(tr?.result ?? '');
+        const failed = resultStr.length < 5000 && (
+          resultStr.startsWith('Error:') ||
+          resultStr.startsWith('⚠') ||
+          resultStr.includes('exited with code') ||
+          resultStr.includes('Command failed') ||
+          resultStr.startsWith('Command exited with code')
+        );
+        loopDetector.record(tc.toolName, tc.input as Record<string, any>, failed);
+      }
+      if (loopDetector.detectAbsoluteLimit()) {
+        const absMax = this.config.loopGuard?.absoluteMax ?? 100;
+        logger.warn('Absolute tool call limit reached — aborting');
+        if (channel && msg.channelType !== 'internal') {
+          await channel.send(`⚠ Tool call limit reached (${absMax} calls). Stopping to prevent runaway loop.`, msg.channelId).catch(() => {});
+        }
+        loopAbortController.abort();
+        return;
+      }
+      if (toolCalls.some((tc: any) => tc.toolName === 'use_skill')) {
+        loopDetector.reset();
+      }
+      const hardLoop = loopDetector.detectIdentical();
+      if (hardLoop) {
+        logger.warn({ tool: hardLoop.tool, count: hardLoop.count }, 'Hard loop detected — aborting');
+        if (!getWarn() && channel && msg.channelType !== 'internal') {
+          setWarn(true);
+          await channel.send(`⚠ Repeated call detected — ${hardLoop.tool} called ${hardLoop.count}x with same params. Stopping.`, msg.channelId).catch(() => {});
+        }
+        loopAbortController.abort();
+        return;
+      }
+      // M9: Detect ping-pong alternation (A B A B A B) that detectIdentical
+      // misses because the LAST call is not preceded by N identical calls.
+      const alternationLoop = loopDetector.detectAlternation();
+      if (alternationLoop) {
+        logger.warn({ toolA: alternationLoop.toolA, toolB: alternationLoop.toolB, count: alternationLoop.count }, 'Alternation loop detected — aborting');
+        if (!getWarn() && channel && msg.channelType !== 'internal') {
+          setWarn(true);
+          await channel.send(`⚠ Alternation loop detected — "${alternationLoop.toolA}" and "${alternationLoop.toolB}" called ${alternationLoop.count}x without progress. Stopping.`, msg.channelId).catch(() => {});
+        }
+        loopAbortController.abort();
+        return;
+      }
+      const similarLoop = loopDetector.detectSimilarLoop();
+      if (similarLoop) {
+        logger.warn({ tool: similarLoop.tool, count: similarLoop.count }, 'Failing loop detected — aborting');
+        if (!getWarn() && channel && msg.channelType !== 'internal') {
+          setWarn(true);
+          await channel.send(`⚠ Failing loop detected — ${similarLoop.tool} called ${similarLoop.count}x, all failing. Stopping.`, msg.channelId).catch(() => {});
+        }
+        loopAbortController.abort();
+        return;
+      }
+      const softLoop = loopDetector.detectSameTool();
+      if (softLoop && !getWarn() && channel && msg.channelType !== 'internal') {
+        if (this.capabilities.permissions.isAutoApproveAll()) {
+          loopDetector.reset();
+          setWarn(false);
+        } else {
+          setWarn(true);
+          const shouldContinue = await channel.askToContinue(
+            `${softLoop.tool} has been called ${softLoop.count}x in a row. This might be a loop.`,
+            msg.channelId,
+          ).catch(() => false);
+          if (shouldContinue) {
+            loopDetector.reset();
+            setWarn(false);
+          } else {
+            loopAbortController.abort();
+          }
+        }
+      }
+      if (channel && msg.channelType !== 'internal') {
+        if (channel instanceof CLIChannel) {
+          for (const tc of toolCalls) {
+            await (channel as CLIChannel).sendToolFeedback(tc.toolName, tc.input as Record<string, any>).catch(() => {});
+          }
+          if (toolResults) {
+            for (let i = 0; i < toolResults.length; i++) {
+              const tr = toolResults[i] as any;
+              const tcName = toolCalls[i]?.toolName as string | undefined;
+              if (tcName) {
+                (channel as CLIChannel).sendStepDone(tcName, tr.result ?? tr);
+              }
+            }
+          }
+        } else if (channel instanceof TelegramChannel) {
+          const tgCh = channel as TelegramChannel;
+          for (const tc of toolCalls) {
+            await tgCh.sendToolFeedback(tc.toolName, tc.input as Record<string, any>, msg.channelId).catch(() => {});
+          }
+          if (toolResults) {
+            for (let i = 0; i < toolResults.length; i++) {
+              const tr = toolResults[i] as any;
+              const tcName = toolCalls[i]?.toolName as string | undefined;
+              if (tcName) {
+                await tgCh.sendStepDone(tcName, tr.result ?? tr, msg.channelId).catch(() => {});
+              }
+            }
+          }
+        } else {
+          // Skip tool-usage noise on WhatsApp — it clutters the chat
+          if (msg.channelType !== 'whatsapp') {
+            await channel.send(`  [Using: ${names}]`, msg.channelId).catch(() => {});
+          }
+        }
+      }
+      return;
+    }
+
+    if (toolResults === undefined || toolCalls === undefined) {
+      if (stepText) {
+        loopDetector.recordStepText(String(stepText));
+      }
+      const noActionLoop = loopDetector.recordNoActionResult();
+      if (noActionLoop) {
+        logger.warn('Reasoning loop detected — model keeps thinking without acting, aborting');
+        if (!getWarn() && channel && msg.channelType !== 'internal') {
+          setWarn(true);
+          await channel.send('⚠ I\'m stuck in a reasoning loop (thinking without taking action). Stopping.', msg.channelId).catch(() => {});
+        }
+        loopAbortController.abort();
+        return;
+      }
+      const textRepeat = loopDetector.detectTextRepetition();
+      if (textRepeat) {
+        logger.warn({ pattern: textRepeat.pattern, count: textRepeat.count }, 'Text repetition loop detected — aborting');
+        if (!getWarn() && channel && msg.channelType !== 'internal') {
+          setWarn(true);
+          await channel.send('⚠ I keep generating the same response. Stopping to prevent repetition.', msg.channelId).catch(() => {});
+        }
+        loopAbortController.abort();
+      }
+    }
   }
 
   private async processQueue(): Promise<void> {
@@ -319,6 +526,12 @@ export class Agent {
       }
     } finally {
       this.processing = false;
+      // H7: If a message arrived while the lifecycle was non-idle, it would
+      // have been pushed to the queue but processQueue returned early without
+      // setting processing=true. Drain again on the next microtask.
+      if (this.messageQueue.length > 0) {
+        this.scheduleQueueDrain();
+      }
     }
   }
 
@@ -354,10 +567,19 @@ export class Agent {
     const startTime = Date.now();
 
       const isInternal = msg.channelType === 'internal';
+      // H9: A scheduled task that has a source channel should NOT elevate
+      // global autoApproveAll (that affects all other channels too). It
+      // should only auto-approve for ITSELF on the source channel.
       const isScheduled = msg.senderId === 'system' && msg.channelType !== 'internal';
-      if (isInternal || isScheduled) {
+      if (isInternal) {
         this.capabilities.permissions.setAutoApproveAll(true);
         this.capabilities.permissions.addTempScope('/', true, true);
+      } else if (isScheduled) {
+        // Scheduled task: pre-approve scope on the source channel so file
+        // operations within the user's project dir work, but don't touch
+        // global state. The source channel's mode (ask-me/allow-all) is
+        // preserved.
+        this.capabilities.permissions.addTempScope('.', true, true);
       }
 
     try {
@@ -562,135 +784,14 @@ const canStream = msg.channelType === 'cli' || msg.channelType === 'ui' || (msg.
               stopWhen: stepCountIs(this.config.loopGuard?.maxSteps ?? MAX_STEPS),
               abortSignal: loopAbortController.signal,
               ...(deepseekProviderOptions ? { providerOptions: deepseekProviderOptions } : {}),
-              onStepFinish: async ({ toolCalls, toolResults }) => {
-                if (toolCalls && toolResults && toolCalls.length > 0) {
-                  const names = toolCalls.map((tc: any) => tc.toolName).join(', ');
-                  logger.info({ tools: names }, 'Tool call step');
-                  for (let i = 0; i < toolCalls.length; i++) {
-                    const tc = toolCalls[i];
-                    const tr = toolResults[i] as any;
-                    const resultStr = typeof tr?.result === 'string' ? tr.result : JSON.stringify(tr?.result ?? '');
-                    const failed = resultStr.length < 5000 && (
-                      resultStr.startsWith('Error:') ||
-                      resultStr.startsWith('⚠') ||
-                      resultStr.includes('exited with code') ||
-                      resultStr.includes('Command failed') ||
-                      resultStr.startsWith('Command exited with code')
-                    );
-                    loopDetector.record(tc.toolName, tc.input as Record<string, any>, failed);
-                  }
-                  if (loopDetector.detectAbsoluteLimit()) {
-                    const absMax = this.config.loopGuard?.absoluteMax ?? 100;
-                    logger.warn('Absolute tool call limit reached — aborting');
-                    if (channel && msg.channelType !== 'internal') {
-                      await channel.send(`⚠ Tool call limit reached (${absMax} calls). Stopping to prevent runaway loop.`, msg.channelId).catch(() => {});
-                    }
-                    loopAbortController.abort();
-                    return;
-                  }
-                  if (toolCalls.some((tc: any) => tc.toolName === 'use_skill')) {
-                    loopDetector.reset();
-                  }
-                  const hardLoop = loopDetector.detectIdentical();
-                  if (hardLoop) {
-                    logger.warn({ tool: hardLoop.tool, count: hardLoop.count }, 'Hard loop detected — aborting');
-                    if (!loopWarningSent && channel && msg.channelType !== 'internal') {
-                      loopWarningSent = true;
-                      await channel.send(`⚠ Repeated call detected — ${hardLoop.tool} called ${hardLoop.count}x with same params. Stopping.`, msg.channelId).catch(() => {});
-                    }
-                    loopAbortController.abort();
-                    return;
-                  }
-                  const similarLoop = loopDetector.detectSimilarLoop();
-                  if (similarLoop) {
-                    logger.warn({ tool: similarLoop.tool, count: similarLoop.count }, 'Failing loop detected — aborting');
-                    if (!loopWarningSent && channel && msg.channelType !== 'internal') {
-                      loopWarningSent = true;
-                      await channel.send(`⚠ Failing loop detected — ${similarLoop.tool} called ${similarLoop.count}x, all failing. Stopping.`, msg.channelId).catch(() => {});
-                    }
-                    loopAbortController.abort();
-                    return;
-                  }
-                  const softLoop = loopDetector.detectSameTool();
-                  if (softLoop && !loopWarningSent && channel && msg.channelType !== 'internal') {
-                    if (this.capabilities.permissions.isAutoApproveAll()) {
-                      loopDetector.reset();
-                      loopWarningSent = false;
-                    } else {
-                      loopWarningSent = true;
-                      const shouldContinue = await channel.askToContinue(
-                        `${softLoop.tool} has been called ${softLoop.count}x in a row. This might be a loop.`,
-                        msg.channelId,
-                      ).catch(() => false);
-                      if (shouldContinue) {
-                        loopDetector.reset();
-                        loopWarningSent = false;
-                      } else {
-                        loopAbortController.abort();
-                      }
-                    }
-                  }
-                  if (channel && msg.channelType !== 'internal') {
-                    if (channel instanceof CLIChannel) {
-                      for (const tc of toolCalls) {
-                        await (channel as CLIChannel).sendToolFeedback(tc.toolName, tc.input as Record<string, any>).catch(() => {});
-                      }
-                      if (toolResults) {
-                        for (let i = 0; i < toolResults.length; i++) {
-                          const tr = toolResults[i] as any;
-                          const tcName = toolCalls[i]?.toolName as string | undefined;
-                          if (tcName) {
-                            (channel as CLIChannel).sendStepDone(tcName, tr.result ?? tr);
-                          }
-                        }
-                      }
-                    } else if (channel instanceof TelegramChannel) {
-                      const tgCh = channel as TelegramChannel;
-                      for (const tc of toolCalls) {
-                        await tgCh.sendToolFeedback(tc.toolName, tc.input as Record<string, any>, msg.channelId).catch(() => {});
-                      }
-                      if (toolResults) {
-                        for (let i = 0; i < toolResults.length; i++) {
-                          const tr = toolResults[i] as any;
-                          const tcName = toolCalls[i]?.toolName as string | undefined;
-                          if (tcName) {
-                            await tgCh.sendStepDone(tcName, tr.result ?? tr, msg.channelId).catch(() => {});
-                          }
-                        }
-                      }
-                    } else {
-                      // Skip tool-usage noise on WhatsApp — it clutters the chat
-                      if (msg.channelType !== 'whatsapp') {
-                        await channel.send(`  [Using: ${names}]`, msg.channelId).catch(() => {});
-                      }
-                    }
-                  }
-                } else if (toolResults === undefined || (toolCalls === undefined)) {
-                  const stepText = (toolResults as any)?.text ?? '';
-                  if (stepText) {
-                    loopDetector.recordStepText(String(stepText));
-                  }
-                  const noActionLoop = loopDetector.recordNoActionResult();
-                  if (noActionLoop) {
-                    logger.warn('Reasoning loop detected — model keeps thinking without acting, aborting');
-                    if (!loopWarningSent && channel && msg.channelType !== 'internal') {
-                      loopWarningSent = true;
-                      await channel.send('⚠ I\'m stuck in a reasoning loop (thinking without taking action). Stopping.', msg.channelId).catch(() => {});
-                    }
-                    loopAbortController.abort();
-                    return;
-                  }
-                  const textRepeat = loopDetector.detectTextRepetition();
-                  if (textRepeat) {
-                    logger.warn({ pattern: textRepeat.pattern, count: textRepeat.count }, 'Text repetition loop detected — aborting');
-                    if (!loopWarningSent && channel && msg.channelType !== 'internal') {
-                      loopWarningSent = true;
-                      await channel.send('⚠ I keep generating the same response. Stopping to prevent repetition.', msg.channelId).catch(() => {});
-                    }
-                    loopAbortController.abort();
-                  }
-                }
-              },
+              onStepFinish: async (step) => this.handleStepFinish({
+                step,
+                channel,
+                msg,
+                loopDetector,
+                loopAbortController,
+                loopWarningSentRef: { get value() { return loopWarningSent; }, set value(v: boolean) { loopWarningSent = v; } },
+              }),
             });
 
             let fullText: string;
@@ -731,135 +832,14 @@ const canStream = msg.channelType === 'cli' || msg.channelType === 'ui' || (msg.
               stopWhen: stepCountIs(this.config.loopGuard?.maxSteps ?? MAX_STEPS),
               abortSignal: loopAbortController.signal,
               ...(deepseekProviderOptions ? { providerOptions: deepseekProviderOptions } : {}),
-              onStepFinish: async ({ toolCalls, toolResults }) => {
-                if (toolCalls && toolResults && toolCalls.length > 0) {
-                  const names = toolCalls.map((tc: any) => tc.toolName).join(', ');
-                  logger.info({ tools: names }, 'Tool call step');
-                  for (let i = 0; i < toolCalls.length; i++) {
-                    const tc = toolCalls[i];
-                    const tr = toolResults[i] as any;
-                    const resultStr = typeof tr?.result === 'string' ? tr.result : JSON.stringify(tr?.result ?? '');
-                    const failed = resultStr.length < 5000 && (
-                      resultStr.startsWith('Error:') ||
-                      resultStr.startsWith('⚠') ||
-                      resultStr.includes('exited with code') ||
-                      resultStr.includes('Command failed') ||
-                      resultStr.startsWith('Command exited with code')
-                    );
-                    loopDetector.record(tc.toolName, tc.input as Record<string, any>, failed);
-                  }
-                  if (loopDetector.detectAbsoluteLimit()) {
-                    const absMax = this.config.loopGuard?.absoluteMax ?? 100;
-                    logger.warn('Absolute tool call limit reached — aborting');
-                    if (channel && msg.channelType !== 'internal') {
-                      await channel.send(`⚠ Tool call limit reached (${absMax} calls). Stopping to prevent runaway loop.`, msg.channelId).catch(() => {});
-                    }
-                    loopAbortController.abort();
-                    return;
-                  }
-                  if (toolCalls.some((tc: any) => tc.toolName === 'use_skill')) {
-                    loopDetector.reset();
-                  }
-                  const hardLoop = loopDetector.detectIdentical();
-                  if (hardLoop) {
-                    logger.warn({ tool: hardLoop.tool, count: hardLoop.count }, 'Hard loop detected — aborting');
-                    if (!loopWarningSent && channel && msg.channelType !== 'internal') {
-                      loopWarningSent = true;
-                      await channel.send(`⚠ Repeated call detected — ${hardLoop.tool} called ${hardLoop.count}x with same params. Stopping.`, msg.channelId).catch(() => {});
-                    }
-                    loopAbortController.abort();
-                    return;
-                  }
-                  const similarLoop = loopDetector.detectSimilarLoop();
-                  if (similarLoop) {
-                    logger.warn({ tool: similarLoop.tool, count: similarLoop.count }, 'Failing loop detected — aborting');
-                    if (!loopWarningSent && channel && msg.channelType !== 'internal') {
-                      loopWarningSent = true;
-                      await channel.send(`⚠ Failing loop detected — ${similarLoop.tool} called ${similarLoop.count}x, all failing. Stopping.`, msg.channelId).catch(() => {});
-                    }
-                    loopAbortController.abort();
-                    return;
-                  }
-                  const softLoop = loopDetector.detectSameTool();
-                  if (softLoop && !loopWarningSent && channel && msg.channelType !== 'internal') {
-                    if (this.capabilities.permissions.isAutoApproveAll()) {
-                      loopDetector.reset();
-                      loopWarningSent = false;
-                    } else {
-                      loopWarningSent = true;
-                      const shouldContinue = await channel.askToContinue(
-                        `${softLoop.tool} has been called ${softLoop.count}x in a row. This might be a loop.`,
-                        msg.channelId,
-                      ).catch(() => false);
-                      if (shouldContinue) {
-                        loopDetector.reset();
-                        loopWarningSent = false;
-                      } else {
-                        loopAbortController.abort();
-                      }
-                    }
-                  }
-                  if (channel && msg.channelType !== 'internal') {
-                    if (channel instanceof CLIChannel) {
-                      for (const tc of toolCalls) {
-                        await (channel as CLIChannel).sendToolFeedback(tc.toolName, tc.input as Record<string, any>).catch(() => {});
-                      }
-                      if (toolResults) {
-                        for (let i = 0; i < toolResults.length; i++) {
-                          const tr = toolResults[i] as any;
-                          const tcName = toolCalls[i]?.toolName as string | undefined;
-                          if (tcName) {
-                            (channel as CLIChannel).sendStepDone(tcName, tr.result ?? tr);
-                          }
-                        }
-                      }
-                    } else if (channel instanceof TelegramChannel) {
-                      const tgCh = channel as TelegramChannel;
-                      for (const tc of toolCalls) {
-                        await tgCh.sendToolFeedback(tc.toolName, tc.input as Record<string, any>, msg.channelId).catch(() => {});
-                      }
-                      if (toolResults) {
-                        for (let i = 0; i < toolResults.length; i++) {
-                          const tr = toolResults[i] as any;
-                          const tcName = toolCalls[i]?.toolName as string | undefined;
-                          if (tcName) {
-                            await tgCh.sendStepDone(tcName, tr.result ?? tr, msg.channelId).catch(() => {});
-                          }
-                        }
-                      }
-                    } else {
-                      // Skip tool-usage noise on WhatsApp — it clutters the chat
-                      if (msg.channelType !== 'whatsapp') {
-                        await channel.send(`  [Using: ${names}]`, msg.channelId).catch(() => {});
-                      }
-                    }
-                  }
-                } else if (toolResults === undefined || (toolCalls === undefined)) {
-                  const stepText = (toolResults as any)?.text ?? '';
-                  if (stepText) {
-                    loopDetector.recordStepText(String(stepText));
-                  }
-                  const noActionLoop = loopDetector.recordNoActionResult();
-                  if (noActionLoop) {
-                    logger.warn('Reasoning loop detected — model keeps thinking without acting, aborting');
-                    if (!loopWarningSent && channel && msg.channelType !== 'internal') {
-                      loopWarningSent = true;
-                      await channel.send('⚠ I\'m stuck in a reasoning loop (thinking without taking action). Stopping.', msg.channelId).catch(() => {});
-                    }
-                    loopAbortController.abort();
-                    return;
-                  }
-                  const textRepeat = loopDetector.detectTextRepetition();
-                  if (textRepeat) {
-                    logger.warn({ pattern: textRepeat.pattern, count: textRepeat.count }, 'Text repetition loop detected — aborting');
-                    if (!loopWarningSent && channel && msg.channelType !== 'internal') {
-                      loopWarningSent = true;
-                      await channel.send('⚠ I keep generating the same response. Stopping to prevent repetition.', msg.channelId).catch(() => {});
-                    }
-                    loopAbortController.abort();
-                  }
-                }
-              },
+              onStepFinish: async (step) => this.handleStepFinish({
+                step,
+                channel,
+                msg,
+                loopDetector,
+                loopAbortController,
+                loopWarningSentRef: { get value() { return loopWarningSent; }, set value(v: boolean) { loopWarningSent = v; } },
+              }),
             });
           }
 
@@ -900,9 +880,14 @@ const canStream = msg.channelType === 'cli' || msg.channelType === 'ui' || (msg.
 
       const finalText = (streamedText || result.text || '').trim() || '(no text response)';
 
+      // M8: If the loop was hard-aborted and we used a fallback result (no
+      // provider completed), we still need a sensible provider/model for the
+      // token budget. Use the first provider from the fallback iterator if
+      // available, otherwise "unknown".
+      const usedProviderForBudget = usedProvider ?? { name: 'unknown', model: 'unknown' };
       this.tokenBudget.recordUsage({
-        provider: usedProvider!.name,
-        model: usedProvider!.model,
+        provider: usedProviderForBudget.name,
+        model: usedProviderForBudget.model,
         inputTokens: result.usage?.inputTokens ?? 0,
         outputTokens: result.usage?.outputTokens ?? 0,
         totalTokens: (result.usage?.inputTokens ?? 0) + (result.usage?.outputTokens ?? 0),
@@ -954,8 +939,14 @@ const canStream = msg.channelType === 'cli' || msg.channelType === 'ui' || (msg.
       logger.error({ err }, 'Error handling message');
       this.lifecycle.transition('idle');
     } finally {
-      if (isInternal || isScheduled) {
+      if (isInternal) {
         this.capabilities.permissions.setAutoApproveAll(false);
+        this.capabilities.permissions.removeTempScope('/');
+      } else if (isScheduled) {
+        // H9: Clean up the scheduled-task temp scope so it doesn't leak
+        // across sessions. The global autoApproveAll is no longer touched
+        // for scheduled tasks.
+        this.capabilities.permissions.removeTempScope('.');
       }
       this.capabilities.permissions.clearElevation();
     }

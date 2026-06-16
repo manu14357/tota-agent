@@ -580,6 +580,22 @@ export class PermissionManager {
     logger.info({ path: resolved, read, write }, 'Temp permission scope added (session only)');
   }
 
+  /**
+   * H9: Remove a previously-added temp scope. Used to clean up scopes added
+   * for one-off operations (e.g. scheduled task execution) so they don't
+   * accumulate across the session. Removes ALL entries matching the resolved
+   * path.
+   */
+  removeTempScope(path: string): void {
+    const resolved = resolve(path);
+    const before = this.tempScopes.length;
+    this.tempScopes = this.tempScopes.filter((s) => s.path !== resolved);
+    const removed = before - this.tempScopes.length;
+    if (removed > 0) {
+      logger.info({ path: resolved, removed }, 'Temp permission scope removed');
+    }
+  }
+
   private findTempScope(resolvedPath: string): FileScope | undefined {
     for (const scope of this.tempScopes) {
       const scopeResolved = resolve(scope.path.replace(/^~/, homedir()));

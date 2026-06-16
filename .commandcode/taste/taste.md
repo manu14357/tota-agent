@@ -2,3 +2,13 @@
 
 [cmd]: https://commandcode.ai/
 
+# workflow
+- Organize implementation work into named phases (Phase 1, Phase 2, …) with prioritized tickets per phase, using H1/H2/… for high priority and M1/M2/… for medium. Each phase has its own verification gate before moving on. Confidence: 0.85
+- Before declaring a phase complete, run `tsc --noEmit`, `tsup` build, and the full test suite (`npx vitest run`) and show all three as clean. Confidence: 0.80
+
+# code-style
+- For filesystem-backed resources that accept a user-supplied name in a URL, validate the name against `/^[a-zA-Z0-9._-]+$/` to block path traversal (e.g. `../config`). Apply this in both the storage layer (e.g. `SkillLoader.saveSkill`/`deleteSkill`) and the HTTP route handler. Confidence: 0.85
+
+# architecture
+- For shared mutable state exposed to concurrent writers (e.g. short-term / long-term memory), use a per-resource-key async mutex around read-modify-write instead of the read → clear → re-add pattern, which loses concurrent writes. Confidence: 0.80
+- When a REST endpoint mutates an in-memory service (scheduler, registry, etc.), inject the service via a `setX(...)` setter after construction rather than passing it through the constructor — matches the existing `TelegramChannel` pattern. Wire the setter call in the composition root (`index.ts`) right after both objects exist. Confidence: 0.75
