@@ -21,6 +21,7 @@ import { BaseChannel, type PermissionMode } from './base.js';
 import type { TotaConfig, WhatsAppApprovedUser, WhatsAppPendingRequest } from '../utils/config.js';
 import { saveConfig } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
+import { AsyncMap } from './async-map.js';
 
 const MAX_TEXT_LENGTH = 4096;
 const TYPING_TIMEOUT_MS = 5_000;
@@ -33,9 +34,12 @@ export class WhatsAppChannel extends BaseChannel {
   private sock: WASocket | null = null;
   private lastSenderJid: string | null = null;
   private typingTimer: NodeJS.Timeout | null = null;
-  private pendingAskResolvers = new Map<string, (answer: boolean) => void>();
-  private pendingPermModeResolvers = new Map<string, (mode: PermissionMode) => void>();
-  private pendingPermAskResolvers = new Map<string, (answer: string) => void>();
+  // M3: Use AsyncMap for pending resolvers so the disconnect path can
+  // clear them all in one call (and not leave dangling promises/timers
+  // that could match a future reconnect).
+  private pendingAskResolvers = new AsyncMap<string, (answer: boolean) => void>();
+  private pendingPermModeResolvers = new AsyncMap<string, (mode: PermissionMode) => void>();
+  private pendingPermAskResolvers = new AsyncMap<string, (answer: string) => void>();
   private permissionModes = new Map<string, PermissionMode>();
   private onPermissionMode?: (mode: PermissionMode, jid: string) => void;
   /** Prevents the "session expired" console line from printing on every QR refresh. */
@@ -188,6 +192,10 @@ export class WhatsAppChannel extends BaseChannel {
         const boom = lastDisconnect?.error as Boom | undefined;
         const code = boom?.output?.statusCode;
         logger.warn({ code }, 'WhatsApp connection closed');
+        // M3: Cancel any in-flight approval requests so the awaiting
+        // promises resolve immediately instead of leaking their timers or
+        // matching a future user message after reconnect.
+        this.clearAllPending();
 
         // ── Conflict: another WhatsApp Web session replaced this one ──────────
         // Reconnecting immediately will just get kicked again in a tight loop.
@@ -489,6 +497,14 @@ export class WhatsAppChannel extends BaseChannel {
     const jid = this.resolveJid(targetId);
     if (!jid || !this.sock) return true;
 
+    // M4: a prior askToContinue for the same JID is still pending.
+    // Return true (continue) so we don't accidentally abort the wrong
+    // operation if a second prompt overlaps.
+    if (this.pendingAskResolvers.has(jid)) {
+      logger.warn({ jid }, 'askToContinue called while another prompt is pending — returning true');
+      return true;
+    }
+
     await this.sock.sendMessage(jid, {
       text: `${question}\n\nReply *yes* to continue or *no* to stop.`,
     });
@@ -514,6 +530,15 @@ export class WhatsAppChannel extends BaseChannel {
     const jid = this.resolveJid(targetId);
     if (!jid || !this.sock) return 'ask-me';
 
+    // M4: If a permission prompt is already pending for this JID, the
+    // second call would silently overwrite the first resolver. Return
+    // the safe default ('ask-me') so we don't accidentally resolve
+    // against the wrong user input.
+    if (this.pendingPermModeResolvers.has(jid)) {
+      logger.warn({ jid }, 'askPermissionMode called while another prompt is pending — returning safe default');
+      return 'ask-me';
+    }
+
     // Set up resolver BEFORE sending the message to close the race window
     // where a fast reply could arrive before the resolver is registered.
     const modePromise = new Promise<PermissionMode>((resolve) => {
@@ -538,6 +563,14 @@ export class WhatsAppChannel extends BaseChannel {
   async askPermission(prompt: string, targetId?: string): Promise<string> {
     const jid = this.resolveJid(targetId);
     if (!jid || !this.sock) return 'no';
+
+    // M4: a prior askPermission for the same JID is still pending.
+    // Return 'no' (deny) to avoid resolving a future unrelated message
+    // against the wrong pending prompt.
+    if (this.pendingPermAskResolvers.has(jid)) {
+      logger.warn({ jid }, 'askPermission called while another prompt is pending — denying');
+      return 'no';
+    }
 
     // Set up resolver BEFORE sending the message to close the race window.
     const answerPromise = new Promise<string>((resolve) => {
@@ -570,6 +603,20 @@ export class WhatsAppChannel extends BaseChannel {
     if (allowFrom.includes('*')) return true;
     if (allowFrom.includes(phone)) return true;
     return approved.some((u) => u.phone === phone);
+  }
+
+  /**
+   * M3: Cancel every pending approval/permission ask. Called from the
+   * connection-close path so that any in-flight `await askPermissionMode()`
+   * or `await askPermission()` resolves with a safe default instead of
+   * leaking its timer. Resolves are called with the same "deny"/"ask-me"
+   * defaults used by the per-call timeouts.
+   */
+  private clearAllPending(): void {
+    this.pendingAskResolvers.clearAll((_jid, resolver) => resolver(false));
+    this.pendingPermModeResolvers.clearAll((_jid, resolver) => resolver('ask-me'));
+    this.pendingPermAskResolvers.clearAll((_jid, resolver) => resolver('no'));
+    logger.info('Cleared all pending approval resolvers on disconnect');
   }
 
   private async requestAccess(jid: string, phone: string): Promise<void> {

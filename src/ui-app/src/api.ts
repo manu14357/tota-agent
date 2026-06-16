@@ -37,19 +37,27 @@ export type WSMessage =
 
 type Listener = (msg: WSMessage) => void;
 
+// M18: Constants for the WebSocket reconnect / queue behaviour.
+const INITIAL_RECONNECT_MS = 1_000;
+const MAX_RECONNECT_MS = 30_000;
+const MAX_PENDING_MESSAGES = 50; // drop oldest if exceeded
+
 class SocketClient {
   private ws: WebSocket | null = null;
   private listeners: Set<Listener> = new Set();
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private pendingMessages: string[] = [];
+  private reconnectAttempt = 0;
+  private intentionalClose = false;
 
   connect(): void {
-    if (this.ws?.readyState === WebSocket.OPEN) return;
+    if (this.ws?.readyState === WebSocket.OPEN || this.ws?.readyState === WebSocket.CONNECTING) return;
     const proto = location.protocol === 'https:' ? 'wss' : 'ws';
     const url = `${proto}://${location.host}/ws`;
     this.ws = new WebSocket(url);
 
     this.ws.addEventListener('open', () => {
+      this.reconnectAttempt = 0;
       // Flush pending
       for (const m of this.pendingMessages) this.ws?.send(m);
       this.pendingMessages = [];
@@ -66,8 +74,13 @@ class SocketClient {
 
     this.ws.addEventListener('close', () => {
       this.ws = null;
-      // Auto-reconnect after 3 s
-      this.reconnectTimer = setTimeout(() => this.connect(), 3000);
+      if (this.intentionalClose) return;
+      // M18: exponential backoff with cap. Attempt 1 → 1s, then 2s, 4s, 8s,
+      // 16s, 30s (cap). The old code used a fixed 3s — that floods retries
+      // when the server is unreachable, killing the user's battery.
+      this.reconnectAttempt++;
+      const delay = Math.min(INITIAL_RECONNECT_MS * 2 ** (this.reconnectAttempt - 1), MAX_RECONNECT_MS);
+      this.reconnectTimer = setTimeout(() => this.connect(), delay);
     });
 
     this.ws.addEventListener('error', () => {
@@ -76,6 +89,7 @@ class SocketClient {
   }
 
   disconnect(): void {
+    this.intentionalClose = true;
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
     this.ws?.close();
     this.ws = null;
@@ -86,7 +100,13 @@ class SocketClient {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(data);
     } else {
+      // M18: cap the queue. If the server is down and the user keeps
+      // typing, we drop the OLDEST messages rather than accumulate
+      // unbounded memory.
       this.pendingMessages.push(data);
+      while (this.pendingMessages.length > MAX_PENDING_MESSAGES) {
+        this.pendingMessages.shift();
+      }
     }
   }
 
@@ -97,6 +117,10 @@ class SocketClient {
 
   isConnected(): boolean {
     return this.ws?.readyState === WebSocket.OPEN;
+  }
+
+  pendingCount(): number {
+    return this.pendingMessages.length;
   }
 }
 

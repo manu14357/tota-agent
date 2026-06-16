@@ -7,6 +7,7 @@ import { Bot, InputFile, InlineKeyboard } from 'grammy';
 import { autoRetry } from '@grammyjs/auto-retry';
 import type { ChannelMessage } from '../types/channel.js';
 import { BaseChannel, type PermissionMode } from './base.js';
+import { AsyncMap } from './async-map.js';
 import type { TotaConfig, TelegramAccessUser, TelegramPendingRequest } from '../utils/config.js';
 import {
   addTelegramPendingRequest,
@@ -39,7 +40,13 @@ export class TelegramChannel extends BaseChannel {
   private lastActiveChatId: number | null = null;
   private typingInterval: NodeJS.Timeout | null = null;
   private chatCommandContext?: import('../capabilities/registry.js').ChatCommandContext;
-  private pendingApprovals: Map<string, ApprovalResolver> = new Map();
+  // M2: Use AsyncMap so the disconnect/stop path can clear all pending
+  // approval resolvers in a single call instead of leaking timers.
+  // The value is a "consume first then resolve" wrapper — the FIRST
+  // resolver invoked wins, subsequent calls are no-ops. This way
+  // `clearAll` can safely invoke every entry and only the first wins
+  // (which is the same order user button-presses would have).
+  private pendingApprovals: AsyncMap<string, ApprovalResolver> = new AsyncMap();
   private permissionModes = new Map<number, PermissionMode>();
   private onPermissionMode?: (mode: PermissionMode, chatId: number) => void;
   private statusMessageIds = new Map<string, number>();
@@ -458,6 +465,16 @@ export class TelegramChannel extends BaseChannel {
     this.bot?.stop();
     this.ready = false;
     this.stopTypingLoop();
+    // M2: cancel all in-flight approval prompts. Iterate the map and
+    // invoke ONLY the `__abort__` entries — those resolve to the safe
+    // default for each prompt ('no' / false / 'ask-me'). Invoking the
+    // button resolvers would resolve to whatever was registered first
+    // (e.g. 'yes'), which is NOT the safe default.
+    for (const [k, resolver] of this.pendingApprovals.entries()) {
+      if (typeof k === 'string' && k.endsWith('__abort__')) {
+        resolver();
+      }
+    }
   }
 
   async send(content: string, targetId?: string, elapsedMs?: number): Promise<void> {
@@ -689,15 +706,36 @@ export class TelegramChannel extends BaseChannel {
     }
 
     return new Promise((resolve) => {
-      this.pendingApprovals.set(`${id}:yes`, () => resolve('yes'));
-      this.pendingApprovals.set(`${id}:always`, () => resolve('always'));
-      this.pendingApprovals.set(`${id}:no`, () => resolve('no'));
+      // M2: Store ONE outer-resolver per prompt id, plus a per-button
+      // trampoline that delegates to it. clearAll() invokes the outer
+      // resolver with the safe default, and the guard prevents double-
+      // resolution if a button click lands after clearAll.
+      let consumed = false;
+      const outerResolve = (value: string) => {
+        if (consumed) return;
+        consumed = true;
+        resolve(value as any);
+      };
+      const trampoline = (value: string): ApprovalResolver => () => {
+        outerResolve(value);
+        this.pendingApprovals.delete(`${id}:yes`);
+        this.pendingApprovals.delete(`${id}:always`);
+        this.pendingApprovals.delete(`${id}:no`);
+      };
+      this.pendingApprovals.set(`${id}:yes`, trampoline('yes'));
+      this.pendingApprovals.set(`${id}:always`, trampoline('always'));
+      this.pendingApprovals.set(`${id}:no`, trampoline('no'));
+
+      // M2: Register the safe-default under a separate key. clearAll()
+      // calls this to give the prompt a default resolution of 'no'.
+      this.pendingApprovals.set(`${id}:__abort__`, () => outerResolve('no'));
 
       setTimeout(() => {
         this.pendingApprovals.delete(`${id}:yes`);
         this.pendingApprovals.delete(`${id}:always`);
         this.pendingApprovals.delete(`${id}:no`);
-        resolve('no');
+        this.pendingApprovals.delete(`${id}:__abort__`);
+        outerResolve('no');
       }, 120_000);
     });
   }
@@ -724,13 +762,28 @@ export class TelegramChannel extends BaseChannel {
     }
 
     return new Promise((resolve) => {
-      this.pendingApprovals.set(`${id}:yes`, () => resolve(true));
-      this.pendingApprovals.set(`${id}:no`, () => resolve(false));
+      // M2: see askPermission for the trampoline pattern.
+      let consumed = false;
+      const outerResolve = (value: boolean) => {
+        if (consumed) return;
+        consumed = true;
+        resolve(value);
+      };
+      const trampoline = (value: boolean): ApprovalResolver => () => {
+        outerResolve(value);
+        this.pendingApprovals.delete(`${id}:yes`);
+        this.pendingApprovals.delete(`${id}:no`);
+        this.pendingApprovals.delete(`${id}:__abort__`);
+      };
+      this.pendingApprovals.set(`${id}:yes`, trampoline(true));
+      this.pendingApprovals.set(`${id}:no`, trampoline(false));
+      this.pendingApprovals.set(`${id}:__abort__`, () => outerResolve(false));
 
       setTimeout(() => {
         this.pendingApprovals.delete(`${id}:yes`);
         this.pendingApprovals.delete(`${id}:no`);
-        resolve(false);
+        this.pendingApprovals.delete(`${id}:__abort__`);
+        outerResolve(false);
       }, 120_000);
     });
   }
@@ -759,13 +812,28 @@ export class TelegramChannel extends BaseChannel {
     }
 
     return new Promise((resolve) => {
-      this.pendingApprovals.set(`${id}:ask-me`, () => resolve('ask-me'));
-      this.pendingApprovals.set(`${id}:allow-all`, () => resolve('allow-all'));
+      // M2: see askPermission for the trampoline pattern.
+      let consumed = false;
+      const outerResolve = (value: PermissionMode) => {
+        if (consumed) return;
+        consumed = true;
+        resolve(value);
+      };
+      const trampoline = (value: PermissionMode): ApprovalResolver => () => {
+        outerResolve(value);
+        this.pendingApprovals.delete(`${id}:ask-me`);
+        this.pendingApprovals.delete(`${id}:allow-all`);
+        this.pendingApprovals.delete(`${id}:__abort__`);
+      };
+      this.pendingApprovals.set(`${id}:ask-me`, trampoline('ask-me'));
+      this.pendingApprovals.set(`${id}:allow-all`, trampoline('allow-all'));
+      this.pendingApprovals.set(`${id}:__abort__`, () => outerResolve('ask-me'));
 
       setTimeout(() => {
         this.pendingApprovals.delete(`${id}:ask-me`);
         this.pendingApprovals.delete(`${id}:allow-all`);
-        resolve('ask-me');
+        this.pendingApprovals.delete(`${id}:__abort__`);
+        outerResolve('ask-me');
       }, 120_000);
     });
   }
