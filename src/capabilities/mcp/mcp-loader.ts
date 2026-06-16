@@ -78,36 +78,64 @@ function buildToolSchema(inputSchema?: Record<string, any>): z.ZodTypeAny {
 
 export async function loadMCPTools(servers: MCPServerConfig[]): Promise<Record<string, Tool>> {
   const tools: Record<string, Tool> = {};
+  // M13: track which prefixed names we've already registered so a collision
+  // surfaces as a warning instead of silently overwriting the first
+  // server's tool. The most common cause is two servers with the same
+  // `server.name` field — uncommon, but possible if the user hand-edits
+  // tota.yaml.
+  const seenNames = new Map<string, string>(); // prefixedName -> server.name
 
+  // Single pass: load tools and detect collisions inline. Loading each
+  // server once is important — some test mocks return different responses
+  // for the second tools/list call.
   for (const server of servers) {
     if (!server.enabled) continue;
 
+    let mcpTools: MCPToolDef[];
     try {
       logger.info({ server: server.name, url: server.url }, 'Loading MCP tools');
-      const mcpTools = await fetchMCPTools(server);
+      mcpTools = await fetchMCPTools(server);
       logger.info({ server: server.name, count: mcpTools.length }, 'Loaded MCP tool definitions');
-
-      for (const def of mcpTools) {
-        const prefixedName = `mcp_${server.name}_${def.name}`;
-        const schema = buildToolSchema(def.inputSchema);
-
-        tools[prefixedName] = tool({
-          description: def.description
-            ? `[MCP:${server.name}] ${def.description}`
-            : `MCP tool "${def.name}" from server "${server.name}"`,
-          inputSchema: zodSchema(schema as z.ZodType<Record<string, unknown>>),
-          execute: async (args: Record<string, unknown>) => {
-            try {
-              return await callMCPTool(server, def.name, args);
-            } catch (err: any) {
-              logger.warn({ server: server.name, tool: def.name, err: err.message }, 'MCP tool call failed');
-              return `MCP tool "${def.name}" failed: ${err.message}`;
-            }
-          },
-        }) as Tool;
-      }
     } catch (err: any) {
       logger.warn({ server: server.name, err: err.message }, 'Failed to load MCP tools from server');
+      continue;
+    }
+
+    for (const def of mcpTools) {
+      // M13: short prefix by default (mcp_<toolName>). If we've already
+      // seen this def name from another server, fall back to the full
+      // prefix (mcp_<serverName>_<toolName>) to disambiguate. Same-server
+      // collisions (two tools with the same name) get the full prefix
+      // automatically.
+      const alreadySeenFromOtherServer = seenNames.has(`mcp_${def.name}`)
+        && seenNames.get(`mcp_${def.name}`) !== server.name;
+      const prefixedName = alreadySeenFromOtherServer
+        ? `mcp_${server.name}_${def.name}`
+        : `mcp_${def.name}`;
+
+      if (seenNames.has(prefixedName) && seenNames.get(prefixedName) !== server.name) {
+        logger.warn(
+          { prefixedName, existingServer: seenNames.get(prefixedName), newServer: server.name },
+          'MCP tool name collision — overwriting previous tool with same name',
+        );
+      }
+      seenNames.set(prefixedName, server.name);
+
+      const schema = buildToolSchema(def.inputSchema);
+      tools[prefixedName] = tool({
+        description: def.description
+          ? `[MCP:${server.name}] ${def.description}`
+          : `MCP tool "${def.name}" from server "${server.name}"`,
+        inputSchema: zodSchema(schema as z.ZodType<Record<string, unknown>>),
+        execute: async (args: Record<string, unknown>) => {
+          try {
+            return await callMCPTool(server, def.name, args);
+          } catch (err: any) {
+            logger.warn({ server: server.name, tool: def.name, err: err.message }, 'MCP tool call failed');
+            return `MCP tool "${def.name}" failed: ${err.message}`;
+          }
+        },
+      }) as Tool;
     }
   }
 

@@ -11,6 +11,11 @@ export interface ScheduledTask {
   cron: string;
   handler: () => Promise<void>;
   description: string;
+  /**
+   * H6: IANA timezone for cron interpretation. Optional — defaults to
+   * host local time.
+   */
+  timezone?: string;
 }
 
 export interface ScheduledTaskManifest {
@@ -24,6 +29,14 @@ export interface ScheduledTaskManifest {
   createdAt: string;
   sourceChannelId?: string;
   sourceChannelType?: string;
+  /**
+   * H6: IANA timezone (e.g. "America/Los_Angeles") used to interpret
+   * the cron expression. If unset, node-cron uses the host's local
+   * timezone — which is usually UTC on a server, but the user expects
+   * their own wall clock. The CLI setup defaults this to
+   * Intl.DateTimeFormat().resolvedOptions().timeZone.
+   */
+  timezone?: string;
 }
 
 const SCHEDULES_FILE = 'schedules.yaml';
@@ -103,15 +116,17 @@ export class Scheduler {
     if (this.tasks.has(task.id)) {
       this.removeTask(task.id);
     }
+    // H6: pass timezone to cron.schedule so the user-scheduled "0 9 * * *"
+    // fires at 9 AM in their timezone, not at 9 AM in the server's timezone.
     const scheduled = cron.schedule(task.cron, async () => {
       try {
         await task.handler();
       } catch (err) {
         logger.error({ task: task.id, err }, 'Scheduled task error');
       }
-    });
+    }, task.timezone ? { timezone: task.timezone } : undefined);
     this.tasks.set(task.id, scheduled);
-    logger.info({ id: task.id, cron: task.cron, desc: task.description }, 'Task scheduled');
+    logger.info({ id: task.id, cron: task.cron, desc: task.description, tz: task.timezone }, 'Task scheduled');
   }
 
   addPersistedTask(manifest: ScheduledTaskManifest): void {
@@ -120,6 +135,7 @@ export class Scheduler {
       id: manifest.id,
       cron: manifest.cron!,
       description: manifest.description,
+      timezone: manifest.timezone,
       handler: async () => {
         logger.info({ task: manifest.id }, 'Scheduled task firing');
         if (this.onScheduledTask) {
@@ -196,18 +212,45 @@ export class Scheduler {
     return [...this.taskManifests.values()];
   }
 
+  /**
+   * M7: Maximum grace period (ms) for a delayed task that expired while
+   * the daemon was down. If the task was supposed to fire within this
+   * window, fire it immediately on restart. Beyond this window, the
+   * reminder is considered stale and is dropped (the user was offline
+   * too long).
+   */
+  private static readonly EXPIRED_GRACE_MS = 5 * 60 * 1000; // 5 minutes
+
   restorePersistedTasks(): void {
     const persisted = loadSchedules();
     for (const manifest of persisted) {
-      if (manifest.delaySeconds) {
+      // M7: identify delayed tasks by `executeAt` (always set when a
+      // task is scheduled with a delay) OR by `delaySeconds > 0`. The
+      // truthy-check on `delaySeconds` alone misses tasks that already
+      // fired their timer during downtime.
+      const isDelayed = !!manifest.executeAt || (typeof manifest.delaySeconds === 'number' && manifest.delaySeconds > 0);
+      if (isDelayed) {
         const executeAt = manifest.executeAt ? new Date(manifest.executeAt) : null;
         const now = Date.now();
         if (executeAt && executeAt.getTime() > now) {
           const remainingMs = executeAt.getTime() - now;
           manifest.delaySeconds = Math.ceil(remainingMs / 1000);
           this.addDelayedTask(manifest);
+        } else if (executeAt && executeAt.getTime() > now - Scheduler.EXPIRED_GRACE_MS) {
+          // M7: Task was supposed to fire during downtime but only just
+          // missed its window. Fire it immediately on restart so the user
+          // still gets their reminder.
+          logger.info({ id: manifest.id, expiredMs: now - executeAt.getTime() }, 'Firing recently-expired delayed task on startup');
+          // Fire-and-forget — we don't await so the rest of the loop proceeds
+          if (this.onScheduledTask) {
+            this.onScheduledTask(manifest).catch((err) => {
+              logger.error({ err, task: manifest.id }, 'Failed to fire expired delayed task');
+            });
+          }
+          // Remove from manifests (it's done)
+          this.taskManifests.delete(manifest.id);
         } else {
-          logger.info({ id: manifest.id }, 'Delayed task already expired, skipping');
+          logger.info({ id: manifest.id, expiredMs: executeAt ? now - executeAt.getTime() : null }, 'Delayed task expired too long ago, skipping');
         }
       } else if (manifest.cron && cron.validate(manifest.cron)) {
         this.addPersistedTask(manifest);

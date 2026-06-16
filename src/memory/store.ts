@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync, mkdirSync, appendFileSync, readdirSync, unlinkSync, cpSync, rmSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync, appendFileSync, readdirSync, unlinkSync, cpSync, rmSync, promises as fsPromises } from 'node:fs';
 import { join, resolve } from 'node:path';
 import type { TotaConfig } from '../utils/config.js';
 import { getMemoryDir, getTotaHome } from '../utils/config.js';
@@ -111,6 +111,20 @@ export class ShortTermMemory {
     return messages.slice(-count);
   }
 
+  /**
+   * L7: Async version of getRecent that uses fs.promises.readFile so the
+   * first-time load doesn't block the event loop. Use this in async
+   * code paths (REST endpoints, agent loop) where blocking is unacceptable.
+   * The sync getRecent remains for synchronous startup paths.
+   */
+  async getRecentAsync(conversationId: string, count: number = this.maxMessages): Promise<MemoryEntry[]> {
+    if (!this.conversations.has(conversationId)) {
+      this.conversations.set(conversationId, await this.loadFromDiskAsync(conversationId));
+    }
+    const messages = this.conversations.get(conversationId)!;
+    return messages.slice(-count);
+  }
+
   clear(conversationId: string): void {
     this.conversations.delete(conversationId);
     const filepath = join(this.dir, `${conversationId}.json`);
@@ -167,6 +181,16 @@ export class ShortTermMemory {
     if (!existsSync(filepath)) return [];
     try {
       return JSON.parse(readFileSync(filepath, 'utf-8'));
+    } catch {
+      return [];
+    }
+  }
+
+  private async loadFromDiskAsync(conversationId: string): Promise<MemoryEntry[]> {
+    const filepath = join(this.dir, `${conversationId}.json`);
+    try {
+      const raw = await fsPromises.readFile(filepath, 'utf-8');
+      return JSON.parse(raw);
     } catch {
       return [];
     }
@@ -271,6 +295,13 @@ export class EpisodicMemory {
     this.load();
   }
 
+  /**
+   * M5: Record an episodic event. The previous signature
+   * `Omit<EpisodicEvent, 'id'|'timestamp'>` did NOT include `metadata`,
+   * so callers could never mark an event as important. The new signature
+   * accepts the full event payload (metadata and all) and only omits
+   * the auto-generated id and timestamp.
+   */
   record(event: Omit<EpisodicEvent, 'id' | 'timestamp'>): void {
     const entry: EpisodicEvent = {
       id: generateId(),
@@ -285,10 +316,16 @@ export class EpisodicMemory {
     return this.events.slice(-count);
   }
 
+  /**
+   * M5: Prune events older than the cutoff, BUT preserve events that have
+   * `metadata.important === true`. The previous implementation checked
+   * `metadata?.important` but the API never let callers set metadata, so
+   * the check was dead code.
+   */
   prune(olderThanDays: number = 7): number {
     const cutoff = Date.now() - olderThanDays * 24 * 60 * 60 * 1000;
     const before = this.events.length;
-    this.events = this.events.filter(e => e.timestamp >= cutoff || e.metadata?.important);
+    this.events = this.events.filter(e => e.timestamp >= cutoff || e.metadata?.important === true);
     const removed = before - this.events.length;
     if (removed > 0) {
       writeFileSync(this.filepath, this.events.map(e => JSON.stringify(e)).join('\n') + '\n', 'utf-8');

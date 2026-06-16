@@ -3,6 +3,7 @@ import { z } from 'zod';
 import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
+import { logger } from '../../utils/logger.js';
 
 // Browser engine selection — 'chromium' | 'firefox' | 'webkit'
 // Override with env: BROWSER_ENGINE=firefox tota
@@ -56,8 +57,29 @@ async function getPage(): Promise<any> {
   if (_page && !_page.isClosed()) return _page;
   const browser = await getBrowser();
   _page = await browser.newPage();
+  // M11: Track the page lifecycle. If the page errors or closes
+  // unexpectedly, the browser is in an unknown state — better to reset
+  // the whole browser on the next call rather than risk a hang.
+  _page.on('crash', () => {
+    logger.warn('Browser page crashed — closing browser to force re-init on next use');
+    closeBrowser().catch(() => {});
+  });
+  _page.on('close', () => {
+    if (_page && !_browserPromise) return; // already cleaned up
+    // Page was closed by us via closeBrowser() — nothing to do.
+  });
   await _page.setViewportSize({ width: 1280, height: 800 });
   return _page;
+}
+
+/**
+ * M10/M11: Force-reset both the page AND the browser. Use this on
+ * persistent errors where the page may be in a wedged state but the
+ * browser is still alive. The next call to getPage() will re-launch
+ * a fresh browser.
+ */
+export async function resetBrowser(): Promise<void> {
+  await closeBrowser();
 }
 
 export async function closeBrowser(): Promise<void> {
@@ -138,7 +160,10 @@ export function createBrowserOpenTool(
         return result;
       } catch (err: any) {
         if (err.message?.includes('playwright is not installed')) return `Error: ${err.message}`;
-        _page = null; // reset page on error
+        // M10: When the page errors, fully reset the browser so the next
+        // call gets a clean instance. Otherwise a wedged browser can hang
+        // the agent indefinitely.
+        await resetBrowser();
         return `Error opening URL: ${err.message}`;
       }
     },
@@ -764,7 +789,8 @@ export function createBrowserNavigateTool() {
         await page.goto(url, { waitUntil: wait_for, timeout: 30000 });
         return `Navigated to: ${page.url()}`;
       } catch (err: any) {
-        _page = null;
+        // M10: full reset on navigation error
+        await resetBrowser();
         return `Error navigating to URL: ${err.message}`;
       }
     },

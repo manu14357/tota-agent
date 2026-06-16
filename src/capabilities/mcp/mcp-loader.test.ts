@@ -45,14 +45,16 @@ describe('loadMCPTools', () => {
 
     try {
       const tools = await loadMCPTools([makeServer()]);
-      expect(Object.keys(tools)).toContain('mcp_test_echo');
-      expect(Object.keys(tools)).toContain('mcp_test_add');
+      // M13: when no cross-server collision, the prefix is just `mcp_`
+      // (no server name). The server name is preserved in the description.
+      expect(Object.keys(tools)).toContain('mcp_echo');
+      expect(Object.keys(tools)).toContain('mcp_add');
     } finally {
       globalThis.fetch = origFetch;
     }
   });
 
-  it('prefixes tool names with mcp_<serverName>_', async () => {
+  it('uses short mcp_<toolName> prefix when no server-name collision', async () => {
     const origFetch = globalThis.fetch;
     globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({
       jsonrpc: '2.0', id: 1,
@@ -61,7 +63,7 @@ describe('loadMCPTools', () => {
 
     try {
       const tools = await loadMCPTools([makeServer({ name: 'myserver' })]);
-      expect(Object.keys(tools)).toContain('mcp_myserver_do_thing');
+      expect(Object.keys(tools)).toContain('mcp_do_thing');
     } finally {
       globalThis.fetch = origFetch;
     }
@@ -114,7 +116,7 @@ describe('loadMCPTools', () => {
 
     try {
       const tools = await loadMCPTools([makeServer()]);
-      const greetTool = tools['mcp_test_greet'] as any;
+      const greetTool = tools['mcp_greet'] as any;
       expect(greetTool).toBeDefined();
       const result = await greetTool.execute({ name: 'tota' });
       expect(result).toBe('Hello, tota!');
@@ -155,8 +157,10 @@ describe('loadMCPTools', () => {
         makeServer({ name: 'server1', url: 'http://localhost:9001/mcp' }),
         makeServer({ name: 'server2', url: 'http://localhost:9002/mcp' }),
       ]);
-      expect(Object.keys(tools)).toContain('mcp_server1_tool_a');
-      expect(Object.keys(tools)).toContain('mcp_server2_tool_b');
+      // M13: server1 and server2 have different def names ('tool_a' vs
+      // 'tool_b'), so no collision — short prefix is used.
+      expect(Object.keys(tools)).toContain('mcp_tool_a');
+      expect(Object.keys(tools)).toContain('mcp_tool_b');
     } finally {
       globalThis.fetch = origFetch;
     }

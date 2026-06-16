@@ -835,10 +835,11 @@ export class UIChannel extends BaseChannel {
         // immediately (otherwise the change only applies on restart).
         if (this.scheduler) {
           try {
-            const updatePatch: Partial<Pick<ScheduledTaskManifest, 'cron' | 'description' | 'prompt' | 'delaySeconds' | 'executeAt' | 'skillName'>> = {};
+            const updatePatch: Partial<Pick<ScheduledTaskManifest, 'cron' | 'description' | 'prompt' | 'delaySeconds' | 'executeAt' | 'skillName' | 'timezone'>> = {};
             if (patch.description !== undefined) updatePatch.description = patch.description as string;
             if (patch.cron !== undefined) updatePatch.cron = patch.cron as string;
             if (patch.prompt !== undefined) updatePatch.prompt = patch.prompt as string;
+            if (patch.timezone !== undefined) updatePatch.timezone = patch.timezone as string;
             this.scheduler.updatePersistedTask(id, updatePatch);
           } catch (err: any) {
             json(res, 400, { error: `Failed to update schedule: ${err?.message ?? err}` });
@@ -863,12 +864,17 @@ export class UIChannel extends BaseChannel {
       if (url === '/api/schedules' && method === 'POST') {
         let body: Record<string, unknown>;
         try { body = JSON.parse(await readBody(req)); } catch { json(res, 400, { error: 'Invalid JSON' }); return; }
+        // H6: default the timezone to the host's local zone when not provided.
+        // This matches user expectation: "9am every day" should be 9am
+        // for the user, not 9am UTC.
+        const tz = (body.timezone as string) ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
         const task: ScheduledTaskManifest = {
           id: generateId(),
           description: (body.description as string) ?? '',
           cron: (body.cron as string) ?? '0 9 * * *',
           prompt: (body.prompt as string) ?? (body.description as string) ?? '',
           createdAt: new Date().toISOString(),
+          timezone: tz,
         };
         // H4: Persist + activate via the scheduler so the new task is
         // registered with node-cron right away (not waiting for a restart).

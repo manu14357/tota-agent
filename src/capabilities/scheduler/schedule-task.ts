@@ -12,8 +12,9 @@ export function createScheduleTaskTool(scheduler: Scheduler, getContext: () => {
       description: z.string().describe('Human-readable description of what this task does'),
       prompt: z.string().optional().describe('Prompt to send to the agent when the task fires'),
       skill_name: z.string().optional().describe('Name of a skill to invoke when the task fires'),
+      timezone: z.string().optional().describe('IANA timezone (e.g. "America/Los_Angeles") to interpret the cron expression. Defaults to host local time.'),
     })),
-    execute: async ({ cron: cronExpr, delay_seconds, description, prompt, skill_name }) => {
+    execute: async ({ cron: cronExpr, delay_seconds, description, prompt, skill_name, timezone }) => {
       if (!cronExpr && !delay_seconds) {
         return 'Either cron or delay_seconds must be provided.';
       }
@@ -61,13 +62,14 @@ export function createScheduleTaskTool(scheduler: Scheduler, getContext: () => {
         createdAt: new Date().toISOString(),
         sourceChannelId: ctx.channelId,
         sourceChannelType: ctx.channelType,
+        timezone: timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
       };
 
       scheduler.addPersistedTask(manifest);
       scheduler.persistSchedules();
 
       const triggerType = skill_name ? `skill: ${skill_name}` : `prompt: "${prompt!.slice(0, 60)}"`;
-      return `Task "${id}" scheduled. Cron: ${cronExpr}. Will execute ${triggerType}. Description: ${description}`;
+      return `Task "${id}" scheduled. Cron: ${cronExpr} (${manifest.timezone}). Will execute ${triggerType}. Description: ${description}`;
     },
   });
 }

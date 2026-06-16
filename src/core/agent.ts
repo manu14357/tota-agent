@@ -654,11 +654,14 @@ export class Agent {
       }
 
       const systemPrompt = this.buildSystemPrompt(msg.channelType);
-      const recentMemory = this.shortTerm.getRecent(msg.channelId, 10);
+      // L7: use the async getRecent so the first-time file read doesn't
+      // block the event loop. Both calls share the same in-memory cache
+      // populated by getRecentAsync.
+      const recentMemory = await this.shortTerm.getRecentAsync(msg.channelId, 10);
 
       const messages: any[] = [];
 
-      const recentSteps = this.shortTerm.getRecent(msg.channelId, 6);
+      const recentSteps = await this.shortTerm.getRecentAsync(msg.channelId, 6);
       let loopWarning: string | null = null;
       if (recentSteps.length >= 3) {
         const toolCallPattern = /\[Using: (.+?)\]/g;
