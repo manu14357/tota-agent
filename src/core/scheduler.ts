@@ -129,6 +129,32 @@ export class Scheduler {
     });
   }
 
+  /**
+   * H4: Update an existing scheduled task's manifest and re-register the cron
+   * with the new expression. The previously registered cron is stopped before
+   * the new one is scheduled. The persisted schedules.yaml is updated so the
+   * change survives a restart.
+   */
+  updatePersistedTask(id: string, patch: Partial<Pick<ScheduledTaskManifest, 'cron' | 'description' | 'prompt' | 'delaySeconds' | 'executeAt' | 'skillName'>>): boolean {
+    const manifest = this.taskManifests.get(id);
+    if (!manifest) return false;
+    if (patch.cron !== undefined) {
+      if (!patch.cron || !cron.validate(patch.cron)) {
+        throw new Error(`Invalid cron expression: ${patch.cron}`);
+      }
+    }
+    const updated: ScheduledTaskManifest = { ...manifest, ...patch, id: manifest.id, createdAt: manifest.createdAt };
+    this.taskManifests.set(id, updated);
+    // Re-register the cron if it has one
+    if (updated.cron) {
+      this.removeTask(id);
+      this.addPersistedTask(updated);
+    }
+    this.persistSchedules();
+    logger.info({ id, patch }, 'Scheduled task updated');
+    return true;
+  }
+
   addDelayedTask(manifest: ScheduledTaskManifest): void {
     this.taskManifests.set(manifest.id, manifest);
     const delayMs = (manifest.delaySeconds || 60) * 1000;

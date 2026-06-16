@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse as parseYaml } from 'yaml';
 import { getTotaHome } from '../utils/config.js';
@@ -32,6 +32,10 @@ export class SkillLoader {
 
   constructor(skillsDir?: string) {
     this.skillsDir = skillsDir || join(getTotaHome(), 'skills');
+  }
+
+  getSkillsDir(): string {
+    return this.skillsDir;
   }
 
   discover(): SkillDiscovery[] {

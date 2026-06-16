@@ -39,6 +39,7 @@ import { ChannelRegistry } from './channels/registry.js';
 import { CLIChannel } from './channels/cli.js';
 import { TelegramChannel } from './channels/telegram.js';
 import { WhatsAppChannel } from './channels/whatsapp.js';
+import { UIChannel } from './channels/ui-server.js';
 import { TokenBudget } from './utils/tokens.js';
 import { CapabilityRegistry } from './capabilities/registry.js';
 import { SkillLoader } from './skills/loader.js';
@@ -1872,6 +1873,13 @@ async function runAgent(isDaemon: boolean = false): Promise<void> {
 
   // Wire crew handler
   capabilities.setCrewHandler((role, task, allowedTools) => agent.runCrewTask(role, task, allowedTools));
+
+  // H4: Wire the scheduler into the UI channel so schedule POST/PATCH activate
+  // immediately instead of waiting for a restart.
+  const uiChannelForScheduler = channels.get('ui') as UIChannel | undefined;
+  if (uiChannelForScheduler && 'setScheduler' in uiChannelForScheduler) {
+    (uiChannelForScheduler as UIChannel).setScheduler(scheduler);
+  }
 
   await agent.birth();
   await agent.wake();

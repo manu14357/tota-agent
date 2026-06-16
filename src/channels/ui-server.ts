@@ -15,7 +15,7 @@ import {
   getTotaHome,
   getMemoryDir,
 } from '../utils/config.js';
-import { loadSchedules, saveSchedules, type ScheduledTaskManifest } from '../core/scheduler.js';
+import { loadSchedules, saveSchedules, type ScheduledTaskManifest, Scheduler } from '../core/scheduler.js';
 import { ShortTermMemory, LongTermMemory } from '../memory/store.js';
 import { UserMemoryStore } from '../memory/user-memory.js';
 import { SkillLoader } from '../skills/loader.js';
@@ -198,11 +198,18 @@ export class UIChannel extends BaseChannel {
   private wsClients = new Set<WebSocket>();
   private uiDistDir: string;
   private readonly startedAt = Date.now();
+  /** H4: optional scheduler reference for activating schedule changes immediately. */
+  private scheduler: Scheduler | null = null;
 
   constructor(private readonly port: number) {
     super();
     // dist/ui/ is a sibling of dist/index.js — resolve directly
     this.uiDistDir = fileURLToPath(new URL('./ui/', import.meta.url));
+  }
+
+  /** Inject the scheduler so schedule POST/PATCH take effect immediately. */
+  setScheduler(scheduler: Scheduler | null): void {
+    this.scheduler = scheduler;
   }
 
   async start(): Promise<void> {
@@ -555,6 +562,8 @@ export class UIChannel extends BaseChannel {
       const scheduleDeleteMatch = url.match(/^\/api\/schedules\/([^/]+)$/);
       if (scheduleDeleteMatch && method === 'DELETE') {
         const id = scheduleDeleteMatch[1];
+        // H4: stop the running cron if there is an in-memory scheduler.
+        if (this.scheduler) this.scheduler.removeTask(id);
         const tasks = loadSchedules().filter((t) => t.id !== id);
         saveSchedules(tasks);
         json(res, 200, { deleted: true });
@@ -720,14 +729,10 @@ export class UIChannel extends BaseChannel {
       const stDeleteMatch = url.match(/^\/api\/memory\/short-term\/([^/]+)$/);
       if (stDeleteMatch && method === 'DELETE') {
         const id = decodeURIComponent(stDeleteMatch[1]);
-        const config = loadConfig();
-        const memory = new ShortTermMemory(config);
-        const entries = memory.getRecent('default', 10000);
-        const filtered = entries.filter((e) => e.id !== id);
-        // Rewrite: clear then re-add
-        memory.clear('default');
-        for (const e of filtered) memory.add('default', e);
-        json(res, 200, { deleted: true });
+        const memory = new ShortTermMemory(loadConfig());
+        const deleted = await memory.deleteById('default', id);
+        if (!deleted) { json(res, 404, { error: 'Entry not found' }); return; }
+        json(res, 200, { deleted: true, id });
         return;
       }
 
@@ -735,13 +740,10 @@ export class UIChannel extends BaseChannel {
       const ltDeleteMatch = url.match(/^\/api\/memory\/long-term\/([^/]+)$/);
       if (ltDeleteMatch && method === 'DELETE') {
         const id = decodeURIComponent(ltDeleteMatch[1]);
-        const ltFile = join(getMemoryDir(), 'long-term', 'facts.jsonl');
-        if (existsSync(ltFile)) {
-          const lines = readFileSync(ltFile, 'utf-8').split('\n').filter(Boolean);
-          const kept = lines.filter((l) => { try { return JSON.parse(l).id !== id; } catch { return true; } });
-          writeFileSync(ltFile, kept.join('\n') + (kept.length ? '\n' : ''), 'utf-8');
-        }
-        json(res, 200, { deleted: true });
+        const memory = new LongTermMemory(loadConfig());
+        const deleted = await memory.deleteById(id);
+        if (!deleted) { json(res, 404, { error: 'Fact not found' }); return; }
+        json(res, 200, { deleted: true, id });
         return;
       }
 
@@ -751,20 +753,13 @@ export class UIChannel extends BaseChannel {
         const id = decodeURIComponent(stPatchMatch[1]);
         let patch: Record<string, unknown>;
         try { patch = JSON.parse(await readBody(req)); } catch { json(res, 400, { error: 'Invalid JSON' }); return; }
-        const config = loadConfig();
-        const memory = new ShortTermMemory(config);
-        const entries = memory.getRecent('default', 10000);
-        let updated: any = null;
-        const newEntries = entries.map((e) => {
-          if (e.id === id) {
-            updated = { ...e, content: (patch.content as string) ?? e.content };
-            return updated;
-          }
-          return e;
+        const memory = new ShortTermMemory(loadConfig());
+        const updated = await memory.updateById('default', id, {
+          content: typeof patch.content === 'string' ? patch.content : undefined,
+          role: typeof patch.role === 'string' ? (patch.role as any) : undefined,
         });
-        memory.clear('default');
-        for (const e of newEntries) memory.add('default', e);
-        json(res, 200, updated ?? { error: 'Not found' });
+        if (!updated) { json(res, 404, { error: 'Entry not found' }); return; }
+        json(res, 200, { id: updated.id, timestamp: updated.timestamp, content: updated.content, role: updated.role, tags: [] });
         return;
       }
 
@@ -774,27 +769,15 @@ export class UIChannel extends BaseChannel {
         const id = decodeURIComponent(ltPatchMatch[1]);
         let patch: Record<string, unknown>;
         try { patch = JSON.parse(await readBody(req)); } catch { json(res, 400, { error: 'Invalid JSON' }); return; }
-        const ltFile = join(getMemoryDir(), 'long-term', 'facts.jsonl');
-        let updated: any = null;
-        if (existsSync(ltFile)) {
-          const lines = readFileSync(ltFile, 'utf-8').split('\n').filter(Boolean);
-          const newLines = lines.map((l) => {
-            try {
-              const obj = JSON.parse(l);
-              if (obj.id === id) {
-                const content = (patch.content as string) ?? '';
-                const topicMatch = content.match(/^\[([^\]]+)\]\s*(.*)$/);
-                if (topicMatch) { obj.topic = topicMatch[1]; obj.fact = topicMatch[2]; }
-                else { obj.fact = content; }
-                updated = { id: obj.id, timestamp: obj.timestamp, content: `[${obj.topic}] ${obj.fact}`, tags: [obj.source].filter(Boolean) };
-                return JSON.stringify(obj);
-              }
-              return l;
-            } catch { return l; }
-          });
-          writeFileSync(ltFile, newLines.join('\n') + '\n', 'utf-8');
-        }
-        json(res, 200, updated ?? { error: 'Not found' });
+        const memory = new LongTermMemory(loadConfig());
+        const content = typeof patch.content === 'string' ? patch.content : '';
+        // Allow the caller to send either {content: "[topic] fact"} or {topic, fact} pairs
+        const topicMatch = content.match(/^\[([^\]]+)\]\s*(.*)$/);
+        const topic = topicMatch ? topicMatch[1] : (typeof patch.topic === 'string' ? patch.topic : undefined);
+        const fact = topicMatch ? topicMatch[2] : (typeof patch.fact === 'string' ? patch.fact : content);
+        const updated = await memory.updateById(id, { topic, fact });
+        if (!updated) { json(res, 404, { error: 'Fact not found' }); return; }
+        json(res, 200, { id: updated.id, timestamp: updated.timestamp, content: `[${updated.topic}] ${updated.fact}`, tags: [updated.source].filter(Boolean) });
         return;
       }
 
@@ -846,15 +829,33 @@ export class UIChannel extends BaseChannel {
         let patch: Record<string, unknown>;
         try { patch = JSON.parse(await readBody(req)); } catch { json(res, 400, { error: 'Invalid JSON' }); return; }
         const tasks = loadSchedules();
-        const idx = tasks.findIndex((t) => t.id === id);
-        if (idx === -1) { json(res, 404, { error: 'Schedule not found' }); return; }
-        const task = tasks[idx] as any;
-        if (patch.description !== undefined) task.description = patch.description;
-        if (patch.cron !== undefined) task.cron = patch.cron;
-        if (patch.enabled !== undefined) task.enabled = patch.enabled;
-        tasks[idx] = task;
-        saveSchedules(tasks);
-        json(res, 200, task);
+        const existing = tasks.find((t) => t.id === id);
+        if (!existing) { json(res, 404, { error: 'Schedule not found' }); return; }
+        // H4: Update the in-memory scheduler so the new cron takes effect
+        // immediately (otherwise the change only applies on restart).
+        if (this.scheduler) {
+          try {
+            const updatePatch: Partial<Pick<ScheduledTaskManifest, 'cron' | 'description' | 'prompt' | 'delaySeconds' | 'executeAt' | 'skillName'>> = {};
+            if (patch.description !== undefined) updatePatch.description = patch.description as string;
+            if (patch.cron !== undefined) updatePatch.cron = patch.cron as string;
+            if (patch.prompt !== undefined) updatePatch.prompt = patch.prompt as string;
+            this.scheduler.updatePersistedTask(id, updatePatch);
+          } catch (err: any) {
+            json(res, 400, { error: `Failed to update schedule: ${err?.message ?? err}` });
+            return;
+          }
+        } else {
+          // No scheduler reference — fall back to file-only edit.
+          const idx = tasks.findIndex((t) => t.id === id);
+          const task = tasks[idx] as any;
+          if (patch.description !== undefined) task.description = patch.description;
+          if (patch.cron !== undefined) task.cron = patch.cron;
+          if (patch.enabled !== undefined) task.enabled = patch.enabled;
+          tasks[idx] = task;
+          saveSchedules(tasks);
+        }
+        const refreshed = loadSchedules().find((t) => t.id === id);
+        json(res, 200, refreshed ?? existing);
         return;
       }
 
@@ -866,12 +867,26 @@ export class UIChannel extends BaseChannel {
           id: generateId(),
           description: (body.description as string) ?? '',
           cron: (body.cron as string) ?? '0 9 * * *',
-          prompt: (body.description as string) ?? '',
+          prompt: (body.prompt as string) ?? (body.description as string) ?? '',
           createdAt: new Date().toISOString(),
         };
-        const tasks = loadSchedules();
-        tasks.push(task);
-        saveSchedules(tasks);
+        // H4: Persist + activate via the scheduler so the new task is
+        // registered with node-cron right away (not waiting for a restart).
+        if (this.scheduler) {
+          if (task.cron) {
+            try {
+              this.scheduler.addPersistedTask(task);
+            } catch (err: any) {
+              json(res, 400, { error: `Failed to schedule: ${err?.message ?? err}` });
+              return;
+            }
+          }
+        } else {
+          // No scheduler ref — fall back to file-only.
+          const tasks = loadSchedules();
+          tasks.push(task);
+          saveSchedules(tasks);
+        }
         json(res, 201, { ...task, enabled: true, nextRun: Date.now() + 60000 });
         return;
       }
@@ -879,8 +894,18 @@ export class UIChannel extends BaseChannel {
       // ─── DELETE /api/skills/:name ───────────────────────────────────────
       const skillDeleteMatch = url.match(/^\/api\/skills\/([^/]+)$/);
       if (skillDeleteMatch && method === 'DELETE') {
-        // Skills are file-system based, just return success
-        json(res, 200, { deleted: true });
+        const name = decodeURIComponent(skillDeleteMatch[1]);
+        if (!/^[a-zA-Z0-9._-]+$/.test(name)) {
+          json(res, 400, { error: 'Invalid skill name in URL.' });
+          return;
+        }
+        const loader = new SkillLoader();
+        const deleted = loader.deleteSkill(name);
+        if (!deleted) {
+          json(res, 404, { error: `Skill "${name}" not found.` });
+          return;
+        }
+        json(res, 200, { deleted: true, name });
         return;
       }
 
@@ -894,7 +919,33 @@ export class UIChannel extends BaseChannel {
         }
         let patch: Record<string, unknown>;
         try { patch = JSON.parse(await readBody(req)); } catch { json(res, 400, { error: 'Invalid JSON' }); return; }
-        json(res, 200, { name, ...patch });
+        const loader = new SkillLoader();
+        const skillFilePath = join(loader.getSkillsDir(), name, 'SKILL.md');
+        if (!existsSync(skillFilePath)) {
+          json(res, 404, { error: `Skill "${name}" not found.` });
+          return;
+        }
+        // If a full content body is supplied, replace the file directly.
+        if (typeof patch.content === 'string') {
+          loader.saveSkill(name, patch.content);
+        } else if (typeof patch.description === 'string') {
+          // Patch only the description in the YAML frontmatter.
+          const raw = readFileSync(skillFilePath, 'utf-8');
+          const updated = raw.replace(
+            /^(description:\s*).*$/m,
+            `$1${(patch.description as string).replace(/[\r\n]+/g, ' ')}`,
+          );
+          if (updated === raw) {
+            json(res, 400, { error: 'No description field found in SKILL.md frontmatter; supply a full content body instead.' });
+            return;
+          }
+          writeFileSync(skillFilePath, updated, 'utf-8');
+          loader.discover();
+        } else {
+          json(res, 400, { error: 'Patch must include "content" (full SKILL.md) or "description".' });
+          return;
+        }
+        json(res, 200, { name, ...patch, persisted: true });
         return;
       }
 

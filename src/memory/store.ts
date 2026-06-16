@@ -4,6 +4,32 @@ import type { TotaConfig } from '../utils/config.js';
 import { getMemoryDir, getTotaHome } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
 
+/**
+ * Minimal async mutex. Each named lock has its own queue so two unrelated
+ * locks don't block each other. Used to make memory mutations atomic — a
+ * PATCH/DELETE through the REST API must not race with a concurrent add().
+ */
+export class AsyncMutex {
+  private chains = new Map<string, Promise<unknown>>();
+
+  async runExclusive<T>(key: string, fn: () => Promise<T> | T): Promise<T> {
+    const previous = this.chains.get(key) ?? Promise.resolve();
+    let release!: () => void;
+    const next = new Promise<void>((resolve) => { release = resolve; });
+    this.chains.set(key, previous.then(() => next));
+    try {
+      await previous;
+      return await fn();
+    } finally {
+      release();
+      // Clean up if no further waiters are queued
+      if (this.chains.get(key) === next) {
+        this.chains.delete(key);
+      }
+    }
+  }
+}
+
 export function migrateLegacyMemory(): void {
   const legacyDir = resolve('memory');
   const newDir = getMemoryDir();
@@ -57,6 +83,7 @@ export class ShortTermMemory {
   private dir: string;
   private maxMessages: number;
   private conversations: Map<string, MemoryEntry[]> = new Map();
+  private mutex = new AsyncMutex();
 
   constructor(config: TotaConfig) {
     this.dir = join(getMemoryDir(), 'short-term');
@@ -90,6 +117,51 @@ export class ShortTermMemory {
     if (existsSync(filepath)) unlinkSync(filepath);
   }
 
+  /**
+   * M17: Atomically remove a single entry by id. Returns true if the entry
+   * existed and was removed. The conversation's in-memory state and the
+   * on-disk file are both updated under a mutex so a concurrent add() does
+   * not get lost in a clear-and-readd race.
+   */
+  async deleteById(conversationId: string, id: string): Promise<boolean> {
+    return this.mutex.runExclusive(`st:${conversationId}`, () => {
+      const messages = this.conversations.get(conversationId) ?? this.loadFromDisk(conversationId);
+      const idx = messages.findIndex((m) => m.id === id);
+      if (idx === -1) {
+        this.conversations.set(conversationId, messages);
+        return false;
+      }
+      messages.splice(idx, 1);
+      this.conversations.set(conversationId, messages);
+      this.saveToDisk(conversationId, messages);
+      return true;
+    });
+  }
+
+  /**
+   * M1: Atomically patch the content of a single entry. Returns the updated
+   * entry, or null if not found. Avoids the read-modify-clear-readd pattern
+   * that loses concurrent writes.
+   */
+  async updateById(conversationId: string, id: string, patch: Partial<Pick<MemoryEntry, 'content' | 'role' | 'reasoning' | 'metadata' | 'tokenCount'>>): Promise<MemoryEntry | null> {
+    return this.mutex.runExclusive(`st:${conversationId}`, () => {
+      const messages = this.conversations.get(conversationId) ?? this.loadFromDisk(conversationId);
+      const entry = messages.find((m) => m.id === id);
+      if (!entry) {
+        this.conversations.set(conversationId, messages);
+        return null;
+      }
+      if (patch.content !== undefined) entry.content = patch.content;
+      if (patch.role !== undefined) entry.role = patch.role;
+      if (patch.reasoning !== undefined) entry.reasoning = patch.reasoning;
+      if (patch.metadata !== undefined) entry.metadata = patch.metadata;
+      if (patch.tokenCount !== undefined) entry.tokenCount = patch.tokenCount;
+      this.conversations.set(conversationId, messages);
+      this.saveToDisk(conversationId, messages);
+      return entry;
+    });
+  }
+
   private loadFromDisk(conversationId: string): MemoryEntry[] {
     const filepath = join(this.dir, `${conversationId}.json`);
     if (!existsSync(filepath)) return [];
@@ -109,6 +181,7 @@ export class ShortTermMemory {
 export class LongTermMemory {
   private filepath: string;
   private facts: LongTermFact[] = [];
+  private mutex = new AsyncMutex();
 
   constructor(config: TotaConfig) {
     this.filepath = join(getMemoryDir(), 'long-term', 'facts.jsonl');
@@ -139,6 +212,40 @@ export class LongTermMemory {
 
   getAll(): LongTermFact[] {
     return [...this.facts];
+  }
+
+  /**
+   * M17: Atomically remove a single fact by id. Returns true if found.
+   * Uses an atomic temp-file rename to avoid corrupting the JSONL on crash.
+   */
+  async deleteById(id: string): Promise<boolean> {
+    return this.mutex.runExclusive('lt:delete', () => {
+      const idx = this.facts.findIndex((f) => f.id === id);
+      if (idx === -1) return false;
+      this.facts.splice(idx, 1);
+      this.persistAll();
+      return true;
+    });
+  }
+
+  /**
+   * M1: Atomically update a single fact by id.
+   */
+  async updateById(id: string, patch: Partial<Pick<LongTermFact, 'topic' | 'fact' | 'source'>>): Promise<LongTermFact | null> {
+    return this.mutex.runExclusive('lt:update', () => {
+      const fact = this.facts.find((f) => f.id === id);
+      if (!fact) return null;
+      if (patch.topic !== undefined) fact.topic = patch.topic;
+      if (patch.fact !== undefined) fact.fact = patch.fact;
+      if (patch.source !== undefined) fact.source = patch.source;
+      this.persistAll();
+      return fact;
+    });
+  }
+
+  /** Rewrite the entire JSONL file. Called only under the mutex. */
+  private persistAll(): void {
+    writeFileSync(this.filepath, this.facts.map((f) => JSON.stringify(f)).join('\n') + (this.facts.length ? '\n' : ''), 'utf-8');
   }
 
   private load(): void {
