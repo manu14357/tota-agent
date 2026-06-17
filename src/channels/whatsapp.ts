@@ -22,8 +22,8 @@ import type { TotaConfig, WhatsAppApprovedUser, WhatsAppPendingRequest } from '.
 import { saveConfig } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
 import { AsyncMap } from './async-map.js';
+import { extractText, normalizePhone, chunkText, guessMime } from './whatsapp/helpers.js';
 
-const MAX_TEXT_LENGTH = 4096;
 const TYPING_TIMEOUT_MS = 5_000;
 const STREAM_EDIT_INTERVAL_MS = 100;
 const STREAM_MIN_CHARS = 20;
@@ -285,7 +285,7 @@ export class WhatsAppChannel extends BaseChannel {
     const senderPhone = isJidUser(senderJid)
       ? jidNormalizedUser(senderJid).replace('@s.whatsapp.net', '')
       : senderJid;
-    const normalizedPhone = this.normalizePhone(senderPhone);
+    const normalizedPhone = normalizePhone(senderPhone);
 
     // Access control (DM only — groups are controlled by allowGroups flag)
     if (!isGroup) {
@@ -296,7 +296,7 @@ export class WhatsAppChannel extends BaseChannel {
     }
 
     // Extract text content
-    const content = this.extractText(msg);
+    const content = extractText(msg);
     if (!content) return;
 
     const lowered = content.trim().toLowerCase();
@@ -377,25 +377,13 @@ export class WhatsAppChannel extends BaseChannel {
     this.emit(channelMsg);
   }
 
-  private extractText(msg: WAMessage): string {
-    const m = msg.message!;
-    return (
-      m.conversation ??
-      m.extendedTextMessage?.text ??
-      m.imageMessage?.caption ??
-      m.videoMessage?.caption ??
-      m.documentMessage?.caption ??
-      ''
-    );
-  }
-
   // ─── Outbound ───────────────────────────────────────────────────────────────
 
   async send(content: string, targetId?: string, _elapsedMs?: number): Promise<void> {
     const jid = this.resolveJid(targetId);
     if (!jid || !this.sock) return;
 
-    const chunks = this.chunkText(content);
+    const chunks = chunkText(content);
     for (const chunk of chunks) {
       await this.sock.sendMessage(jid, { text: chunk });
     }
@@ -416,7 +404,7 @@ export class WhatsAppChannel extends BaseChannel {
       await this.sock.sendMessage(jid, {
         document: buffer,
         fileName,
-        mimetype: this.guessMime(ext),
+        mimetype: guessMime(ext),
       });
     }
   }
@@ -456,7 +444,7 @@ export class WhatsAppChannel extends BaseChannel {
     if (!sentKey) {
       // Nothing was sent yet — send the full content
       if (accumulated) {
-        const chunks = this.chunkText(accumulated);
+        const chunks = chunkText(accumulated);
         for (const c of chunks) {
           await this.sock.sendMessage(jid, { text: c });
         }
@@ -464,7 +452,7 @@ export class WhatsAppChannel extends BaseChannel {
     } else if (accumulated) {
       // Delete the partial message and send the final one
       await this.sock.sendMessage(jid, { delete: sentKey });
-      const chunks = this.chunkText(accumulated);
+      const chunks = chunkText(accumulated);
       for (const c of chunks) {
         await this.sock.sendMessage(jid, { text: c });
       }
@@ -644,7 +632,7 @@ export class WhatsAppChannel extends BaseChannel {
 
   /** Approve a pending number and optionally promote to admin */
   approvePhone(phone: string, isAdmin = false): void {
-    const normalized = this.normalizePhone(phone);
+    const normalized = normalizePhone(phone);
     this.config.channels.whatsapp.pending = this.config.channels.whatsapp.pending.filter(
       (p) => p.phone !== normalized,
     );
@@ -681,11 +669,6 @@ export class WhatsAppChannel extends BaseChannel {
     return this.lastSenderJid;
   }
 
-  private normalizePhone(raw: string): string {
-    const digits = raw.replace(/\D/g, '');
-    return `+${digits}`;
-  }
-
   /**
    * Monkey-patches console.log/warn to drop lines that Baileys' libsignal
    * writes directly (bypassing the pino logger we've silenced).  These are
@@ -715,33 +698,6 @@ export class WhatsAppChannel extends BaseChannel {
     const origWarn = console.warn.bind(console);
     console.log = (...args: unknown[]) => { if (!shouldSuppress(...args)) origLog(...args); };
     console.warn = (...args: unknown[]) => { if (!shouldSuppress(...args)) origWarn(...args); };
-  }
-
-  private chunkText(text: string): string[] {
-    if (text.length <= MAX_TEXT_LENGTH) return [text];
-    const chunks: string[] = [];
-    let i = 0;
-    while (i < text.length) {
-      chunks.push(text.slice(i, i + MAX_TEXT_LENGTH));
-      i += MAX_TEXT_LENGTH;
-    }
-    return chunks;
-  }
-
-  private guessMime(ext: string): string {
-    const map: Record<string, string> = {
-      '.pdf': 'application/pdf',
-      '.txt': 'text/plain',
-      '.md': 'text/markdown',
-      '.json': 'application/json',
-      '.zip': 'application/zip',
-      '.mp3': 'audio/mpeg',
-      '.mp4': 'video/mp4',
-      '.wav': 'audio/wav',
-      '.ogg': 'audio/ogg',
-      '.csv': 'text/csv',
-    };
-    return map[ext] ?? 'application/octet-stream';
   }
 
   private clearTyping(): void {

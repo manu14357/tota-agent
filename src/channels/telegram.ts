@@ -1,7 +1,5 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import https from 'node:https';
-import http from 'node:http';
 import os from 'node:os';
 import { Bot, InputFile, InlineKeyboard } from 'grammy';
 import { autoRetry } from '@grammyjs/auto-retry';
@@ -27,6 +25,18 @@ import { logger } from '../utils/logger.js';
 import { mdToTelegram } from '../utils/markdown.js';
 import { formatToolStep, formatToolResult } from '../utils/tool-label.js';
 import { transcribeAudioFile } from '../capabilities/messaging/voice.js';
+import {
+  downloadFile,
+  escapeHtml,
+  splitMessage,
+  stripHtml,
+  getCommandName,
+  generatePairingCode,
+  formatRequestLabel,
+  isImageFile,
+  isAudioFile,
+  isVideoFile,
+} from './telegram/helpers.js';
 
 const MAX_MESSAGE_LENGTH = 4096;
 const ACCESS_ACTION_PREFIX = 'tg_access';
@@ -85,7 +95,7 @@ export class TelegramChannel extends BaseChannel {
       const username = ctx.from?.username;
       const firstName = ctx.from?.first_name;
       const text = ctx.message.text?.trim() || '';
-      const command = this.getCommandName(text);
+      const command = getCommandName(text);
 
       if (!userId) return;
 
@@ -491,7 +501,7 @@ export class TelegramChannel extends BaseChannel {
       return;
     }
     const html = mdToTelegram(fullContent);
-    const chunks = this.splitMessage(html, MAX_MESSAGE_LENGTH);
+    const chunks = splitMessage(html, MAX_MESSAGE_LENGTH);
 
     for (const chatId of chatIds) {
       for (const chunk of chunks) {
@@ -500,7 +510,7 @@ export class TelegramChannel extends BaseChannel {
         } catch (err: any) {
           logger.warn({ err: err.message, chatId }, 'HTML parse failed, sending as plain text');
           try {
-            await this.bot.api.sendMessage(chatId, this.stripHtml(chunk));
+            await this.bot.api.sendMessage(chatId, stripHtml(chunk));
           } catch (err2: any) {
             logger.error({ err: err2.message, chatId }, 'Telegram send failed');
           }
@@ -531,11 +541,11 @@ export class TelegramChannel extends BaseChannel {
       const inputFile = new InputFile(resolved);
 
       try {
-        if (this.isImageFile(ext)) {
+        if (isImageFile(ext)) {
           await this.bot.api.sendPhoto(chatId, inputFile, { caption: filename });
-        } else if (this.isAudioFile(ext)) {
+        } else if (isAudioFile(ext)) {
           await this.bot.api.sendAudio(chatId, inputFile, { title: filename });
-        } else if (this.isVideoFile(ext)) {
+        } else if (isVideoFile(ext)) {
           await this.bot.api.sendVideo(chatId, inputFile, { caption: filename });
         } else {
           await this.bot.api.sendDocument(chatId, inputFile, { caption: filename });
@@ -563,7 +573,7 @@ export class TelegramChannel extends BaseChannel {
       try {
         await this.bot.api.sendMessage(chatId, html, { parse_mode: 'HTML' });
       } catch (err: any) {
-        await this.bot.api.sendMessage(chatId, this.stripHtml(html)).catch(() => {});
+        await this.bot.api.sendMessage(chatId, stripHtml(html)).catch(() => {});
       }
     }
     return full;
@@ -630,7 +640,7 @@ export class TelegramChannel extends BaseChannel {
 
         if (messageId === null && full.length >= STREAM_MIN_LENGTH) {
           try {
-            const msg = await this.bot.api.sendMessage(chatId, this.escapeHtml(full) + ' ▌', { parse_mode: 'HTML' });
+            const msg = await this.bot.api.sendMessage(chatId, escapeHtml(full) + ' ▌', { parse_mode: 'HTML' });
             messageId = msg.message_id;
             lastEditTime = now;
             lastEditLength = full.length;
@@ -639,7 +649,7 @@ export class TelegramChannel extends BaseChannel {
           }
         } else if (messageId !== null && timeSinceLastEdit >= STREAM_EDIT_INTERVAL && charsSinceLastEdit >= 20) {
           try {
-            await this.bot.api.editMessageText(chatId, messageId, this.escapeHtml(full) + ' ▌', { parse_mode: 'HTML' });
+            await this.bot.api.editMessageText(chatId, messageId, escapeHtml(full) + ' ▌', { parse_mode: 'HTML' });
             lastEditTime = now;
             lastEditLength = full.length;
           } catch {
@@ -654,14 +664,14 @@ export class TelegramChannel extends BaseChannel {
           await this.bot.api.editMessageText(chatId, messageId, html, { parse_mode: 'HTML' });
         } catch {
           try {
-            await this.bot.api.editMessageText(chatId, messageId, this.stripHtml(html));
+            await this.bot.api.editMessageText(chatId, messageId, stripHtml(html));
           } catch {
             // final edit failed
           }
         }
       } else if (full.trim()) {
         const html = mdToTelegram(full);
-        const stripped = this.stripHtml(html);
+        const stripped = stripHtml(html);
         try {
           await this.bot.api.sendMessage(chatId, html, { parse_mode: 'HTML' });
         } catch {
@@ -700,7 +710,7 @@ export class TelegramChannel extends BaseChannel {
         reply_markup: keyboard,
       });
     } catch {
-      await this.bot.api.sendMessage(chatId, this.stripHtml(html), {
+      await this.bot.api.sendMessage(chatId, stripHtml(html), {
         reply_markup: keyboard,
       });
     }
@@ -806,7 +816,7 @@ export class TelegramChannel extends BaseChannel {
         reply_markup: keyboard,
       });
     } catch {
-      await this.bot.api.sendMessage(chatId, this.stripHtml(html), {
+      await this.bot.api.sendMessage(chatId, stripHtml(html), {
         reply_markup: keyboard,
       });
     }
@@ -869,7 +879,7 @@ export class TelegramChannel extends BaseChannel {
       chatId,
       username,
       firstName,
-      pairingCode: hasTelegramAdmins(this.config) ? undefined : this.generatePairingCode(),
+      pairingCode: hasTelegramAdmins(this.config) ? undefined : generatePairingCode(),
     });
     saveConfig(this.config);
     logger.info({ chatId, userId, username }, 'Telegram access request recorded');
@@ -956,7 +966,7 @@ export class TelegramChannel extends BaseChannel {
         request.chatId,
         `Telegram access approved. You can now chat with tota.\n\nTelegram access: ${getTelegramAccessSummary(this.config)}`,
       );
-      await this.sendDirectMessage(actorChatId, `Approved Telegram access for ${this.formatRequestLabel(request)}.`);
+      await this.sendDirectMessage(actorChatId, `Approved Telegram access for ${formatRequestLabel(request)}.`);
       return;
     }
 
@@ -974,7 +984,7 @@ export class TelegramChannel extends BaseChannel {
         request.chatId,
         'Your Telegram access request was rejected. This bot is not available to you.',
       );
-      await this.sendDirectMessage(actorChatId, `Rejected Telegram access for ${this.formatRequestLabel(request)}.`);
+      await this.sendDirectMessage(actorChatId, `Rejected Telegram access for ${formatRequestLabel(request)}.`);
       return;
     }
 
@@ -991,7 +1001,7 @@ export class TelegramChannel extends BaseChannel {
       `Learning: ${summary.learningPaused ? '⏸ PAUSED' : '✅ ACTIVE'}`,
     ];
     if (summary.profileSummary) {
-      lines.push(`\n<i>Profile: ${this.escapeHtml(summary.profileSummary)}</i>`);
+      lines.push(`\n<i>Profile: ${escapeHtml(summary.profileSummary)}</i>`);
     }
     const typeEntries = Object.entries(summary.byType);
     if (typeEntries.length > 0) {
@@ -1039,10 +1049,10 @@ export class TelegramChannel extends BaseChannel {
         `Learning: ${summary.learningPaused ? '⏸ PAUSED' : '✅ ACTIVE'}`,
       ];
       if (summary.profileSummary) {
-        lines.push(`\n<i>Profile: ${this.escapeHtml(summary.profileSummary)}</i>`);
+        lines.push(`\n<i>Profile: ${escapeHtml(summary.profileSummary)}</i>`);
       }
       if (summary.activeSummary) {
-        lines.push(`<i>Active: ${this.escapeHtml(summary.activeSummary)}</i>`);
+        lines.push(`<i>Active: ${escapeHtml(summary.activeSummary)}</i>`);
       }
       const typeEntries = Object.entries(summary.byType);
       if (typeEntries.length > 0) {
@@ -1067,7 +1077,7 @@ export class TelegramChannel extends BaseChannel {
       const lines = ['<b>Recent Memories:</b>\n'];
       for (const r of recent) {
         const scope = r.scope === 'active' ? '⏳' : '📌';
-        lines.push(`${scope} [${r.type}] ${this.escapeHtml(r.summary)}`);
+        lines.push(`${scope} [${r.type}] ${escapeHtml(r.summary)}`);
         lines.push(`   Confidence: ${r.confidence.toFixed(2)} | Evidence: ${r.evidenceKind} | Seen: ${r.evidenceCount}x`);
       }
       await this.bot.api.sendMessage(chatId, lines.join('\n'), { parse_mode: 'HTML' }).catch(async () => {
@@ -1137,10 +1147,6 @@ export class TelegramChannel extends BaseChannel {
     return !!findTelegramAdmin(this.config, userId);
   }
 
-  private getCommandName(text: string): string {
-    return text.trim().split(/\s+/)[0]?.toLowerCase() || '';
-  }
-
   private getPendingStatusMessage(request?: TelegramPendingRequest): string {
     if (!hasTelegramAdmins(this.config)) {
       const pairingCode = request?.pairingCode ?? 'unknown';
@@ -1161,57 +1167,11 @@ export class TelegramChannel extends BaseChannel {
     return `You are already approved as a Telegram ${role}.\n\nTelegram access: ${getTelegramAccessSummary(this.config)}`;
   }
 
-  private formatRequestLabel(request: TelegramPendingRequest): string {
-    const username = request.username ? ` (@${request.username})` : '';
-    const firstName = request.firstName ? ` ${request.firstName}` : '';
-    return `${request.userId}${username}${firstName}`;
-  }
-
   private resetAccess(): void {
     clearTelegramAccess(this.config);
     saveConfig(this.config);
     this.lastActiveChatId = null;
     logger.info('Telegram access reset');
-  }
-
-  private generatePairingCode(): string {
-    return Math.floor(100000 + Math.random() * 900000).toString();
-  }
-
-  private escapeHtml(text: string): string {
-    return text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
-  }
-
-  private splitMessage(text: string, maxLen: number): string[] {
-    if (text.length <= maxLen) return [text];
-    const chunks: string[] = [];
-    let remaining = text;
-    while (remaining.length > 0) {
-      let splitAt = maxLen;
-      if (remaining.length > maxLen) {
-        const lastNewline = remaining.lastIndexOf('\n', maxLen);
-        if (lastNewline > maxLen * 0.5) {
-          splitAt = lastNewline + 1;
-        }
-      }
-      chunks.push(remaining.slice(0, splitAt));
-      remaining = remaining.slice(splitAt);
-    }
-    return chunks;
-  }
-
-  private stripHtml(html: string): string {
-    return html
-      .replace(/<\/?(b|i|s|u|code|pre|a|blockquote|strong|em)[^>]*>/gi, '')
-      .replace(/<pre><code[^>]*>/gi, '')
-      .replace(/<\/code><\/pre>/gi, '')
-      .replace(/<[^>]+>/g, '')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&amp;/g, '&');
   }
 
   private async updateStatusMessage(text: string, targetId?: string): Promise<void> {
@@ -1238,7 +1198,7 @@ export class TelegramChannel extends BaseChannel {
         this.statusMessageIds.set(key, msg.message_id);
       } catch {
         try {
-          const msg = await this.bot.api.sendMessage(chatId, this.stripHtml(html));
+          const msg = await this.bot.api.sendMessage(chatId, stripHtml(html));
           this.statusMessageIds.set(key, msg.message_id);
         } catch {
           logger.warn({ chatId }, 'Failed to send status message');
@@ -1268,18 +1228,6 @@ export class TelegramChannel extends BaseChannel {
     this.deleteStatusMessage(targetId);
   }
 
-  private isImageFile(ext: string): boolean {
-    return ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg'].includes(ext);
-  }
-
-  private isAudioFile(ext: string): boolean {
-    return ['.mp3', '.ogg', '.wav', '.flac', '.m4a'].includes(ext);
-  }
-
-  private isVideoFile(ext: string): boolean {
-    return ['.mp4', '.mov', '.avi', '.mkv', '.webm'].includes(ext);
-  }
-
   private async sendDirectMessage(chatId: number, content: string): Promise<void> {
     if (!this.bot) return;
     try {
@@ -1288,29 +1236,4 @@ export class TelegramChannel extends BaseChannel {
       await this.bot.api.sendMessage(chatId, content).catch(() => {});
     }
   }
-}
-
-/** Download a file from a URL to a local path using Node.js built-in http/https */
-function downloadFile(url: string, destPath: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const client = url.startsWith('https') ? https : http;
-    const file = fs.createWriteStream(destPath);
-    client.get(url, (res) => {
-      if (res.statusCode !== 200) {
-        file.close();
-        fs.unlink(destPath, () => {});
-        reject(new Error(`Download failed: HTTP ${res.statusCode} for ${url}`));
-        return;
-      }
-      res.pipe(file);
-      file.on('finish', () => file.close(() => resolve()));
-      file.on('error', (err) => {
-        fs.unlink(destPath, () => {});
-        reject(err);
-      });
-    }).on('error', (err) => {
-      fs.unlink(destPath, () => {});
-      reject(err);
-    });
-  });
 }

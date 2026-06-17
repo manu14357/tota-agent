@@ -206,6 +206,8 @@ export function getManual(): string {
     ['/telegram promote <id>', 'CLI chat only: promote a Telegram member to admin'],
     ['/telegram demote <id>', 'CLI chat only: demote a Telegram admin to member'],
     ['/telegram reset', 'CLI chat only: reset all Telegram access'],
+    ['/create-agent <goal>', 'Spawn 1+ parallel agents on a goal (e.g. "3 research vector DBs")'],
+    ['/agents', 'List recent multi-agent runs (watch live on the web UI canvas)'],
     ['/tools', 'List currently loaded tools'],
     ['/skills', 'List installed skills'],
     ['/permissions', 'Change permission mode (Ask Me / Allow All)'],

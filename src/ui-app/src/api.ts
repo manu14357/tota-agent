@@ -32,6 +32,7 @@ export type WSMessage =
   | { type: 'done'; requestId: string; response: string }
   | { type: 'file'; targetId: string; filePath: string; name: string; mimeType: string; isImage: boolean; size: number }
   | { type: 'askPermission'; targetId: string }
+  | { type: 'agentEvent'; event: AgentLifecycleEvent }
   | { type: 'pong' }
   | { type: 'error'; message: string };
 
@@ -180,3 +181,39 @@ export interface ChatMessage {
   timestamp: number;
   streaming?: boolean;
 }
+
+// ─── Multi-agent orchestration (mirrors src/core/orchestrator.ts) ──────────────
+
+export type AgentNodeStatus = 'queued' | 'running' | 'done' | 'error';
+export type OrchestrationStatus = 'planning' | 'running' | 'done' | 'error';
+
+export interface AgentNode {
+  id: string;
+  orchestrationId: string;
+  parentId: string | null;
+  label: string;
+  role: string;
+  task: string;
+  status: AgentNodeStatus;
+  output?: string;
+  error?: string;
+  createdAt: number;
+  startedAt?: number;
+  finishedAt?: number;
+}
+
+export interface Orchestration {
+  id: string;
+  goal: string;
+  status: OrchestrationStatus;
+  createdAt: number;
+  finishedAt?: number;
+  nodes: AgentNode[];
+  summary?: string;
+}
+
+export type AgentLifecycleEvent =
+  | { kind: 'orchestration_start'; orchestration: Orchestration }
+  | { kind: 'node_added'; orchestrationId: string; node: AgentNode }
+  | { kind: 'node_update'; orchestrationId: string; node: AgentNode }
+  | { kind: 'orchestration_end'; orchestration: Orchestration };

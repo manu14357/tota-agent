@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { socket } from './api';
 import Layout from './components/layout/Layout';
 import ChatPage from './pages/Chat';
+import AgentsPage from './pages/Agents';
 import DashboardPage from './pages/Dashboard';
 import MemoryPage from './pages/Memory';
 import SchedulerPage from './pages/Scheduler';
@@ -23,6 +24,7 @@ export default function App() {
         <Route element={<Layout />}>
           <Route index element={<Navigate to="/chat" replace />} />
           <Route path="chat" element={<ChatPage />} />
+          <Route path="agents" element={<AgentsPage />} />
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="memory" element={<MemoryPage />} />
           <Route path="scheduler" element={<SchedulerPage />} />

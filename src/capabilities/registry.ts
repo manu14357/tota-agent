@@ -26,6 +26,7 @@ import { createClipboardReadTool, createClipboardWriteTool } from './system/clip
 import { createSpawnAgentTool, type CrewHandler } from './system/crew.js';
 import { createTextToSpeechTool, createTranscribeAudioTool } from './messaging/voice.js';
 import { createCalendarAuthTool, createListEventsTool, createCreateEventTool, createCheckAvailabilityTool, createDeleteEventTool } from './messaging/calendar.js';
+import { createGmailAuthTool, createGmailSearchTool, createGmailReadTool, createGmailSendTool, createGmailModifyTool } from './messaging/gmail.js';
 import { createGitStatusTool } from './git/git-status.js';
 import { createGitDiffTool } from './git/git-diff.js';
 import { createGitLogTool } from './git/git-log.js';
@@ -289,6 +290,14 @@ export class CapabilityRegistry {
     this.tools.check_availability = createCheckAvailabilityTool(() => this.totaConfig);
     this.tools.delete_event = createDeleteEventTool(() => this.totaConfig);
     logger.info('Google Calendar tools registered');
+
+    // Gmail
+    this.tools.gmail_auth = createGmailAuthTool(() => this.totaConfig);
+    this.tools.gmail_search = createGmailSearchTool(() => this.totaConfig);
+    this.tools.gmail_read = createGmailReadTool(() => this.totaConfig);
+    this.tools.gmail_send = createGmailSendTool(() => this.totaConfig);
+    this.tools.gmail_modify = createGmailModifyTool(() => this.totaConfig);
+    logger.info('Gmail tools registered');
 
     // Multi-agent crew
     this.tools.spawn_agent = createSpawnAgentTool(() => this.crewHandler ?? null);

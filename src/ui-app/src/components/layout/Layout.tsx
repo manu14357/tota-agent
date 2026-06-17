@@ -3,11 +3,12 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
   MessageSquare, LayoutDashboard, Brain, Clock, Zap,
   Settings, ScrollText, Plug, Sun, Moon, Menu, X,
-  PanelLeftClose, PanelLeft,
+  PanelLeftClose, PanelLeft, Network,
 } from 'lucide-react';
 
 const nav = [
   { to: '/chat',         label: 'Chat',         Icon: MessageSquare },
+  { to: '/agents',       label: 'Agents',       Icon: Network },
   { to: '/dashboard',   label: 'Dashboard',    Icon: LayoutDashboard },
   { to: '/memory',      label: 'Memory',       Icon: Brain },
   { to: '/scheduler',   label: 'Scheduler',    Icon: Clock },
@@ -18,7 +19,7 @@ const nav = [
 ];
 
 const pageTitles: Record<string, string> = {
-  '/chat': 'Chat', '/dashboard': 'Dashboard', '/memory': 'Memory',
+  '/chat': 'Chat', '/agents': 'Agents', '/dashboard': 'Dashboard', '/memory': 'Memory',
   '/scheduler': 'Scheduler', '/skills': 'Skills',
   '/integrations': 'Integrations', '/logs': 'Logs', '/settings': 'Settings',
 };

@@ -31,262 +31,14 @@ import {
   removeTelegramUser,
   saveConfig,
 } from '../utils/config.js';
+import { ToolCallLoopDetector } from './loop-detector.js';
+import { buildSystemPrompt } from './system-prompt.js';
+import { handleBudgetCommand } from './budget-commands.js';
+import { AgentOrchestrator, parseCreateAgentCommand, MAX_AGENTS } from './orchestrator.js';
+import type { AgentLifecycleEvent } from './orchestrator.js';
 
-export class ToolCallLoopDetector {
-  private recentCalls: Array<{ tool: string; params: string; failed: boolean }> = [];
-  private totalCalls = 0;
-  private hardAborted = false;
-  private recentStepTexts: Array<string> = [];
-  private consecutiveNoActionSteps = 0;
-  private static readonly MAX_STEP_TEXTS = 12;
+export { ToolCallLoopDetector } from './loop-detector.js';
 
-  private static readonly HIGH_TOLERANCE_TOOLS = new Set([
-    'fetch_url',
-    'read_file',
-    'list_dir',
-    'web_search',
-    'github_api',
-    'analyze_image',
-  ]);
-
-  private readonly absoluteMax: number;
-  private readonly failedAbsoluteMax: number;
-  private readonly noActionMax: number;
-  private readonly identicalThreshold: number;
-  private readonly similarThreshold: number;
-  private readonly textRepeatThreshold: number;
-  private readonly sameToolThreshold: number;
-
-  constructor(cfg?: {
-    absoluteMax?: number;
-    failedAbsoluteMax?: number;
-    noActionMax?: number;
-    identicalThreshold?: number;
-    similarThreshold?: number;
-    textRepeatThreshold?: number;
-    sameToolThreshold?: number;
-  }) {
-    this.absoluteMax = cfg?.absoluteMax ?? 100;
-    this.failedAbsoluteMax = cfg?.failedAbsoluteMax ?? 25;
-    this.noActionMax = cfg?.noActionMax ?? 10;
-    this.identicalThreshold = cfg?.identicalThreshold ?? 5;
-    this.similarThreshold = cfg?.similarThreshold ?? 8;
-    this.textRepeatThreshold = cfg?.textRepeatThreshold ?? 3;
-    this.sameToolThreshold = cfg?.sameToolThreshold ?? 10;
-  }
-
-  private getSameToolThreshold(toolName: string, failingCount: number): number {
-    const isHigh = ToolCallLoopDetector.HIGH_TOLERANCE_TOOLS.has(toolName);
-    const base = isHigh ? this.sameToolThreshold + 2 : this.sameToolThreshold;
-    if (failingCount >= 3) {
-      return Math.max(2, Math.floor(base * 0.5));
-    }
-    return base;
-  }
-
-  record(toolName: string, params: Record<string, any>, failed: boolean = false): void {
-    const paramsKey = JSON.stringify(params).slice(0, 200);
-    this.recentCalls.push({ tool: toolName, params: paramsKey, failed });
-    this.totalCalls++;
-    this.consecutiveNoActionSteps = 0;
-    if (this.recentCalls.length > 30) {
-      this.recentCalls.shift();
-    }
-  }
-
-  recordNoActionResult(): boolean {
-    this.consecutiveNoActionSteps++;
-    return this.consecutiveNoActionSteps >= this.noActionMax;
-  }
-
-  recordStepText(text: string): void {
-    if (!text || text.length < 10) return;
-    const normalized = text.toLowerCase().replace(/\s+/g, ' ').trim().slice(0, 200);
-    if (!normalized) return;
-    this.recentStepTexts.push(normalized);
-    if (this.recentStepTexts.length > ToolCallLoopDetector.MAX_STEP_TEXTS) {
-      this.recentStepTexts.shift();
-    }
-  }
-
-  detectAbsoluteLimit(): boolean {
-    if (this.totalCalls >= this.absoluteMax) return true;
-    const failCount = this.recentCalls.filter(c => c.failed).length;
-    if (failCount >= this.failedAbsoluteMax) return true;
-    return false;
-  }
-
-  detectIdentical(): { tool: string; count: number; message: string } | null {
-    if (this.recentCalls.length < 3) return null;
-
-    const last = this.recentCalls[this.recentCalls.length - 1];
-
-    let identicalCount = 0;
-    for (let i = this.recentCalls.length - 1; i >= 0; i--) {
-      if (this.recentCalls[i].tool === last.tool && this.recentCalls[i].params === last.params) {
-        identicalCount++;
-      } else {
-        break;
-      }
-    }
-
-    if (identicalCount >= this.identicalThreshold) {
-      this.hardAborted = true;
-      return {
-        tool: last.tool,
-        count: identicalCount,
-        message: `[SYSTEM] You called "${last.tool}" ${identicalCount} times with identical parameters and got the same result. This is a hard loop — stop immediately.`,
-      };
-    }
-
-    return null;
-  }
-
-  detectSimilarLoop(): { tool: string; count: number; message: string } | null {
-    if (this.recentCalls.length < 4) return null;
-
-    const last = this.recentCalls[this.recentCalls.length - 1];
-    let similarCount = 0;
-
-    for (let i = this.recentCalls.length - 1; i >= 0; i--) {
-      const call = this.recentCalls[i];
-      if (call.tool !== last.tool) break;
-      if (call.failed || last.failed) {
-        similarCount++;
-      } else {
-        break;
-      }
-    }
-
-    if (similarCount >= this.similarThreshold) {
-      this.hardAborted = true;
-      return {
-        tool: last.tool,
-        count: similarCount,
-        message: `[SYSTEM] You called "${last.tool}" ${similarCount} times with different params but all are failing. This is a failing loop — stop immediately. Tell the user you cannot complete this task.`,
-      };
-    }
-
-    return null;
-  }
-
-  /**
-   * M9: Detect two-tool alternation patterns (e.g. A B A B A B) that
-   * `detectIdentical` misses because the LAST call is not preceded by N
-   * consecutive identical calls. A common failure mode is the model
-   * ping-ponging between a "check status" tool and a "fix it" tool.
-   */
-  detectAlternation(): { toolA: string; toolB: string; count: number; message: string } | null {
-    if (this.recentCalls.length < 6) return null;
-
-    // Check the last 6 calls: if they alternate between exactly two tools,
-    // that's a hard loop regardless of which one is "last".
-    const window = this.recentCalls.slice(-6);
-    const toolsInWindow = new Set(window.map(c => c.tool));
-    if (toolsInWindow.size !== 2) return null;
-
-    const [t0, t1] = [...toolsInWindow];
-    // Expected pattern: t0,t1,t0,t1,t0,t1 (or t1,t0,t1,t0,t1,t0)
-    const isAlternating = (a: string, b: string) =>
-      window.every((c, i) => c.tool === (i % 2 === 0 ? a : b));
-    const alternating = isAlternating(t0, t1) || isAlternating(t1, t0);
-    if (!alternating) return null;
-
-    this.hardAborted = true;
-    return {
-      toolA: t0,
-      toolB: t1,
-      count: window.length,
-      message: `[SYSTEM] You are alternating between "${t0}" and "${t1}" without making progress. This is a ping-pong loop — stop immediately and try a different approach.`,
-    };
-  }
-
-  detectTextRepetition(): { pattern: string; count: number } | null {
-    if (this.recentStepTexts.length < this.textRepeatThreshold) return null;
-
-    const texts = this.recentStepTexts;
-    const last = texts[texts.length - 1];
-
-    let repeatCount = 0;
-    for (let i = texts.length - 1; i >= 0; i--) {
-      const similarity = this.textSimilarity(last, texts[i]);
-      if (similarity >= 0.7) {
-        repeatCount++;
-      } else {
-        break;
-      }
-    }
-
-    if (repeatCount >= this.textRepeatThreshold) {
-      return {
-        pattern: last.slice(0, 60),
-        count: repeatCount,
-      };
-    }
-
-    return null;
-  }
-
-  private textSimilarity(a: string, b: string): number {
-    if (a === b) return 1;
-    if (!a || !b) return 0;
-
-    const setA = new Set(a.split(' '));
-    const setB = new Set(b.split(' '));
-    const intersection = [...setA].filter(w => setB.has(w)).length;
-    const union = new Set([...setA, ...setB]).size;
-    return union === 0 ? 0 : intersection / union;
-  }
-
-  detectSameTool(): { tool: string; count: number } | null {
-    if (this.recentCalls.length < 3) return null;
-
-    const last = this.recentCalls[this.recentCalls.length - 1];
-
-    let consecutiveCount = 0;
-    let failingConsecutive = 0;
-    for (let i = this.recentCalls.length - 1; i >= 0; i--) {
-      if (this.recentCalls[i].tool === last.tool) {
-        consecutiveCount++;
-        if (this.recentCalls[i].failed) failingConsecutive++;
-      } else {
-        break;
-      }
-    }
-
-    const threshold = this.getSameToolThreshold(last.tool, failingConsecutive);
-    if (consecutiveCount >= threshold) {
-      return { tool: last.tool, count: consecutiveCount };
-    }
-
-    if (this.recentCalls.length >= 6) {
-      const lastN = this.recentCalls.slice(-6);
-      const toolCounts: Record<string, number> = {};
-      for (const call of lastN) {
-        toolCounts[call.tool] = (toolCounts[call.tool] || 0) + 1;
-      }
-      for (const [tool, count] of Object.entries(toolCounts)) {
-        if (count >= Math.floor(this.sameToolThreshold * 1.5)) {
-          return { tool, count };
-        }
-      }
-    }
-
-    return null;
-  }
-
-  isHardAborted(): boolean {
-    return this.hardAborted;
-  }
-
-  reset(): void {
-    this.recentCalls = [];
-    this.totalCalls = 0;
-    this.hardAborted = false;
-    this.recentStepTexts = [];
-    this.consecutiveNoActionSteps = 0;
-  }
-}
 
 const MAX_STEPS = 50; // default; overridden per-request via config.loopGuard.maxSteps
 
@@ -298,6 +50,7 @@ export class Agent {
   private messageQueue: ChannelMessage[] = [];
   private processing = false;
   private telegramStreaming: boolean;
+  private orchestrator?: AgentOrchestrator;
 
   constructor(
     private config: TotaConfig,
@@ -956,167 +709,14 @@ const canStream = msg.channelType === 'cli' || msg.channelType === 'ui' || (msg.
   }
 
   private buildSystemPrompt(channelType?: string): string {
-    let prompt = this.identity.getSystemPrompt(this.config.identity);
-    const skillContext = this.capabilities.getSkillContext();
-    if (skillContext) {
-      prompt += '\n\n' + skillContext;
-    }
-    const budgetStatus = this.tokenBudget.getStatusText();
-    prompt += '\n\n' + budgetStatus;
-    if (this.tokenBudget.getUsagePercentage() > 70) {
-      prompt += '\nBe concise to conserve tokens.';
-    }
-
-    prompt += `\n\nEnvironment:\n- Platform: ${process.platform}\n- Working directory: ${this.capabilities.getCwd()}`;
-
-    if (this.userMemory) {
-      const summary = this.userMemory.getSummary();
-      prompt += `\n\nSecond Brain is ENABLED. You have a persistent, structured memory of ${summary.total} facts about this user.`;
-      prompt += `\nMemory types: identity, preference, goal, project, habit, decision, constraint, relationship, episode, reflection.`;
-      prompt += `\nRelevant memories are automatically injected before each message. You can reference them naturally (e.g. "I remember you prefer TypeScript").`;
-      prompt += `\nUsers can manage memory with: /memory (overview, search, pause learning, clear).`;
-      if (summary.learningPaused) {
-        prompt += `\nLearning is currently PAUSED — no new memories will be extracted from conversations until resumed.`;
-      }
-    } else {
-      prompt += '\n\nSecond Brain is DISABLED. Basic long-term memory (text search over facts) is still active.';
-    }
-
-    const toolNames = this.capabilities.getToolNames();
-
-    // Computer-use tools hint
-    const hasComputerUse = toolNames.includes('computer_screenshot') || toolNames.includes('computer_see');
-    if (hasComputerUse) {
-      prompt += `\n\nComputer-use tools are ACTIVE on this machine. You can directly control the desktop:
-- computer_screenshot: capture the full screen (no arguments needed)
-- computer_see: capture screen then analyze it with vision AI (pass a question)
-- computer_click: click at x,y coordinates
-- computer_type: type text (keyboard input)
-- computer_key: press keyboard keys (e.g. "enter", "ctrl+c", "cmd+space")
-- computer_move: move mouse to x,y
-- computer_scroll: scroll at x,y
-- computer_drag: drag from one position to another
-- computer_screen_size: get screen width/height
-
-IMPORTANT: When the user asks you to open apps, take screenshots, interact with the desktop, automate UI workflows, or see what is on screen — USE THESE TOOLS. Do not say you cannot see the screen or control the computer. You can. Just call the tool.`;
-    }
-
-    // Browser automation tools hint
-    const hasBrowser = toolNames.includes('browser_open');
-    if (hasBrowser) {
-      prompt += `\n\nBrowser automation tools are ACTIVE (Playwright). The browser opens as a VISIBLE window on the desktop:
-- browser_open: open a URL in the browser
-- browser_click: click a CSS selector or text
-- browser_type: type text into an input field (click-to-focus + fill, works on SPAs)
-- browser_key: press keyboard keys e.g. "Enter", "Tab", "Escape", "ArrowDown"
-- browser_wait: wait for a CSS selector or navigation to complete
-- browser_screenshot: screenshot the current page (sends image to user)
-- browser_extract: extract text content from a CSS selector
-- browser_scroll: scroll the page
-- browser_close: close the browser
-- browser_engine: switch browser engine — "chromium" (default), "firefox", or "webkit" (Safari)
-
-IMPORTANT RULES:
-1. USE THESE TOOLS for all web tasks — visiting sites, filling forms, logging in, reading pages.
-2. When the user explicitly provides credentials (email + password) and asks you to log in on their behalf, you MUST do it. The user owns the account, they have given explicit consent, and it is their right to have you automate it. Do NOT refuse.
-3. For login flows: browser_open → browser_type (email) → browser_key("Enter") → browser_wait → browser_type (password) → browser_key("Enter") → browser_wait → browser_screenshot.
-4. After page transitions, always use browser_wait before reading content or taking screenshots.
-5. Use browser_engine to switch engines when the user asks for Firefox or WebKit/Safari, or when a site behaves differently across browsers.`;
-    }
-
-    const githubTools = ['create_pr', 'review_pr', 'list_issues', 'create_issue', 'github_api'];
-    const hasGitHub = githubTools.some(t => toolNames.includes(t));
-    if (hasGitHub) {
-      let githubHint = '\n\nGitHub companion is active.';
-      const { defaultOwner, defaultRepo } = this.config.github;
-      if (defaultOwner && defaultRepo) {
-        githubHint += ` Default repo: ${defaultOwner}/${defaultRepo}. Use this when the user doesn't specify a repo.`;
-      }
-
-      githubHint += `
-
-Available GitHub tools and when to use them:
-- git_add, git_commit, git_push: LOCAL git operations (stage, commit, push to a remote you have SSH/auth access to). All commits include "Co-authored-by: tota <tota@github.com>".
-- create_pr: Create a pull request on GitHub. The head branch must already exist on the remote.
-- review_pr: Get PR details and optionally post a review comment.
-- list_issues, create_issue: Browse and file issues.
-- github_api: Raw GitHub API access. IMPORTANT USE CASES:
-  - Push files directly to GitHub via PUT /repos/{owner}/{repo}/contents/{path} when git push fails due to auth. The body must include "message" and "content" (base64-encoded file content). This creates a commit on GitHub with tota as co-author.
-  - Delete files via DELETE /repos/{owner}/{repo}/contents/{path} with a "message" and "sha" in the body.
-  - Any other GitHub API operation not covered by the other tools.
-
-When the user asks to "push to GitHub" or "upload files" and git push fails, use github_api with PUT /repos/{owner}/{repo}/contents/{path} to push content directly through the API. This bypasses local git entirely.
-
-Always specify owner and repo parameters on GitHub tools. The user's GitHub username is ${this.config.github.username || 'not set'}.'`;
-
-      prompt += githubHint;
-    }
-
-    // Secrets vault
-    if (toolNames.includes('secret_store')) {
-      prompt += `\n\nSecrets Vault is ACTIVE. Store and retrieve sensitive values (API keys, passwords, tokens) using the OS keychain or encrypted local vault:
-- secret_store(name, value): Store a secret securely — ALWAYS use this instead of writing secrets to files
-- secret_get(name): Retrieve a stored secret by name
-- secret_list(): List all secret names (values never shown)
-- secret_delete(name): Remove a secret from the vault
-Use this whenever you handle credentials, API keys, or any sensitive data.`;
-    }
-
-    // Desktop notifications
-    if (toolNames.includes('notify')) {
-      prompt += `\n\nDesktop Notifications are ACTIVE. Send native OS notifications to the user's screen:
-- notify(title, message, sound?): Send a desktop notification (macOS/Linux/Windows)
-Use this to alert the user when long tasks complete, timers fire, or important events happen.`;
-    }
-
-    // Clipboard
-    if (toolNames.includes('clipboard_read')) {
-      prompt += `\n\nClipboard tools are ACTIVE:
-- clipboard_read(): Read the current clipboard contents
-- clipboard_write(text): Write text to the clipboard for easy pasting
-Use these to move data between tota and other applications.`;
-    }
-
-    // Voice TTS/STT
-    if (toolNames.includes('text_to_speech')) {
-      prompt += `\n\nVoice tools are ACTIVE (requires OPENAI_API_KEY):
-- text_to_speech(text, voice?, send?): Convert text to speech MP3. Voices: alloy (neutral), echo (male), fable (British), onyx (deep), nova (female), shimmer (soft). Default: alloy.
-- transcribe_audio(path, language?): Transcribe an audio file to text using OpenAI Whisper.
-When the user sends a Telegram voice message, it is automatically transcribed and delivered as text — just respond naturally to what they said. Use text_to_speech to reply with audio when the conversation context calls for it.`;
-    }
-
-    // Google Calendar
-    if (toolNames.includes('list_events')) {
-      prompt += `\n\nGoogle Calendar tools are ACTIVE:
-- calendar_auth(code): Complete OAuth2 authorization (one-time setup)
-- list_events(calendar_id?, from?, to?, max_results?): List upcoming events
-- create_event(title, start, end, description?, attendees?, location?, calendar_id?): Create a calendar event (times in ISO 8601)
-- check_availability(emails[], from, to): Check free/busy status for people
-- delete_event(event_id, calendar_id?): Delete an event
-If calendar_auth is needed, the tools will return authorization URL instructions. Use list_events or create_event and follow the auth steps if prompted.`;
-    }
-
-    // Multi-agent crew
-    if (toolNames.includes('spawn_agent')) {
-      prompt += `\n\nMulti-Agent Crew is ACTIVE. Spawn specialized sub-agents with custom roles and tool restrictions:
-- spawn_agent(role, task, allowed_tools?): Create a specialized agent to handle a focused sub-task
-Example roles: "You are a security researcher..." / "You are a senior Python developer..." / "You are a data analyst..."
-Use allowed_tools to restrict what tools the sub-agent can use (e.g. ["read_file","run_code"] for a coder agent).
-Results flow back to you. Chain multiple spawn_agent calls to build multi-step pipelines.`;
-    }
-
-    // WhatsApp channel awareness
-    if (channelType === 'whatsapp' || toolNames.includes('whatsapp_send')) {
-      prompt += `\n\nWhatsApp channel is ACTIVE and BIDIRECTIONAL:
-- You receive incoming WhatsApp messages from the user in real time — the message you are replying to RIGHT NOW came in via WhatsApp.
-- The full conversation history with this contact is available in your context above.
-- Use send_message to reply in this same WhatsApp thread.
-- Use whatsapp_send(phone, message) ONLY when you need to message a DIFFERENT phone number.
-- You can read everything the user sent you — you have full access to the conversation. Never claim you cannot read or see their messages.
-- Do NOT say you have "only outbound access" — that is wrong. You read every incoming message and the whole chat history is your context.`;
-    }
-
-    return prompt;
+    return buildSystemPrompt({
+      identity: this.identity,
+      config: this.config,
+      tokenBudget: this.tokenBudget,
+      capabilities: this.capabilities,
+      userMemory: this.userMemory,
+      channelType,
+    });
   }
 
   async processInternalPrompt(prompt: string, channelId?: string, channelType?: string): Promise<void> {
@@ -1315,33 +915,7 @@ Results flow back to you. Chain multiple spawn_agent calls to build multi-step p
   }
 
   async handleBudgetCommand(subcommand: string, channelType: string, channelId: string): Promise<void> {
-    const channel = this.channels.get(channelType as any);
-    if (!channel) return;
-
-    const parts = subcommand.trim().split(/\s+/);
-    const action = parts[0]?.toLowerCase();
-
-    if (action === 'override' || action === '1') {
-      this.tokenBudget.forceAllowNext();
-      await channel.send('Budget override applied — your next request will proceed.', channelId);
-    } else if (action === 'reset' || action === '2') {
-      this.tokenBudget.resetUsage();
-      await channel.send(`Usage reset to zero. ${this.tokenBudget.getStatusText()}`, channelId);
-    } else if (action === 'set' || action === '3') {
-      const newBudget = parseInt(parts[1], 10);
-      if (isNaN(newBudget) || newBudget <= 0) {
-        await channel.send('Please specify the new budget. Usage: `/budget set 100000` or type e.g. `3 100000`', channelId);
-        return;
-      }
-      this.tokenBudget.setBudget(newBudget);
-      await channel.send(`Daily budget updated to ${newBudget.toLocaleString()} tokens. ${this.tokenBudget.getStatusText()}`, channelId);
-    } else if (action === 'cancel' || action === '4') {
-      await channel.send(`Cancelled. ${this.tokenBudget.getStatusText()}`, channelId);
-    } else if (!action || action === 'status') {
-      await channel.send(this.tokenBudget.getStatusText(), channelId);
-    } else {
-      await channel.send(`Unknown budget command "${action}". Available: /budget, /budget override, /budget reset, /budget set <number>, /budget status`, channelId);
-    }
+    await handleBudgetCommand(this.channels, this.tokenBudget, subcommand, channelType, channelId);
   }
 
   private async handleChatCommand(content: string, channelType: string, channelId: string): Promise<boolean> {
@@ -1626,6 +1200,32 @@ Results flow back to you. Chain multiple spawn_agent calls to build multi-step p
       return true;
     }
 
+    if (cmd === '/create-agent' || cmd.startsWith('/create-agent ')) {
+      const args = trimmed.slice('/create-agent'.length).trim();
+      await this.handleCreateAgent(args, channelType, channelId);
+      return true;
+    }
+
+    if (cmd === '/agents') {
+      const orchestrations = this.orchestrator?.list() ?? [];
+      if (orchestrations.length === 0) {
+        await channel.send('No agent runs yet. Start one with `/create-agent <goal>` — e.g. `/create-agent 3 research vector databases`.', channelId);
+        return true;
+      }
+      const statusIcon: Record<string, string> = { queued: '○', running: '◐', done: '●', error: '✕', planning: '◐' };
+      const lines: string[] = [`**${orchestrations.length} recent agent run${orchestrations.length > 1 ? 's' : ''}:**`, ''];
+      for (const o of orchestrations.slice(0, 8)) {
+        const workers = o.nodes.filter((n) => n.parentId);
+        lines.push(`${statusIcon[o.status] ?? '•'} \`${o.id}\` — ${o.goal.slice(0, 70)}`);
+        for (const w of workers) {
+          lines.push(`   ${statusIcon[w.status] ?? '•'} ${w.label} — ${w.role.slice(0, 50)}`);
+        }
+      }
+      lines.push('', 'Open the **Agents** canvas in the web UI to watch runs live.');
+      await channel.send(lines.join('\n'), channelId);
+      return true;
+    }
+
     if (cmd === '/tools') {
       const tools = ctx.toolNames();
       const grouped = [
@@ -1708,6 +1308,8 @@ Results flow back to you. Chain multiple spawn_agent calls to build multi-step p
         const permLabel = this.capabilities.permissions.isAutoApproveAll() ? 'Switch to Ask Me' : 'Switch to Allow All';
         const action = await select('tota Commands', [
           { value: 'status', label: 'Status' },
+          { value: 'create-agent', label: 'Create Agent (spawn a crew)' },
+          { value: 'agents', label: 'Agents (recent runs)' },
           { value: 'memory', label: 'Memory' },
           { value: 'tasks', label: 'Tasks' },
           { value: 'permissions', label: permLabel },
@@ -1723,6 +1325,19 @@ Results flow back to you. Chain multiple spawn_agent calls to build multi-step p
 
         if (action === 'exit') {
           return;
+        }
+
+        if (action === 'agents') {
+          await this.handleChatCommand('/agents', 'cli', channelId);
+          continue;
+        }
+
+        if (action === 'create-agent') {
+          const goal = await channel.prompt('Goal for the crew (prefix a number for multiple, e.g. "3 research vector DBs"): ');
+          if (goal && goal.trim()) {
+            await this.handleCreateAgent(goal.trim(), 'cli', channelId);
+          }
+          continue;
         }
 
         if (action === 'status') {
@@ -2171,5 +1786,108 @@ Results flow back to you. Chain multiple spawn_agent calls to build multi-step p
     });
 
     return result.text || '[Crew agent completed with no text output]';
+  }
+
+  // ── Multi-agent orchestration ───────────────────────────────────────────
+
+  /** Lazily build the orchestrator, wiring planning/run/synthesis + UI events. */
+  getOrchestrator(): AgentOrchestrator {
+    if (!this.orchestrator) {
+      this.orchestrator = new AgentOrchestrator({
+        plan: (goal, count) => this.planSubtasks(goal, count),
+        runCrew: (role, task, allowedTools) => this.runCrewTask(role, task, allowedTools),
+        synthesize: (goal, results) => this.synthesizeResults(goal, results),
+        emit: (event) => this.emitAgentEvent(event),
+      });
+    }
+    return this.orchestrator;
+  }
+
+  /** Broadcast an orchestration lifecycle event to the web UI (if running). */
+  private emitAgentEvent(event: AgentLifecycleEvent): void {
+    const ui = this.channels.get('ui') as { emitAgentEvent?: (e: unknown) => void } | undefined;
+    ui?.emitAgentEvent?.(event);
+  }
+
+  /** Ask the model to split a goal into `count` distinct, non-overlapping sub-agent specs. */
+  private async planSubtasks(goal: string, count: number): Promise<Array<{ role: string; task: string; label: string }>> {
+    const provider = this.providers.getDefault();
+    if (!provider) throw new Error('No provider available for planning');
+
+    const planPrompt = `Break the following goal into exactly ${count} distinct, parallelizable sub-tasks for independent AI worker agents. Each worker has NO shared context, so each task must be fully self-contained. Avoid overlap between workers.\n\nGoal: ${goal}\n\nReturn ONLY a JSON array of exactly ${count} objects, each: {"label": "short-kebab-name", "role": "one-sentence persona/specialty", "task": "detailed self-contained instructions"}. No prose, no markdown fences.`;
+
+    const result = await generateText({
+      model: provider.getModelInstance(),
+      messages: [{ role: 'user', content: planPrompt }],
+      stopWhen: stepCountIs(1),
+    });
+
+    const json = result.text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
+    const start = json.indexOf('[');
+    const end = json.lastIndexOf(']');
+    if (start === -1 || end === -1) throw new Error('Planner returned no JSON array');
+    const parsed = JSON.parse(json.slice(start, end + 1)) as Array<{ label?: string; role?: string; task?: string }>;
+
+    return parsed.map((p, i) => ({
+      label: (p.label || `agent-${i + 1}`).toString().slice(0, 40),
+      role: p.role || 'General agent',
+      task: p.task || goal,
+    }));
+  }
+
+  /** Combine multiple worker outputs into a single coherent answer. */
+  private async synthesizeResults(goal: string, results: Array<{ label: string; role: string; output: string }>): Promise<string> {
+    const provider = this.providers.getDefault();
+    if (!provider) throw new Error('No provider available for synthesis');
+
+    const body = results.map((r) => `## ${r.label} — ${r.role}\n${r.output}`).join('\n\n');
+    const synthPrompt = `${results.length} worker agents tackled this goal:\n\n"${goal}"\n\nHere are their outputs:\n\n${body}\n\nSynthesize these into a single, coherent, de-duplicated answer for the user. Resolve any contradictions and keep the most useful detail.`;
+
+    const result = await generateText({
+      model: provider.getModelInstance(),
+      messages: [{ role: 'user', content: synthPrompt }],
+      stopWhen: stepCountIs(1),
+    });
+    return result.text || body;
+  }
+
+  /** Handle `/create-agent <count?> <role?> <goal>` — spawn one or many agents. */
+  private async handleCreateAgent(args: string, channelType: string, channelId: string): Promise<void> {
+    const channel = this.channels.get(channelType as any);
+    if (!channel) return;
+
+    const req = parseCreateAgentCommand(args);
+    if (!req.goal) {
+      await channel.send(
+        [
+          '**Usage:** `/create-agent [count] [role] <goal>`',
+          '',
+          'Examples:',
+          '• `/create-agent build a REST API for todos`',
+          '• `/create-agent 3 research the best open-source vector databases`',
+          '• `/create-agent 2 reviewers audit the auth flow in src/`',
+          '',
+          `Spawns 1–${MAX_AGENTS} agents working in parallel. Watch them live on the **Agents** canvas in the web UI.`,
+        ].join('\n'),
+        channelId,
+      );
+      return;
+    }
+
+    const plural = req.count > 1 ? `${req.count} agents` : '1 agent';
+    await channel.send(`🧠 Spawning ${plural} for: _${req.goal}_${req.count > 1 ? '\n(planning sub-tasks…)' : ''}`, channelId);
+
+    try {
+      const { orchestration, summary } = await this.getOrchestrator().run(req.goal, {
+        count: req.count,
+        role: req.role,
+      });
+      const workers = orchestration.nodes.filter((n) => n.parentId);
+      const ok = workers.filter((n) => n.status === 'done').length;
+      const header = req.count > 1 ? `**Crew result** (${ok}/${workers.length} agents succeeded)\n\n` : '';
+      await channel.send(`${header}${summary}`, channelId);
+    } catch (err: any) {
+      await channel.send(`Failed to run agents: ${err?.message ?? err}`, channelId);
+    }
   }
 }

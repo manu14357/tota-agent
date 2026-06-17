@@ -110,13 +110,30 @@ function renderInline(tokens: any[] | undefined): string {
   }).join('');
 }
 
+function stripAnsi(s: string): string {
+  return s.replace(/\x1b\[[\d;]*m/g, '');
+}
+
 function renderCodeBlock(t: any): string {
-  const lines = t.text
-    .split('\n')
-    .map((l: string) => `${chalk.dim('  ')}${chalk.yellow(l)}`)
+  const raw = String(t.text ?? '').replace(/\n$/, '');
+  const codeLines = raw.split('\n');
+  const lang = (t.lang || '').trim();
+
+  // Box width tracks the longest line, clamped to the terminal.
+  const termWidth = Math.min(process.stdout.columns || 80, 100);
+  const contentMax = Math.max(0, ...codeLines.map((l: string) => stripAnsi(l).length));
+  const inner = Math.min(Math.max(contentMax, lang.length + 4), termWidth - 4);
+
+  const top = `${chalk.dim('  ┌─')}${lang ? chalk.cyan(` ${lang} `) : chalk.dim('─')}${chalk.dim('─'.repeat(Math.max(0, inner - lang.length - (lang ? 2 : 0) - 1)))}${chalk.dim('─┐')}`;
+  const bottom = `${chalk.dim('  └' + '─'.repeat(inner + 3) + '┘')}`;
+  const body = codeLines
+    .map((l: string) => {
+      const visible = stripAnsi(l);
+      const pad = ' '.repeat(Math.max(0, inner - visible.length));
+      return `${chalk.dim('  │ ')}${chalk.cyan(l)}${pad}${chalk.dim(' │')}`;
+    })
     .join('\n');
-  const langStr = t.lang ? chalk.dim(` [${t.lang}]`) : '';
-  return `\n${langStr}\n${lines}\n\n`;
+  return `\n${top}\n${body}\n${bottom}\n\n`;
 }
 
 function renderList(t: any): string {

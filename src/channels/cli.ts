@@ -29,6 +29,19 @@ function agentName(name: string, suffix?: string): string {
   return chalk.cyan(`  ${name}:`) + (suffix ?? '');
 }
 
+/** Width to lay content/rules out at — tracks the terminal, capped for readability. */
+function layoutWidth(): number {
+  return Math.max(24, Math.min(process.stdout.columns || 80, 100));
+}
+
+/** A responsive dim horizontal rule, optionally ending with a right-aligned label. */
+function rule(label?: string): string {
+  const width = layoutWidth() - 4; // 2-space indent on each side
+  if (!label) return chalk.dim('  ' + '─'.repeat(width));
+  const dashes = Math.max(4, width - label.length - 1);
+  return chalk.dim('  ' + '─'.repeat(dashes) + ' ' + label);
+}
+
 function elapsedColor(ms: number): ChalkInstance {
   if (ms < 5000)  return chalk.dim;
   if (ms < 15000) return chalk.yellow;
@@ -104,11 +117,21 @@ export class CLIChannel extends BaseChannel {
   }
 
   private createInterface(): void {
+    // Defensive reset: an arrow-key menu (selectWithArrowKeys) puts stdin into
+    // raw mode and then pauses it on exit. On Windows the freshly-created
+    // readline interface can fail to receive keystrokes unless raw mode is
+    // explicitly cleared and the stream resumed first — otherwise the user
+    // appears "unable to type" at the prompt.
+    if (process.stdin.isTTY && typeof process.stdin.setRawMode === 'function') {
+      try { process.stdin.setRawMode(false); } catch { /* ignore */ }
+    }
+
     this.rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
     });
     this.rl.setPrompt(USER_PROMPT);
+    process.stdin.resume();
 
     this.rl.on('line', (line) => {
       const trimmed = line.trim();
@@ -366,7 +389,7 @@ export class CLIChannel extends BaseChannel {
         console.log(line);
       }
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-      console.log(chalk.dim('  ' + '─'.repeat(50 - elapsed.length - 4) + ' ' + elapsed + 's'));
+      console.log(rule(`${elapsed}s`));
     }
 
     this.endOutput();
@@ -475,6 +498,7 @@ export class CLIChannel extends BaseChannel {
     try {
       const selected = await selectWithArrowKeys('Select permission mode:', options, {
         helperText: '↑↓ to move, Enter to select',
+        filterable: false,
       });
 
       if (selected === 'allow-all') {

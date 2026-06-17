@@ -199,6 +199,27 @@ export interface TotaConfig {
     /** Google Calendar OAuth2 client secret */
     clientSecret?: string;
   };
+  gmail?: {
+    /** Gmail OAuth2 client ID (defaults to the shared google.clientId) */
+    clientId?: string;
+    /** Gmail OAuth2 client secret (defaults to the shared google.clientSecret) */
+    clientSecret?: string;
+  };
+  /** Shared Google OAuth settings used by Calendar, Gmail, and any future Google tool. */
+  google?: {
+    /** Shared OAuth2 client ID (used when a service has no specific one) */
+    clientId?: string;
+    /** Shared OAuth2 client secret */
+    clientSecret?: string;
+    /** Google Workspace domain to restrict sign-in to (hd= param), e.g. "tota.com" */
+    hostedDomain?: string;
+    /** Pre-fill the consent screen with this account (login_hint=), e.g. "user@tota.com" */
+    loginHint?: string;
+    /** Path to a service-account JSON key for domain-wide delegation (headless Workspace) */
+    serviceAccountKeyPath?: string;
+    /** Workspace user to impersonate via domain-wide delegation, e.g. "user@tota.com" */
+    impersonateSubject?: string;
+  };
   voice?: {
     /** TTS provider: openai (default) | elevenlabs | google */
     ttsProvider?: 'openai' | 'elevenlabs' | 'google';

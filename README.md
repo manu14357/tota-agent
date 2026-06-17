@@ -180,6 +180,7 @@ tota ui --attach             # connect to running daemon
 | Page | Path | What you can do |
 |------|------|-----------------|
 | **Chat** | `/chat` | Full conversation interface with real-time token streaming, slash-command autocomplete (`/help`, `/status`, `/memory`, `/permissions`, `/exit`), file upload up to 50 MB (drag or attach), voice input via browser mic with auto-transcription, inline media preview, and rendered code blocks with copy button |
+| **Agents** | `/agents` | Live multi-agent canvas. Launch a crew (`/create-agent`) and watch the orchestrator fan out into worker agents as nodes — each shows role, status (queued/running/done/error), elapsed time, and output. Streams over WebSocket in real time |
 | **Dashboard** | `/dashboard` | Live agent overview — status badge, active model, provider, uptime, token budget (used / daily limit), and current permission mode. Auto-refreshes every 8 s |
 | **Memory** | `/memory` | Browse and manage Second Brain entries (short-term and long-term). Add entries with tags, edit existing ones, and delete stale facts — all changes sync to the SQLite database immediately |
 | **Scheduler** | `/scheduler` | View all scheduled tasks with name, cron/interval, last run, next run, and status. Create, edit, toggle, or cancel any task |
@@ -296,6 +297,8 @@ These work on both CLI and Telegram and do not consume API tokens.
 |---------|-------------|
 | `/help` | Show full manual |
 | `/status` | Show config, budget, usage |
+| `/create-agent <goal>` | Spawn 1+ parallel agents on a goal (e.g. `3 research vector DBs`) |
+| `/agents` | List recent multi-agent runs (watch live on the web UI canvas) |
 | `/tools` | List loaded tools |
 | `/skills` | List installed skills |
 | `/stream` | Toggle Telegram streaming |
@@ -515,6 +518,46 @@ tota uses a local OAuth2 redirect (no code copy-paste, no "browser not safe" war
 
 **After that — fully automatic:**  
 Just ask tota about your calendar. It opens your browser to Google's consent screen → you click **Allow** → done. Tokens saved to `~/.tota/calendar-token.json` and auto-refreshed forever.
+
+---
+
+## Gmail Setup
+
+tota can search, read, send, and triage Gmail (`gmail_search`, `gmail_read`, `gmail_send`, `gmail_modify`).
+
+**Setup:**
+1. In [Google Cloud Console](https://console.cloud.google.com), enable the **Gmail API**.
+2. Create a **Desktop app** OAuth Client ID (or reuse your existing one) and add the redirect URI `http://localhost:8765/oauth2callback`.
+3. Run `tota setup gmail` and enter the Client ID/Secret (these can be the shared `GOOGLE_CLIENT_ID/SECRET`).
+4. Ask tota to "check my email" — browser opens → **Allow** → token saved to `~/.tota/gmail-token.json`.
+
+### Company / Google Workspace accounts (e.g. `you@yourcompany.com`)
+
+Personal `@gmail.com` accounts work out of the box. **Workspace accounts often fail until you fix the Google-side config** — code alone can't bypass it:
+
+- **OAuth consent screen** → if it's in **Testing**, either add your address as a *Test user* or publish (**Testing → In production**). For a domain-only app, set **User type = Internal**.
+- **Restrict to your domain:** set `GOOGLE_HOSTED_DOMAIN=yourcompany.com` (adds the `hd=` param) and optionally `GOOGLE_LOGIN_HINT=you@yourcompany.com`.
+- **Admin block:** a Workspace admin may need to allow the app under **Admin console → Security → API controls**.
+- **Headless servers:** use a **service account with domain-wide delegation** — set `GOOGLE_SERVICE_ACCOUNT_KEY=/path/key.json` and `GOOGLE_IMPERSONATE_SUBJECT=you@yourcompany.com`. The admin grants the service-account client ID the Gmail/Calendar scopes under **Domain-wide delegation**. No interactive consent needed.
+
+tota surfaces actionable guidance automatically when a Workspace auth error (e.g. `access_denied`, `org_internal`) occurs.
+
+---
+
+## Multi-Agent Crews
+
+Spawn one or many agents that work **in parallel** on a goal, then synthesize a combined answer.
+
+```
+/create-agent build a REST API for todos
+/create-agent 3 research the best open-source vector databases
+/create-agent 2 reviewers audit the auth flow in src/
+```
+
+- A leading number spawns that many workers (1–8). With 2+, the orchestrator first asks the model to split the goal into distinct, non-overlapping sub-tasks (with a deterministic fallback), runs them concurrently, then synthesizes the results.
+- `/agents` lists recent runs in chat.
+- The **Agents** page in the web UI renders the whole run as a **live canvas** — orchestrator → worker nodes with status, timing, and per-agent output — streamed over WebSocket.
+- Under the hood this reuses the existing `spawn_agent` / `delegate_task` crew tools, so the model can also orchestrate agents itself mid-task.
 
 ---
 
